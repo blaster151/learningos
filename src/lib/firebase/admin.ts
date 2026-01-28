@@ -3,11 +3,9 @@
 
 import { initializeApp, getApps, cert, type App } from "firebase-admin/app";
 import { getAuth, type Auth } from "firebase-admin/auth";
-import { getFirestore, type Firestore } from "firebase-admin/firestore";
 
 let adminApp: App;
 let adminAuth: Auth;
-let adminDb: Firestore;
 
 function initializeAdminApp() {
   if (getApps().length === 0) {
@@ -32,15 +30,19 @@ function initializeAdminApp() {
     });
 
     adminAuth = getAuth(adminApp);
-    adminDb = getFirestore(adminApp);
   } else {
     adminApp = getApps()[0];
     adminAuth = getAuth(adminApp);
-    adminDb = getFirestore(adminApp);
   }
 }
 
 // Initialize on import
 initializeAdminApp();
 
-export { adminApp, adminAuth, adminDb };
+// Lazy-load Firestore to avoid OpenTelemetry issues
+export async function getAdminDb() {
+  const { getFirestore } = await import("firebase-admin/firestore");
+  return getFirestore(adminApp);
+}
+
+export { adminApp, adminAuth };

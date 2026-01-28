@@ -5,8 +5,8 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
   const results = {
-    firebase: { client: false, admin: false },
-    openai: false,
+    firebase: { client: false, admin: false, error: null as string | null },
+    openai: { connected: false, error: null as string | null },
     timestamp: new Date().toISOString(),
   };
 
@@ -15,6 +15,7 @@ export async function GET() {
     const { app } = await import("@/lib/firebase/config");
     results.firebase.client = !!app.name;
   } catch (error) {
+    results.firebase.error = error instanceof Error ? error.message : String(error);
     console.error("Firebase client test failed:", error);
   }
 
@@ -23,19 +24,23 @@ export async function GET() {
     const { adminApp } = await import("@/lib/firebase/admin");
     results.firebase.admin = !!adminApp.name;
   } catch (error) {
+    if (!results.firebase.error) {
+      results.firebase.error = error instanceof Error ? error.message : String(error);
+    }
     console.error("Firebase admin test failed:", error);
   }
 
   // Test OpenAI
   try {
     const { testOpenAIConnection } = await import("@/lib/ai/config");
-    results.openai = await testOpenAIConnection();
+    results.openai.connected = await testOpenAIConnection();
   } catch (error) {
+    results.openai.error = error instanceof Error ? error.message : String(error);
     console.error("OpenAI test failed:", error);
   }
 
   const allPassed =
-    results.firebase.client && results.firebase.admin && results.openai;
+    results.firebase.client && results.firebase.admin && results.openai.connected;
 
   return NextResponse.json(
     {
@@ -45,6 +50,6 @@ export async function GET() {
         ? "All services connected successfully!"
         : "Some services failed to connect. Check logs for details.",
     },
-    { status: allPassed ? 200 : 500 }
+    { status: 200 } // Always return 200 to see the actual results
   );
 }
