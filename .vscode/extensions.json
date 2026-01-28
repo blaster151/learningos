@@ -1,0 +1,12 @@
+{
+  "recommendations": [
+    "esbenp.prettier-vscode",
+    "dbaeumer.vscode-eslint",
+    "bradlc.vscode-tailwindcss",
+    "GitHub.copilot",
+    "GitHub.copilot-chat",
+    "ms-vscode.vscode-typescript-next",
+    "usernamehw.errorlens",
+    "dsznajder.es7-react-js-snippets"
+  ]
+}
