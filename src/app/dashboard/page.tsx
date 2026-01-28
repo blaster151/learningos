@@ -1,12 +1,66 @@
 "use client";
 
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui";
 import { BookIcon, MessageCircleIcon, ChevronRightIcon } from "@/components/icons";
 import Link from "next/link";
 
+interface DashboardStats {
+  sessions: number;
+  concepts: number;
+  messages: number;
+  streak: number;
+}
+
 export default function DashboardPage() {
   const { user } = useAuth();
+  const [stats, setStats] = useState<DashboardStats>({
+    sessions: 0,
+    concepts: 0,
+    messages: 0,
+    streak: 0,
+  });
+  const [hasStartedChat, setHasStartedChat] = useState(false);
+
+  const loadStats = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      // Fetch sessions count
+      const sessionsRes = await fetch(`/api/sessions?userId=${user.uid}`);
+      if (sessionsRes.ok) {
+        const sessionsData = await sessionsRes.json();
+        const sessionsList = sessionsData.sessions || [];
+        const totalMessages = sessionsList.reduce(
+          (sum: number, s: { messageCount?: number }) => sum + (s.messageCount || 0),
+          0
+        );
+        setStats((prev) => ({
+          ...prev,
+          sessions: sessionsList.length,
+          messages: totalMessages,
+        }));
+        setHasStartedChat(sessionsList.length > 0);
+      }
+
+      // Fetch concepts count
+      const conceptsRes = await fetch(`/api/concepts?userId=${user.uid}&limit=1`);
+      if (conceptsRes.ok) {
+        const conceptsData = await conceptsRes.json();
+        setStats((prev) => ({
+          ...prev,
+          concepts: conceptsData.stats?.total || 0,
+        }));
+      }
+    } catch (error) {
+      console.error("Failed to load dashboard stats:", error);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    loadStats();
+  }, [loadStats]);
 
   // Get greeting based on time of day
   const getGreeting = () => {
@@ -84,19 +138,19 @@ export default function DashboardPage() {
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">0</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.sessions}</p>
               <p className="text-sm text-gray-600 dark:text-gray-400">Sessions</p>
             </div>
             <div className="text-center p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">0</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.concepts}</p>
               <p className="text-sm text-gray-600 dark:text-gray-400">Concepts</p>
             </div>
             <div className="text-center p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">0</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.messages}</p>
               <p className="text-sm text-gray-600 dark:text-gray-400">Messages</p>
             </div>
             <div className="text-center p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">0</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.streak}</p>
               <p className="text-sm text-gray-600 dark:text-gray-400">Day Streak</p>
             </div>
           </div>
@@ -114,8 +168,8 @@ export default function DashboardPage() {
             {[
               { label: "Create your account", completed: true },
               { label: "Complete onboarding", completed: true },
-              { label: "Start your first conversation", completed: false },
-              { label: "Explore the concept map", completed: false },
+              { label: "Start your first conversation", completed: hasStartedChat },
+              { label: "Explore the concept map", completed: stats.concepts > 0 },
             ].map((step, index) => (
               <div
                 key={index}
