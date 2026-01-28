@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { createUserProfile } from "@/lib/api/userProfile";
 import { Button, Input, Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui";
 import { GoogleIcon, EmailIcon, LockIcon, UserIcon, EyeIcon, EyeOffIcon, BrainIcon, AlertCircleIcon } from "@/components/icons";
 
@@ -69,7 +70,8 @@ export default function SignUpPage() {
 
     setIsLoading(true);
     try {
-      await signUp(email, password, displayName);
+      const credential = await signUp(email, password, displayName);
+      await createUserProfile(credential.user);
       router.push("/onboarding");
     } catch {
       // Error is handled by AuthContext
@@ -83,7 +85,8 @@ export default function SignUpPage() {
     clearError();
     setIsGoogleLoading(true);
     try {
-      await signInWithGoogle();
+      const credential = await signInWithGoogle();
+      await createUserProfile(credential.user);
       router.push("/onboarding");
     } catch {
       // Error is handled by AuthContext

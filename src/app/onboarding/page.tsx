@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { completeOnboarding } from "@/lib/api/userProfile";
 import { Button, Card, CardContent } from "@/components/ui";
 import { BrainIcon, ChevronRightIcon, CheckIcon, BookIcon, MessageCircleIcon } from "@/components/icons";
 
@@ -167,9 +168,9 @@ export default function OnboardingPage() {
       // Submit onboarding data
       setIsSubmitting(true);
       try {
-        // TODO: Save onboarding data to Firestore
-        // For now, just redirect to dashboard
-        await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulate API call
+        if (user) {
+          await completeOnboarding(user.uid, data);
+        }
         router.push("/dashboard");
       } catch (error) {
         console.error("Failed to save onboarding data:", error);

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { createUserProfile, checkOnboardingStatus } from "@/lib/api/userProfile";
 import { Button, Input, Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui";
 import { GoogleIcon, EmailIcon, LockIcon, EyeIcon, EyeOffIcon, BrainIcon, AlertCircleIcon } from "@/components/icons";
 
@@ -65,9 +66,17 @@ export default function LoginPage() {
     clearError();
     setIsGoogleLoading(true);
     try {
-      await signInWithGoogle();
-      // Check if user needs onboarding (new user) or go to dashboard
-      router.push("/dashboard");
+      const credential = await signInWithGoogle();
+      // Create profile if new user (returns isNew flag)
+      const result = await createUserProfile(credential.user);
+      
+      if (result.isNew) {
+        router.push("/onboarding");
+      } else {
+        // Check if returning user completed onboarding
+        const status = await checkOnboardingStatus(credential.user.uid);
+        router.push(status.onboardingCompleted ? "/dashboard" : "/onboarding");
+      }
     } catch {
       // Error is handled by AuthContext
     } finally {
