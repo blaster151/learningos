@@ -4,7 +4,7 @@ AI-powered conversational learning platform that helps users master any topic th
 
 ## 📚 Project Status
 
-**Phase:** Pre-Sprint 0 - Day 2: External Services Setup  
+**Phase:** Pre-Sprint 0 - Day 3: CI/CD & Testing Foundation  
 **Start Date:** January 27, 2026  
 **Last Updated:** January 28, 2026
 
@@ -13,11 +13,17 @@ AI-powered conversational learning platform that helps users master any topic th
 - Project structure and dependencies
 - VS Code workspace configuration
 
-### 🔄 Day 2 In Progress:
-- Firebase project setup
-- OpenAI API configuration
+### ✅ Day 2 Complete:
+- Firebase project created (`learningos-2026`)
+- OpenAI API configured
 - Service integration files created
-- Awaiting credentials configuration
+- Environment variables configured
+
+### 🔄 Day 3 In Progress:
+- GitHub Actions CI/CD pipeline
+- Vitest testing infrastructure
+- Test utilities and mocks
+- Seed data scripts
 
 ## 🏗️ Architecture
 
@@ -45,13 +51,38 @@ npm install
 
 # Set up environment variables
 cp .env.example .env.local
-# Edit .env.local with your API keys
+# Edit .env.local with your API keys (see SETUP_DAY2.md)
+
+# Verify setup
+npm run verify-setup
 
 # Run development server
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) to view the app.
+
+### Development Commands
+
+```bash
+# Development
+npm run dev              # Start dev server
+npm run build            # Build for production
+npm run start            # Start production server
+
+# Code Quality
+npm run lint             # Run ESLint
+npm run type-check       # Run TypeScript compiler check
+
+# Testing
+npm test                 # Run tests
+npm run test:watch       # Run tests in watch mode
+npm run test:coverage    # Run tests with coverage
+
+# Utilities
+npm run verify-setup     # Verify environment setup
+node scripts/seed-concepts.js  # View sample concept data
+```
 
 ## 📁 Project Structure
 
