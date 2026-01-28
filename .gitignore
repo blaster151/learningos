@@ -1,0 +1,197 @@
+# LearningOS .gitignore
+
+# ===================================
+# Dependencies
+# ===================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+
+# ===================================
+# Environment Variables (CRITICAL)
+# ===================================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+
+# Firebase config with secrets
+firebase-admin-key.json
+serviceAccountKey.json
+
+# ===================================
+# Next.js
+# ===================================
+.next/
+out/
+build/
+dist/
+.vercel/
+*.tsbuildinfo
+next-env.d.ts
+
+# ===================================
+# Testing
+# ===================================
+coverage/
+.nyc_output/
+*.lcov
+.vitest/
+
+# ===================================
+# IDE & Editors
+# ===================================
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
+
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ===================================
+# Logs
+# ===================================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# ===================================
+# OS Files
+# ===================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ===================================
+# TypeScript
+# ===================================
+*.tsbuildinfo
+*.js.map
+*.d.ts.map
+
+# ===================================
+# Temporary Files
+# ===================================
+tmp/
+temp/
+*.tmp
+*.temp
+.cache/
+
+# ===================================
+# Firebase
+# ===================================
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+firestore.rules.backup
+
+# ===================================
+# Build Artifacts
+# ===================================
+*.local
+.turbo/
+.docusaurus/
+
+# ===================================
+# Package Manager Lock Files
+# ===================================
+# Using npm - keep package-lock.json, exclude others
+yarn.lock
+pnpm-lock.yaml
+.yarn/
+.pnpm-store/
+
+# ===================================
+# BMAD Generated Artifacts (OPTIONAL)
+# ===================================
+# Uncomment if you don't want to version control BMAD outputs:
+# _bmad-output/*.md
+# !_bmad-output/README.md
+
+# ===================================
+# Keep These Files (Examples)
+# ===================================
+# Planning docs, architecture, specs should be committed
+!_bmad-output/product-brief.md
+!_bmad-output/technical-architecture.md
+!_bmad-output/user-flows-and-implementation-details.md
+!_bmad-output/learning-mechanics-detailed.md
+!_bmad-output/vision-implementation-gap-analysis.md
+!_bmad-output/architectural-dependencies.md
+!_bmad-output/ux-specifications.md
+!_bmad-output/api-contracts.md
+!_bmad-output/epics-and-stories.md
+!_bmad-output/traceability-matrix.md
+!_bmad-output/sprint-planning.md
+
+# ===================================
+# Sensitive Data (CRITICAL)
+# ===================================
+# Never commit API keys, tokens, passwords
+*.key
+*.pem
+*.cert
+*.crt
+secrets/
+credentials/
+
+# OpenAI API keys
+openai.key
+.openai
+
+# Redis connection strings
+redis.conf.local
+
+# Database dumps
+*.sql
+*.sqlite
+*.db
+
+# ===================================
+# Performance & Profiling
+# ===================================
+.benchmarks/
+*.cpuprofile
+*.heapprofile
+*.heapsnapshot
+
+# ===================================
+# Documentation Build
+# ===================================
+docs/.vitepress/dist
+docs/.vitepress/cache
+storybook-static/
+
+# ===================================
+# Miscellaneous
+# ===================================
+.eslintcache
+.stylelintcache
+*.orig
+.vscode-test
