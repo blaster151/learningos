@@ -312,3 +312,84 @@ export interface AIResponse {
     latency: number;
   };
 }
+
+// ===================================
+// Graph Visualization (Sprint 4)
+// ===================================
+
+export interface GraphNode {
+  id: string;
+  name: string;
+  displayName: string;
+  mastery: MasteryLevel;
+  domain: string;
+  size: number;
+  color: string;
+  x?: number;
+  y?: number;
+}
+
+export interface GraphLink {
+  source: string;
+  target: string;
+  type: RelationType;
+  strength: number;
+  color?: string;
+}
+
+export interface GraphData {
+  nodes: GraphNode[];
+  links: GraphLink[];
+}
+
+export interface GraphFilters {
+  domains: string[];
+  masteryLevels: MasteryLevel[];
+  searchQuery: string;
+}
+
+// ===================================
+// Reflection System (Sprint 4)
+// ===================================
+
+export interface ReflectionPrompt {
+  promptId: string;
+  sessionId: string;
+  conceptIds: string[];
+  promptText: string;
+  hints: string[];
+  minWords: number;
+  maxWords: number;
+  createdAt: Timestamp;
+}
+
+export interface ReflectionSubmission {
+  reflectionId: string;
+  userId: string;
+  sessionId: string;
+  promptId: string;
+  content: string;
+  wordCount: number;
+  skipped: boolean;
+  submittedAt: Timestamp;
+}
+
+export interface ReflectionAnalysis {
+  reflectionId: string;
+  overallScore: number;
+  strengths: string[];
+  suggestions: string[];
+  misconceptions: Array<{
+    claim: string;
+    correction: string;
+    severity: "minor" | "significant";
+  }>;
+  conceptUpdates: Array<{
+    conceptId: string;
+    conceptName: string;
+    previousMastery: MasteryLevel;
+    newMastery: MasteryLevel;
+    confidenceDelta: number;
+  }>;
+  encouragement?: string;
+}
