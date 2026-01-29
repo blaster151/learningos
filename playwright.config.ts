@@ -51,8 +51,9 @@ export default defineConfig({
     url: 'http://localhost:3001',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
+    // Use test environment with Firebase emulators enabled
+    env: {
+      NEXT_PUBLIC_USE_FIREBASE_EMULATOR: 'true',
+    },
   },
 });
-
-// Update baseURL when running webServer on 3001
-// Note: The baseURL in 'use' should also be updated if the port changes

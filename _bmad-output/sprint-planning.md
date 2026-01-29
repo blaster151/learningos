@@ -750,29 +750,50 @@ STORY-401 → STORY-501
 ### Story Level
 
 A story is DONE when:
+
+**Code Quality:**
 - [ ] All acceptance criteria met
-- [ ] Code passes linting
-- [ ] Unit tests written and passing
-- [ ] No console errors
+- [ ] Code passes linting (ESLint)
+- [ ] Code formatted (Prettier)
+- [ ] No console errors or warnings
+- [ ] TypeScript strict mode passes
+
+**Testing (REQUIRED):**
+- [ ] Unit tests written for new components (Vitest + RTL)
+- [ ] Unit tests written for new utilities/hooks
+- [ ] API route tests for new endpoints
+- [ ] All tests passing (`npm test`)
+- [ ] Test coverage maintained (aim for 70%+ on new code)
+
+**User Experience:**
 - [ ] Responsive on desktop and mobile
-- [ ] Error states handled
-- [ ] Loading states present
-- [ ] Code reviewed (if team > 1)
+- [ ] Error states handled gracefully
+- [ ] Loading states present where needed
+- [ ] Accessibility basics (keyboard nav, ARIA labels)
+
+**Documentation:**
+- [ ] Complex logic commented
+- [ ] Public functions have JSDoc
+- [ ] README updated if needed
 
 ### Sprint Level
 
 A sprint is DONE when:
-- [ ] All committed stories are DONE
+- [ ] All committed stories are DONE (per above)
+- [ ] Integration tests added for key flows
+- [ ] E2E tests updated for new user journeys
 - [ ] Demo conducted successfully
 - [ ] No critical bugs
 - [ ] Deployed to preview environment
-- [ ] Documentation updated
+- [ ] Sprint retrospective notes captured
 
 ### MVP Level
 
 The MVP is DONE when:
 - [ ] All 5 sprints complete
 - [ ] End-to-end user journey works
+- [ ] E2E test suite covers critical paths
+- [ ] Test coverage > 60% overall
 - [ ] No blocking bugs
 - [ ] Performance acceptable (< 3s load)
 - [ ] Deployed to production

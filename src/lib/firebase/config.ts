@@ -2,8 +2,8 @@
 // This runs in the browser and handles authentication and client-side Firestore access
 
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
-import { getAuth, type Auth } from "firebase/auth";
-import { getFirestore, type Firestore } from "firebase/firestore";
+import { getAuth, connectAuthEmulator, type Auth } from "firebase/auth";
+import { getFirestore, connectFirestoreEmulator, type Firestore } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -14,10 +14,14 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
+// Check if we should use emulators
+const useEmulator = process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === "true";
+
 // Initialize Firebase (singleton pattern)
 let app: FirebaseApp;
 let auth: Auth;
 let db: Firestore;
+let emulatorsConnected = false;
 
 if (!getApps().length) {
   app = initializeApp(firebaseConfig);
@@ -27,6 +31,14 @@ if (!getApps().length) {
   app = getApps()[0];
   auth = getAuth(app);
   db = getFirestore(app);
+}
+
+// Connect to emulators in development/test mode
+if (useEmulator && !emulatorsConnected && typeof window !== "undefined") {
+  connectAuthEmulator(auth, "http://localhost:9099", { disableWarnings: true });
+  connectFirestoreEmulator(db, "localhost", 8080);
+  emulatorsConnected = true;
+  console.log("🔥 Connected to Firebase Emulators");
 }
 
 export { app, auth, db };
