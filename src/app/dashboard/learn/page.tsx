@@ -148,7 +148,7 @@ export default function LearnPage() {
           <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border-2 border-blue-200">
             <div className="flex items-start gap-6">
               <ProgressRing
-                progress={activePath.progressPercentage || 0}
+                progress={Math.round((activePath.progress || 0) * 100)}
                 size={140}
                 strokeWidth={10}
               />
@@ -200,7 +200,7 @@ export default function LearnPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {suggestedPaths.map((path) => (
               <PathCard
-                key={path.id}
+                key={path.pathId}
                 path={path}
                 onAccept={handleAcceptPath}
                 onView={handleViewPath}
@@ -216,7 +216,7 @@ export default function LearnPage() {
           <h2 className="text-2xl font-semibold text-gray-900 mb-4">Completed Paths</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {completedPaths.map((path) => (
-              <PathCard key={path.id} path={path} onView={handleViewPath} />
+              <PathCard key={path.pathId} path={path} onView={handleViewPath} />
             ))}
           </div>
         </div>

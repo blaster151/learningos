@@ -80,7 +80,7 @@ export default function RecommendedPath() {
       <div className="flex items-start gap-4 mb-4">
         {isActive && (
           <ProgressRing
-            progress={path.progressPercentage || 0}
+            progress={Math.round((path.progress || 0) * 100)}
             size={80}
             strokeWidth={6}
             showLabel={false}
@@ -88,7 +88,7 @@ export default function RecommendedPath() {
         )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-2">
-            <h3 className="text-lg font-semibold text-gray-900">{path.name}</h3>
+            <h3 className="text-lg font-semibold text-gray-900">{path.title}</h3>
             <span
               className={`px-2 py-0.5 text-xs font-medium rounded-full ${
                 isActive
@@ -134,13 +134,13 @@ export default function RecommendedPath() {
               d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
             />
           </svg>
-          <span>{path.estimatedHours || 0}h</span>
+          <span>{Math.ceil((path.estimatedMinutes || 0) / 60)}h</span>
         </div>
       </div>
 
       <div className="flex gap-2">
         <a
-          href={`/dashboard/learn/${path.id}`}
+          href={`/dashboard/learn/${path.pathId}`}
           className={`flex-1 text-center px-4 py-2 rounded-lg font-medium transition-colors ${
             isActive
               ? "bg-green-600 text-white hover:bg-green-700"

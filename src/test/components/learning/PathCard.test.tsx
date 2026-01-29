@@ -6,45 +6,59 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import PathCard from '@/components/learning/PathCard';
 import type { LearningPath } from '@/types';
+import { Timestamp } from 'firebase-admin/firestore';
 
 describe('PathCard', () => {
+  const mockTimestamp = { seconds: Date.now() / 1000, nanoseconds: 0 } as Timestamp;
+  
   const mockSuggestedPath: LearningPath = {
-    id: 'path-1',
+    pathId: 'path-1',
     userId: 'user-123',
-    name: 'Master React',
+    title: 'Master React',
     description: 'Learn React from basics to advanced',
+    goal: 'Learn React',
     status: 'suggested',
     milestones: [
       {
-        id: 'm1',
+        milestoneId: 'm1',
+        order: 0,
         title: 'Learn JSX',
         description: 'Understand JSX syntax',
-        requiredConcepts: ['jsx'],
-        estimatedHours: 2,
+        conceptIds: ['jsx-id'],
+        conceptNames: ['jsx'],
+        estimatedMinutes: 120,
+        objectives: ['Understand JSX syntax'],
         status: 'available',
-        progress: 0,
       },
       {
-        id: 'm2',
+        milestoneId: 'm2',
+        order: 1,
         title: 'Learn Hooks',
         description: 'Master React hooks',
-        requiredConcepts: ['hooks'],
-        estimatedHours: 4,
+        conceptIds: ['hooks-id'],
+        conceptNames: ['hooks'],
+        estimatedMinutes: 240,
+        objectives: ['Master hooks'],
         status: 'locked',
-        progress: 0,
       },
     ],
-    estimatedHours: 20,
-    progressPercentage: 0,
-    createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
-    updatedAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
+    estimatedMinutes: 1200,
+    progress: 0,
+    currentMilestoneIndex: 0,
+    generatedFrom: {
+      userGoal: 'Learn React',
+      knownConceptIds: [],
+      userLevel: 'beginner',
+    },
+    createdAt: mockTimestamp,
+    lastActivityAt: mockTimestamp,
   };
 
   const mockActivePath: LearningPath = {
     ...mockSuggestedPath,
-    id: 'path-2',
+    pathId: 'path-2',
     status: 'active',
-    progressPercentage: 45,
+    progress: 0.45,
   };
 
   it('should render path information', () => {

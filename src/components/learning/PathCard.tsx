@@ -23,14 +23,15 @@ const statusLabels: Record<PathStatus, string> = {
 };
 
 export default function PathCard({ path, onAccept, onAbandon, onView }: PathCardProps) {
-  const progress = path.progressPercentage || 0;
-  const estimatedDays = Math.ceil((path.estimatedHours || 0) / 2); // Assuming 2 hrs/day
+  const progress = Math.round((path.progress || 0) * 100);
+  const estimatedHours = Math.ceil((path.estimatedMinutes || 0) / 60);
+  const estimatedDays = Math.ceil(estimatedHours / 2); // Assuming 2 hrs/day
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow p-6">
       <div className="flex justify-between items-start mb-4">
         <div className="flex-1">
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">{path.name}</h3>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">{path.title}</h3>
           <p className="text-gray-600 text-sm line-clamp-2">{path.description}</p>
         </div>
         <span
@@ -77,7 +78,7 @@ export default function PathCard({ path, onAccept, onAbandon, onView }: PathCard
             />
           </svg>
           <span>
-            {path.estimatedHours || 0} hours (~{estimatedDays} days)
+            {estimatedHours} hours (~{estimatedDays} days)
           </span>
         </div>
 
@@ -100,7 +101,7 @@ export default function PathCard({ path, onAccept, onAbandon, onView }: PathCard
       <div className="flex gap-2 mt-4">
         {path.status === "suggested" && onAccept && (
           <button
-            onClick={() => onAccept(path.id!)}
+            onClick={() => onAccept(path.pathId)}
             className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
           >
             Start Path
@@ -109,7 +110,7 @@ export default function PathCard({ path, onAccept, onAbandon, onView }: PathCard
 
         {path.status === "active" && onAbandon && (
           <button
-            onClick={() => onAbandon(path.id!)}
+            onClick={() => onAbandon(path.pathId)}
             className="flex-1 bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-red-700 transition-colors"
           >
             Abandon Path
@@ -118,7 +119,7 @@ export default function PathCard({ path, onAccept, onAbandon, onView }: PathCard
 
         {onView && (
           <button
-            onClick={() => onView(path.id!)}
+            onClick={() => onView(path.pathId)}
             className="flex-1 bg-gray-100 text-gray-900 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-200 transition-colors"
           >
             View Details

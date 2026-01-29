@@ -3,20 +3,22 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { Timestamp } from 'firebase-admin/firestore';
 
 const mockGet = vi.fn();
 const mockAdd = vi.fn();
 const mockUpdate = vi.fn();
 const mockDoc = vi.fn();
+const mockCollection = vi.fn();
 
 vi.mock('@/lib/firebase/admin', () => ({
-  getAdminDb: vi.fn(() => ({
-    collection: vi.fn(() => ({
-      add: mockAdd,
-      doc: mockDoc,
-    })),
+  getAdminDb: vi.fn(() => Promise.resolve({
+    collection: mockCollection,
   })),
+}));
+
+mockCollection.mockImplementation(() => ({
+  add: mockAdd,
+  doc: mockDoc,
 }));
 
 import { branchSession, returnToParentSession } from '@/lib/sessions/branchSession';
@@ -24,6 +26,10 @@ import { branchSession, returnToParentSession } from '@/lib/sessions/branchSessi
 describe('Session Branching', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockCollection.mockImplementation(() => ({
+      add: mockAdd,
+      doc: mockDoc,
+    }));
   });
 
   describe('branchSession', () => {

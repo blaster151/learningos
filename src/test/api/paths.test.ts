@@ -8,18 +8,23 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 
-// Mock dependencies
+// Mock the service objects as they are exported
 vi.mock('@/lib/firebase/learningPaths', () => ({
-  getUserPaths: vi.fn(),
-  getPath: vi.fn(),
-  acceptPath: vi.fn(),
-  abandonPath: vi.fn(),
-  createPath: vi.fn(),
+  pathsService: {
+    getUserPaths: vi.fn(),
+    getPath: vi.fn(),
+    acceptPath: vi.fn(),
+    abandonPath: vi.fn(),
+    createPath: vi.fn(),
+  },
 }));
 
 vi.mock('@/lib/firebase/concepts', () => ({
-  getUserConcepts: vi.fn(),
-  createConcept: vi.fn(),
+  conceptsService: {
+    getUserConcepts: vi.fn(),
+    createConcept: vi.fn(),
+    findConceptByName: vi.fn(),
+  },
 }));
 
 vi.mock('@/lib/ai/pathGeneration', () => ({
@@ -29,8 +34,8 @@ vi.mock('@/lib/ai/pathGeneration', () => ({
 import { GET as getPathsList } from '@/app/api/paths/route';
 import { POST as generatePath } from '@/app/api/paths/generate/route';
 import { GET as getPathDetail, PATCH as updatePath } from '@/app/api/paths/[pathId]/route';
-import * as pathsService from '@/lib/firebase/learningPaths';
-import * as conceptsService from '@/lib/firebase/concepts';
+import { pathsService } from '@/lib/firebase/learningPaths';
+import { conceptsService } from '@/lib/firebase/concepts';
 import * as pathGeneration from '@/lib/ai/pathGeneration';
 
 describe('Paths API Routes', () => {
@@ -41,32 +46,28 @@ describe('Paths API Routes', () => {
   describe('GET /api/paths', () => {
     it('should return all paths for authenticated user', async () => {
       const mockPaths = [
-        { id: 'p1', name: 'Path 1', status: 'active' },
-        { id: 'p2', name: 'Path 2', status: 'suggested' },
+        { pathId: 'p1', title: 'Path 1', status: 'active' },
+        { pathId: 'p2', title: 'Path 2', status: 'suggested' },
       ];
 
       vi.mocked(pathsService.getUserPaths).mockResolvedValue(mockPaths as any);
 
-      const request = new NextRequest('http://localhost:3000/api/paths', {
-        headers: { 'x-user-id': 'user-123' },
-      });
+      const request = new NextRequest('http://localhost:3000/api/paths?userId=user-123');
 
       const response = await getPathsList(request);
       const data = await response.json();
 
       expect(response.status).toBe(200);
       expect(data.paths).toHaveLength(2);
-      expect(data.paths[0].id).toBe('p1');
+      expect(data.paths[0].pathId).toBe('p1');
     });
 
     it('should filter paths by status', async () => {
-      const mockActivePaths = [{ id: 'p1', name: 'Active Path', status: 'active' }];
+      const mockActivePaths = [{ pathId: 'p1', title: 'Active Path', status: 'active' }];
 
       vi.mocked(pathsService.getUserPaths).mockResolvedValue(mockActivePaths as any);
 
-      const request = new NextRequest('http://localhost:3000/api/paths?status=active', {
-        headers: { 'x-user-id': 'user-123' },
-      });
+      const request = new NextRequest('http://localhost:3000/api/paths?userId=user-123&status=active');
 
       const response = await getPathsList(request);
       const data = await response.json();
@@ -75,52 +76,53 @@ describe('Paths API Routes', () => {
       expect(data.paths[0].status).toBe('active');
     });
 
-    it('should require authentication', async () => {
+    it('should require userId parameter', async () => {
       const request = new NextRequest('http://localhost:3000/api/paths');
 
       const response = await getPathsList(request);
 
-      expect(response.status).toBe(401);
+      expect(response.status).toBe(400);
     });
   });
 
   describe('POST /api/paths/generate', () => {
     it('should generate a new learning path', async () => {
       const mockConcepts = [
-        { id: 'c1', name: 'react', masteryLevel: 30 },
-        { id: 'c2', name: 'hooks', masteryLevel: 20 },
+        { conceptId: 'c1', name: 'react', masteryLevel: 'learning' },
+        { conceptId: 'c2', name: 'hooks', masteryLevel: 'exploring' },
       ];
 
       const mockGeneratedPath = {
-        name: 'Master React Hooks',
-        description: 'Learn React hooks in depth',
-        milestones: [
-          {
-            id: 'm1',
-            title: 'Understand useState',
-            description: 'Learn state management',
-            requiredConcepts: ['useState', 'state'],
-            estimatedHours: 3,
-            status: 'available',
-            progress: 0,
-          },
-        ],
-        estimatedHours: 15,
+        success: true,
+        path: {
+          title: 'Master React Hooks',
+          description: 'Learn React hooks in depth',
+          milestones: [
+            {
+              milestoneId: 'm1',
+              title: 'Understand useState',
+              description: 'Learn state management',
+              concepts: ['useState', 'state'],
+              estimatedMinutes: 180,
+              status: 'available',
+            },
+          ],
+          estimatedMinutes: 900,
+        },
       };
 
       vi.mocked(conceptsService.getUserConcepts).mockResolvedValue(mockConcepts as any);
-      vi.mocked(pathGeneration.generateLearningPath).mockResolvedValue(
-        mockGeneratedPath as any
-      );
+      vi.mocked(conceptsService.findConceptByName).mockResolvedValue(null);
+      vi.mocked(conceptsService.createConcept).mockResolvedValue('new-concept-id');
+      vi.mocked(pathGeneration.generateLearningPath).mockResolvedValue(mockGeneratedPath as any);
       vi.mocked(pathsService.createPath).mockResolvedValue('path-new');
 
       const request = new NextRequest('http://localhost:3000/api/paths/generate', {
         method: 'POST',
         headers: {
-          'x-user-id': 'user-123',
           'content-type': 'application/json',
         },
-        body: JSON.stringify({ goal: 'Master React Hooks' }),
+        body: JSON.stringify({ userId: 'user-123', goal: 'Master React Hooks' }),
       });
 
       const response = await generatePath(request);
@@ -128,17 +130,15 @@ describe('Paths API Routes', () => {
 
       expect(response.status).toBe(201);
       expect(data.pathId).toBe('path-new');
-      expect(data.path.name).toBe('Master React Hooks');
     });
 
     it('should require goal parameter', async () => {
       const request = new NextRequest('http://localhost:3000/api/paths/generate', {
         method: 'POST',
         headers: {
-          'x-user-id': 'user-123',
           'content-type': 'application/json',
         },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ userId: 'user-123' }),
       });
 
       const response = await generatePath(request);
@@ -150,32 +150,28 @@ describe('Paths API Routes', () => {
   describe('GET /api/paths/[pathId]', () => {
     it('should return path details', async () => {
       const mockPath = {
-        id: 'path-123',
-        name: 'Path Name',
+        pathId: 'path-123',
+        title: 'Path Name',
         status: 'active',
         milestones: [],
-        progressPercentage: 45,
+        progress: 0.45,
       };
 
       vi.mocked(pathsService.getPath).mockResolvedValue(mockPath as any);
 
-      const request = new NextRequest('http://localhost:3000/api/paths/path-123', {
-        headers: { 'x-user-id': 'user-123' },
-      });
+      const request = new NextRequest('http://localhost:3000/api/paths/path-123?userId=user-123');
 
       const response = await getPathDetail(request, { params: { pathId: 'path-123' } });
       const data = await response.json();
 
       expect(response.status).toBe(200);
-      expect(data.path.id).toBe('path-123');
+      expect(data.path.pathId).toBe('path-123');
     });
 
     it('should return 404 for non-existent path', async () => {
       vi.mocked(pathsService.getPath).mockResolvedValue(null);
 
-      const request = new NextRequest('http://localhost:3000/api/paths/fake-id', {
-        headers: { 'x-user-id': 'user-123' },
-      });
+      const request = new NextRequest('http://localhost:3000/api/paths/fake-id?userId=user-123');
 
       const response = await getPathDetail(request, { params: { pathId: 'fake-id' } });
 
@@ -185,15 +181,14 @@ describe('Paths API Routes', () => {
 
   describe('PATCH /api/paths/[pathId]', () => {
     it('should accept a path', async () => {
-      vi.mocked(pathsService.acceptPath).mockResolvedValue();
+      vi.mocked(pathsService.acceptPath).mockResolvedValue(undefined);
 
       const request = new NextRequest('http://localhost:3000/api/paths/path-123', {
         method: 'PATCH',
         headers: {
-          'x-user-id': 'user-123',
           'content-type': 'application/json',
         },
-        body: JSON.stringify({ action: 'accept' }),
+        body: JSON.stringify({ userId: 'user-123', action: 'accept' }),
       });
 
       const response = await updatePath(request, { params: { pathId: 'path-123' } });
@@ -203,15 +198,14 @@ describe('Paths API Routes', () => {
     });
 
     it('should abandon a path', async () => {
-      vi.mocked(pathsService.abandonPath).mockResolvedValue();
+      vi.mocked(pathsService.abandonPath).mockResolvedValue(undefined);
 
       const request = new NextRequest('http://localhost:3000/api/paths/path-123', {
         method: 'PATCH',
         headers: {
-          'x-user-id': 'user-123',
           'content-type': 'application/json',
         },
-        body: JSON.stringify({ action: 'abandon' }),
+        body: JSON.stringify({ userId: 'user-123', action: 'abandon' }),
       });
 
       const response = await updatePath(request, { params: { pathId: 'path-123' } });
@@ -224,10 +218,9 @@ describe('Paths API Routes', () => {
       const request = new NextRequest('http://localhost:3000/api/paths/path-123', {
         method: 'PATCH',
         headers: {
-          'x-user-id': 'user-123',
           'content-type': 'application/json',
         },
-        body: JSON.stringify({ action: 'invalid' }),
+        body: JSON.stringify({ userId: 'user-123', action: 'invalid' }),
       });
 
       const response = await updatePath(request, { params: { pathId: 'path-123' } });

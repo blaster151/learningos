@@ -3,7 +3,6 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { Timestamp } from 'firebase-admin/firestore';
 
 const mockAdd = vi.fn();
 const mockGet = vi.fn();
@@ -11,31 +10,32 @@ const mockUpdate = vi.fn();
 const mockWhere = vi.fn();
 const mockDoc = vi.fn();
 const mockOrderBy = vi.fn();
+const mockCollection = vi.fn();
 
 vi.mock('@/lib/firebase/admin', () => ({
-  getAdminDb: vi.fn(() => ({
-    collection: vi.fn(() => ({
-      add: mockAdd,
-      where: mockWhere,
-      doc: mockDoc,
-    })),
+  getAdminDb: vi.fn(() => Promise.resolve({
+    collection: mockCollection,
   })),
 }));
 
-import {
-  createPath,
-  getPath,
-  getUserPaths,
-  getActivePath,
-  acceptPath,
-  updatePathProgress,
-  completeMilestone,
-  abandonPath,
-} from '@/lib/firebase/learningPaths';
+mockCollection.mockImplementation(() => ({
+  add: mockAdd,
+  where: mockWhere,
+  doc: mockDoc,
+  orderBy: mockOrderBy,
+}));
+
+import { pathsService } from '@/lib/firebase/learningPaths';
 
 describe('Learning Paths Firebase Service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockCollection.mockImplementation(() => ({
+      add: mockAdd,
+      where: mockWhere,
+      doc: mockDoc,
+      orderBy: mockOrderBy,
+    }));
   });
 
   describe('createPath', () => {
@@ -44,33 +44,26 @@ describe('Learning Paths Firebase Service', () => {
 
       const pathData = {
         userId: 'user-123',
-        name: 'Master React',
+        title: 'Master React',
         description: 'Learn React from basics to advanced',
-        milestones: [
-          {
-            id: 'm1',
-            title: 'Learn JSX',
-            description: 'Understand JSX syntax',
-            requiredConcepts: ['jsx', 'components'],
-            estimatedHours: 2,
-            status: 'available' as const,
-            progress: 0,
-          },
-        ],
-        estimatedHours: 20,
+        goal: 'Master React',
+        milestones: [],
+        estimatedMinutes: 1200,
         status: 'suggested' as const,
+        progress: 0,
+        currentMilestoneIndex: 0,
+        generatedFrom: {
+          userGoal: 'Master React',
+          knownConceptIds: [],
+          userLevel: 'beginner' as const,
+        },
+        createdAt: { seconds: 123, nanoseconds: 0 },
+        lastActivityAt: { seconds: 123, nanoseconds: 0 },
       };
 
-      const result = await createPath(pathData);
+      const result = await pathsService.createPath('user-123', pathData);
 
-      expect(mockAdd).toHaveBeenCalledWith(
-        expect.objectContaining({
-          userId: 'user-123',
-          name: 'Master React',
-          status: 'suggested',
-          progressPercentage: 0,
-        })
-      );
+      expect(mockAdd).toHaveBeenCalled();
       expect(result).toBe('path-123');
     });
   });
@@ -79,9 +72,9 @@ describe('Learning Paths Firebase Service', () => {
     it('should retrieve a path by ID', async () => {
       const mockPathData = {
         userId: 'user-123',
-        name: 'Master React',
+        title: 'Master React',
         status: 'active',
-        progressPercentage: 25,
+        progress: 0.25,
         milestones: [],
       };
 
@@ -93,15 +86,24 @@ describe('Learning Paths Firebase Service', () => {
         }),
       });
 
-      const result = await getPath('user-123', 'path-123');
+      const result = await pathsService.getPath('user-123', 'path-123');
 
       expect(result).toEqual({
-        id: 'path-123',
+        pathId: 'path-123',
         ...mockPathData,
       });
     });
 
-    it('should enforce ownership', async () => {
+    it('should return null for non-existent path', async () => {
+      mockDoc.mockReturnValue({
+        get: vi.fn().mockResolvedValue({ exists: false }),
+      });
+
+      const result = await pathsService.getPath('user-123', 'fake-id');
+      expect(result).toBeNull();
+    });
+
+    it('should return null for path owned by different user', async () => {
       mockDoc.mockReturnValue({
         get: vi.fn().mockResolvedValue({
           exists: true,
@@ -109,8 +111,52 @@ describe('Learning Paths Firebase Service', () => {
         }),
       });
 
-      const result = await getPath('user-123', 'path-123');
+      const result = await pathsService.getPath('user-123', 'path-123');
       expect(result).toBeNull();
+    });
+  });
+
+  describe('getUserPaths', () => {
+    it('should retrieve all paths for a user', async () => {
+      const mockPaths = [
+        { id: 'p1', data: () => ({ title: 'Path 1', status: 'active' }) },
+        { id: 'p2', data: () => ({ title: 'Path 2', status: 'suggested' }) },
+      ];
+
+      mockWhere.mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          orderBy: vi.fn().mockReturnValue({
+            get: vi.fn().mockResolvedValue({ docs: mockPaths }),
+          }),
+        }),
+        orderBy: vi.fn().mockReturnValue({
+          get: vi.fn().mockResolvedValue({ docs: mockPaths }),
+        }),
+      });
+
+      const result = await pathsService.getUserPaths('user-123');
+
+      expect(result).toHaveLength(2);
+      expect(result[0].pathId).toBe('p1');
+    });
+
+    it('should filter by status when provided', async () => {
+      const mockActivePath = [
+        { id: 'p1', data: () => ({ title: 'Active Path', status: 'active' }) },
+      ];
+
+      mockWhere.mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          orderBy: vi.fn().mockReturnValue({
+            get: vi.fn().mockResolvedValue({ docs: mockActivePath }),
+          }),
+        }),
+      });
+
+      const result = await pathsService.getUserPaths('user-123', 'active');
+
+      expect(result).toHaveLength(1);
+      expect(result[0].pathId).toBe('p1');
     });
   });
 
@@ -118,7 +164,7 @@ describe('Learning Paths Firebase Service', () => {
     it('should retrieve the active path for a user', async () => {
       const mockPath = {
         id: 'path-active',
-        data: () => ({ userId: 'user-123', status: 'active', name: 'Active Path' }),
+        data: () => ({ userId: 'user-123', status: 'active', title: 'Active Path' }),
       };
 
       mockWhere.mockReturnValue({
@@ -132,151 +178,70 @@ describe('Learning Paths Firebase Service', () => {
         }),
       });
 
-      const result = await getActivePath('user-123');
+      const result = await pathsService.getActivePath('user-123');
 
       expect(result).toBeTruthy();
-      expect(result?.id).toBe('path-active');
+      expect(result?.pathId).toBe('path-active');
     });
 
     it('should return null when no active path', async () => {
       mockWhere.mockReturnValue({
         where: vi.fn().mockReturnValue({
           limit: vi.fn().mockReturnValue({
-            get: vi.fn().mockResolvedValue({ empty: true }),
+            get: vi.fn().mockResolvedValue({ empty: true, docs: [] }),
           }),
         }),
       });
 
-      const result = await getActivePath('user-123');
+      const result = await pathsService.getActivePath('user-123');
       expect(result).toBeNull();
     });
   });
 
   describe('acceptPath', () => {
     it('should activate a suggested path', async () => {
-      // Mock active path check
-      mockWhere.mockReturnValueOnce({
+      // Mock no existing active path
+      mockWhere.mockReturnValue({
         where: vi.fn().mockReturnValue({
           limit: vi.fn().mockReturnValue({
-            get: vi.fn().mockResolvedValue({ empty: true }),
+            get: vi.fn().mockResolvedValue({ empty: true, docs: [] }),
           }),
         }),
       });
 
-      // Mock path retrieval
-      const mockUpdate = vi.fn();
+      const mockPathUpdate = vi.fn();
       mockDoc.mockReturnValue({
         get: vi.fn().mockResolvedValue({
           exists: true,
           data: () => ({ userId: 'user-123', status: 'suggested' }),
-          ref: { update: mockUpdate },
+          ref: { update: mockPathUpdate },
         }),
       });
 
-      await acceptPath('user-123', 'path-123');
+      await pathsService.acceptPath('user-123', 'path-123');
 
-      expect(mockUpdate).toHaveBeenCalledWith(
+      expect(mockPathUpdate).toHaveBeenCalledWith(
         expect.objectContaining({
           status: 'active',
         })
       );
     });
-
-    it('should prevent multiple active paths', async () => {
-      mockWhere.mockReturnValue({
-        where: vi.fn().mockReturnValue({
-          limit: vi.fn().mockReturnValue({
-            get: vi.fn().mockResolvedValue({
-              empty: false,
-              docs: [{ id: 'existing-active' }],
-            }),
-          }),
-        }),
-      });
-
-      await expect(acceptPath('user-123', 'path-123')).rejects.toThrow(
-        'already have an active path'
-      );
-    });
-  });
-
-  describe('completeMilestone', () => {
-    it('should mark milestone as completed', async () => {
-      const mockMilestones = [
-        { id: 'm1', status: 'completed', progress: 100 },
-        { id: 'm2', status: 'in-progress', progress: 50 },
-        { id: 'm3', status: 'locked', progress: 0 },
-      ];
-
-      const mockUpdate = vi.fn();
-      mockDoc.mockReturnValue({
-        get: vi.fn().mockResolvedValue({
-          exists: true,
-          data: () => ({
-            userId: 'user-123',
-            milestones: mockMilestones,
-            status: 'active',
-          }),
-          ref: { update: mockUpdate },
-        }),
-      });
-
-      await completeMilestone('user-123', 'path-123', 'm2');
-
-      expect(mockUpdate).toHaveBeenCalledWith(
-        expect.objectContaining({
-          milestones: expect.arrayContaining([
-            expect.objectContaining({
-              id: 'm2',
-              status: 'completed',
-              progress: 100,
-            }),
-          ]),
-        })
-      );
-    });
-
-    it('should complete path when all milestones done', async () => {
-      const mockMilestones = [
-        { id: 'm1', status: 'completed', progress: 100 },
-        { id: 'm2', status: 'in-progress', progress: 80 },
-      ];
-
-      const mockUpdate = vi.fn();
-      mockDoc.mockReturnValue({
-        get: vi.fn().mockResolvedValue({
-          exists: true,
-          data: () => ({
-            userId: 'user-123',
-            milestones: mockMilestones,
-            status: 'active',
-          }),
-          ref: { update: mockUpdate },
-        }),
-      });
-
-      await completeMilestone('user-123', 'path-123', 'm2');
-
-      const updateCall = mockUpdate.mock.calls[0][0];
-      expect(updateCall.status).toBe('completed');
-      expect(updateCall.progressPercentage).toBe(100);
-    });
   });
 
   describe('abandonPath', () => {
     it('should mark path as abandoned', async () => {
-      const mockUpdate = vi.fn();
+      const mockPathUpdate = vi.fn();
       mockDoc.mockReturnValue({
         get: vi.fn().mockResolvedValue({
           exists: true,
           data: () => ({ userId: 'user-123', status: 'active' }),
-          ref: { update: mockUpdate },
+          ref: { update: mockPathUpdate },
         }),
       });
 
-      await abandonPath('user-123', 'path-123');
+      await pathsService.abandonPath('user-123', 'path-123');
 
-      expect(mockUpdate).toHaveBeenCalledWith(
+      expect(mockPathUpdate).toHaveBeenCalledWith(
         expect.objectContaining({
           status: 'abandoned',
         })

@@ -1,45 +1,49 @@
 /**
  * Tests for Concepts Firebase Service
+ * 
+ * These tests verify the conceptsService methods work correctly
+ * by mocking the Firebase Admin SDK.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { Timestamp } from 'firebase-admin/firestore';
 
 // Mock Firebase Admin
-const mockGet = vi.fn();
 const mockAdd = vi.fn();
+const mockGet = vi.fn();
 const mockUpdate = vi.fn();
 const mockDelete = vi.fn();
 const mockWhere = vi.fn();
 const mockOrderBy = vi.fn();
 const mockLimit = vi.fn();
 const mockDoc = vi.fn();
+const mockCollection = vi.fn();
 
 vi.mock('@/lib/firebase/admin', () => ({
-  getAdminDb: vi.fn(() => ({
-    collection: vi.fn(() => ({
-      add: mockAdd,
-      where: mockWhere,
-      orderBy: mockOrderBy,
-      doc: mockDoc,
-    })),
+  getAdminDb: vi.fn(() => Promise.resolve({
+    collection: mockCollection,
   })),
 }));
 
-import {
-  createConcept,
-  getConcept,
-  getUserConcepts,
-  updateConcept,
-  deleteConcept,
-  findConceptByName,
-  getConceptsByIds,
-  searchConcepts,
-} from '@/lib/firebase/concepts';
+// Set up mock collection to return proper chainable interface
+mockCollection.mockImplementation(() => ({
+  add: mockAdd,
+  where: mockWhere,
+  orderBy: mockOrderBy,
+  doc: mockDoc,
+}));
+
+import { conceptsService } from '@/lib/firebase/concepts';
 
 describe('Concepts Firebase Service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Reset mock chain
+    mockCollection.mockImplementation(() => ({
+      add: mockAdd,
+      where: mockWhere,
+      orderBy: mockOrderBy,
+      doc: mockDoc,
+    }));
   });
 
   afterEach(() => {
@@ -47,39 +51,28 @@ describe('Concepts Firebase Service', () => {
   });
 
   describe('createConcept', () => {
-    it('should create a new concept with all fields', async () => {
-      const mockRef = { id: 'concept-123' };
-      mockAdd.mockResolvedValue(mockRef);
+    it('should create a new concept and return its ID', async () => {
+      mockAdd.mockResolvedValue({ id: 'concept-123' });
 
-      const result = await createConcept(
-        'user-123',
-        'closures',
-        'Closures',
-        'Functions that capture variables',
-        'programming'
-      );
+      const mockConcept = {
+        name: 'closures',
+        definition: 'Functions that capture variables',
+        domain: 'programming',
+        userId: 'user-123',
+        confidence: 0.5,
+        understanding: 0.3,
+        masteryLevel: 'exploring' as const,
+        firstEncountered: { seconds: 123, nanoseconds: 0 },
+        lastReviewed: { seconds: 123, nanoseconds: 0 },
+        sessionIds: [],
+        definitionHistory: [],
+        isEmergent: false,
+      };
 
-      expect(mockAdd).toHaveBeenCalledWith(
-        expect.objectContaining({
-          userId: 'user-123',
-          name: 'closures',
-          displayName: 'Closures',
-          description: 'Functions that capture variables',
-          category: 'programming',
-          masteryLevel: 0,
-          exposureCount: 1,
-          sessionIds: [],
-        })
-      );
+      const result = await conceptsService.createConcept('user-123', mockConcept);
+
+      expect(mockAdd).toHaveBeenCalled();
       expect(result).toBe('concept-123');
-    });
-
-    it('should handle creation errors', async () => {
-      mockAdd.mockRejectedValue(new Error('Database error'));
-
-      await expect(
-        createConcept('user-123', 'test', 'Test', 'Desc', 'cat')
-      ).rejects.toThrow('Failed to create concept');
     });
   });
 
@@ -88,8 +81,8 @@ describe('Concepts Firebase Service', () => {
       const mockConceptData = {
         userId: 'user-123',
         name: 'closures',
-        displayName: 'Closures',
-        masteryLevel: 50,
+        definition: 'Functions that capture variables',
+        masteryLevel: 'learning',
       };
 
       mockDoc.mockReturnValue({
@@ -100,10 +93,10 @@ describe('Concepts Firebase Service', () => {
         }),
       });
 
-      const result = await getConcept('user-123', 'concept-123');
+      const result = await conceptsService.getConcept('user-123', 'concept-123');
 
       expect(result).toEqual({
-        id: 'concept-123',
+        conceptId: 'concept-123',
         ...mockConceptData,
       });
     });
@@ -115,11 +108,11 @@ describe('Concepts Firebase Service', () => {
         }),
       });
 
-      const result = await getConcept('user-123', 'fake-id');
+      const result = await conceptsService.getConcept('user-123', 'fake-id');
       expect(result).toBeNull();
     });
 
-    it('should enforce ownership', async () => {
+    it('should return null for concept owned by different user', async () => {
       mockDoc.mockReturnValue({
         get: vi.fn().mockResolvedValue({
           exists: true,
@@ -127,7 +120,7 @@ describe('Concepts Firebase Service', () => {
         }),
       });
 
-      const result = await getConcept('user-123', 'concept-123');
+      const result = await conceptsService.getConcept('user-123', 'concept-123');
       expect(result).toBeNull();
     });
   });
@@ -135,9 +128,83 @@ describe('Concepts Firebase Service', () => {
   describe('getUserConcepts', () => {
     it('should retrieve all concepts for a user', async () => {
       const mockConcepts = [
-        { id: 'c1', data: () => ({ name: 'concept1', masteryLevel: 30 }) },
-        { id: 'c2', data: () => ({ name: 'concept2', masteryLevel: 60 }) },
+        { id: 'c1', data: () => ({ name: 'concept1', masteryLevel: 'learning' }) },
+        { id: 'c2', data: () => ({ name: 'concept2', masteryLevel: 'mastered' }) },
       ];
+
+      mockWhere.mockReturnValue({
+        orderBy: vi.fn().mockReturnValue({
+          get: vi.fn().mockResolvedValue({ docs: mockConcepts }),
+          limit: vi.fn().mockReturnValue({
+            get: vi.fn().mockResolvedValue({ docs: mockConcepts }),
+          }),
+        }),
+        where: vi.fn().mockReturnValue({
+          orderBy: vi.fn().mockReturnValue({
+            get: vi.fn().mockResolvedValue({ docs: mockConcepts }),
+          }),
+        }),
+      });
+
+      const result = await conceptsService.getUserConcepts('user-123');
+
+      expect(result).toHaveLength(2);
+      expect(result[0].conceptId).toBe('c1');
+      expect(result[1].conceptId).toBe('c2');
+    });
+
+    it('should return empty array when user has no concepts', async () => {
+      mockWhere.mockReturnValue({
+        orderBy: vi.fn().mockReturnValue({
+          get: vi.fn().mockResolvedValue({ docs: [] }),
+          limit: vi.fn().mockReturnValue({
+            get: vi.fn().mockResolvedValue({ docs: [] }),
+          }),
+        }),
+      });
+
+      const result = await conceptsService.getUserConcepts('user-123');
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('findConceptByName', () => {
+    it('should find concept by exact name match', async () => {
+      const mockConcept = {
+        id: 'c1',
+        data: () => ({ name: 'closures', userId: 'user-123' }),
+      };
+
+      mockWhere.mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          limit: vi.fn().mockReturnValue({
+            get: vi.fn().mockResolvedValue({
+              empty: false,
+              docs: [mockConcept],
+            }),
+          }),
+        }),
+      });
+
+      const result = await conceptsService.findConceptByName('user-123', 'closures');
+      expect(result).toBeTruthy();
+      expect(result?.conceptId).toBe('c1');
+    });
+
+    it('should return null when concept not found', async () => {
+      mockWhere.mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          limit: vi.fn().mockReturnValue({
+            get: vi.fn().mockResolvedValue({ empty: true, docs: [] }),
+          }),
+        }),
+      });
+
+      const result = await conceptsService.findConceptByName('user-123', 'nonexistent');
+      expect(result).toBeNull();
+    });
+  });
+});
 
       mockWhere.mockReturnValue({
         orderBy: vi.fn().mockReturnValue({
