@@ -222,11 +222,12 @@ export const conceptsService = {
       .where("userId", "==", userId)
       .get();
 
-    const matches = snapshot.docs
-      .map((doc) => ({
-        conceptId: doc.id,
-        ...doc.data(),
-      })) as ConceptNode[]
+    const allConcepts = snapshot.docs.map((doc) => ({
+      conceptId: doc.id,
+      ...doc.data(),
+    })) as ConceptNode[];
+
+    const matches = allConcepts
       .filter((concept) => concept.name.toLowerCase().includes(normalizedSearch))
       .slice(0, limit);
 

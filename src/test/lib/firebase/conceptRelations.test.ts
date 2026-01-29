@@ -18,17 +18,12 @@ vi.mock('@/lib/firebase/admin', () => ({
   })),
 }));
 
-mockCollection.mockImplementation(() => ({
-  add: mockAdd,
-  where: mockWhere,
-  doc: mockDoc,
-}));
-
 import { relationsService } from '@/lib/firebase/conceptRelations';
 
 describe('Concept Relations Firebase Service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    
     mockCollection.mockImplementation(() => ({
       add: mockAdd,
       where: mockWhere,
@@ -38,12 +33,12 @@ describe('Concept Relations Firebase Service', () => {
 
   describe('createRelation', () => {
     it('should create a new relation', async () => {
-      // Mock no existing relation
+      // Mock relationExists returning false (no existing relation)
       mockWhere.mockReturnValue({
         where: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
             limit: vi.fn().mockReturnValue({
-              get: vi.fn().mockResolvedValue({ empty: true, docs: [] }),
+              get: vi.fn().mockResolvedValue({ empty: true }),
             }),
           }),
         }),
@@ -53,14 +48,38 @@ describe('Concept Relations Firebase Service', () => {
 
       const result = await relationsService.createRelation(
         'user-123',
-        'concept-a',
-        'concept-b',
-        'prerequisite',
-        0.8
+        {
+          sourceConceptId: 'concept-a',
+          targetConceptId: 'concept-b',
+          relationType: 'prerequisite',
+          strength: 0.8,
+        }
       );
 
       expect(mockAdd).toHaveBeenCalled();
       expect(result).toBe('relation-123');
+    });
+
+    it('should throw error if relation already exists', async () => {
+      // Mock relationExists returning true
+      mockWhere.mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            limit: vi.fn().mockReturnValue({
+              get: vi.fn().mockResolvedValue({ empty: false }),
+            }),
+          }),
+        }),
+      });
+
+      await expect(
+        relationsService.createRelation('user-123', {
+          sourceConceptId: 'concept-a',
+          targetConceptId: 'concept-b',
+          relationType: 'prerequisite',
+          strength: 0.8,
+        })
+      ).rejects.toThrow('Relation already exists');
     });
   });
 
@@ -78,9 +97,11 @@ describe('Concept Relations Firebase Service', () => {
         },
       ];
 
-      // For source relations
+      // Mock where chain for getting relations
       mockWhere.mockReturnValue({
-        get: vi.fn().mockResolvedValue({ docs: mockRelations }),
+        where: vi.fn().mockReturnValue({
+          get: vi.fn().mockResolvedValue({ docs: mockRelations }),
+        }),
       });
 
       const result = await relationsService.getConceptRelations('user-123', 'concept-a');
@@ -92,39 +113,46 @@ describe('Concept Relations Firebase Service', () => {
 
   describe('updateRelationStrength', () => {
     it('should update relation strength', async () => {
-      const mockRelationUpdate = vi.fn();
       mockDoc.mockReturnValue({
-        get: vi.fn().mockResolvedValue({
-          exists: true,
-          data: () => ({ userId: 'user-123' }),
-          ref: { update: mockRelationUpdate },
-        }),
+        update: mockUpdate,
       });
+      mockUpdate.mockResolvedValue(undefined);
 
-      await relationsService.updateRelationStrength('user-123', 'relation-123', 0.95);
+      await relationsService.updateRelationStrength('relation-123', 0.95);
 
-      expect(mockRelationUpdate).toHaveBeenCalledWith(
+      expect(mockDoc).toHaveBeenCalledWith('relation-123');
+      expect(mockUpdate).toHaveBeenCalledWith(
         expect.objectContaining({
           strength: 0.95,
         })
       );
     });
+
+    it('should throw error for invalid strength values', async () => {
+      await expect(
+        relationsService.updateRelationStrength('relation-123', 1.5)
+      ).rejects.toThrow('Strength must be between 0 and 1');
+
+      await expect(
+        relationsService.updateRelationStrength('relation-123', -0.5)
+      ).rejects.toThrow('Strength must be between 0 and 1');
+    });
   });
 
   describe('deleteRelation', () => {
     it('should delete a relation', async () => {
-      const mockRelationDelete = vi.fn();
       mockDoc.mockReturnValue({
         get: vi.fn().mockResolvedValue({
           exists: true,
-          data: () => ({ userId: 'user-123' }),
-          ref: { delete: mockRelationDelete },
         }),
+        delete: mockDelete,
       });
+      mockDelete.mockResolvedValue(undefined);
 
-      await relationsService.deleteRelation('user-123', 'relation-123');
+      await relationsService.deleteRelation('relation-123');
 
-      expect(mockRelationDelete).toHaveBeenCalled();
+      expect(mockDoc).toHaveBeenCalledWith('relation-123');
+      expect(mockDelete).toHaveBeenCalled();
     });
 
     it('should throw error for non-existent relation', async () => {
@@ -133,8 +161,42 @@ describe('Concept Relations Firebase Service', () => {
       });
 
       await expect(
-        relationsService.deleteRelation('user-123', 'fake-id')
-      ).rejects.toThrow();
+        relationsService.deleteRelation('fake-id')
+      ).rejects.toThrow('not found');
+    });
+  });
+
+  describe('relationExists', () => {
+    it('should return true if relation exists', async () => {
+      mockWhere.mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            limit: vi.fn().mockReturnValue({
+              get: vi.fn().mockResolvedValue({ empty: false }),
+            }),
+          }),
+        }),
+      });
+
+      const result = await relationsService.relationExists('user-123', 'concept-a', 'concept-b');
+
+      expect(result).toBe(true);
+    });
+
+    it('should return false if relation does not exist', async () => {
+      mockWhere.mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            limit: vi.fn().mockReturnValue({
+              get: vi.fn().mockResolvedValue({ empty: true }),
+            }),
+          }),
+        }),
+      });
+
+      const result = await relationsService.relationExists('user-123', 'concept-a', 'concept-b');
+
+      expect(result).toBe(false);
     });
   });
 });

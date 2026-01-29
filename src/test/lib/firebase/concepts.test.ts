@@ -13,8 +13,6 @@ const mockGet = vi.fn();
 const mockUpdate = vi.fn();
 const mockDelete = vi.fn();
 const mockWhere = vi.fn();
-const mockOrderBy = vi.fn();
-const mockLimit = vi.fn();
 const mockDoc = vi.fn();
 const mockCollection = vi.fn();
 
@@ -28,7 +26,6 @@ vi.mock('@/lib/firebase/admin', () => ({
 mockCollection.mockImplementation(() => ({
   add: mockAdd,
   where: mockWhere,
-  orderBy: mockOrderBy,
   doc: mockDoc,
 }));
 
@@ -41,7 +38,6 @@ describe('Concepts Firebase Service', () => {
     mockCollection.mockImplementation(() => ({
       add: mockAdd,
       where: mockWhere,
-      orderBy: mockOrderBy,
       doc: mockDoc,
     }));
   });
@@ -50,41 +46,41 @@ describe('Concepts Firebase Service', () => {
     vi.restoreAllMocks();
   });
 
+  const mockConceptData = {
+    name: 'closures',
+    displayName: 'Closures',
+    description: 'Understanding JavaScript closures',
+    domain: 'javascript',
+    masteryLevel: 'learning' as const,
+    confidenceScore: 0.6,
+    userId: 'user-123',
+  };
+
   describe('createConcept', () => {
     it('should create a new concept and return its ID', async () => {
-      mockAdd.mockResolvedValue({ id: 'concept-123' });
+      mockAdd.mockResolvedValue({ id: 'new-concept-id' });
 
-      const mockConcept = {
+      const result = await conceptsService.createConcept('user-123', {
         name: 'closures',
-        definition: 'Functions that capture variables',
-        domain: 'programming',
-        userId: 'user-123',
-        confidence: 0.5,
-        understanding: 0.3,
-        masteryLevel: 'exploring' as const,
-        firstEncountered: { seconds: 123, nanoseconds: 0 },
-        lastReviewed: { seconds: 123, nanoseconds: 0 },
-        sessionIds: [],
-        definitionHistory: [],
-        isEmergent: false,
-      };
+        displayName: 'Closures',
+        description: 'Understanding closures',
+        domain: 'javascript',
+        masteryLevel: 'learning',
+        confidenceScore: 0.5,
+      });
 
-      const result = await conceptsService.createConcept('user-123', mockConcept);
-
-      expect(mockAdd).toHaveBeenCalled();
-      expect(result).toBe('concept-123');
+      expect(result).toBe('new-concept-id');
+      expect(mockAdd).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'closures',
+          userId: 'user-123',
+        })
+      );
     });
   });
 
   describe('getConcept', () => {
     it('should retrieve a concept by ID', async () => {
-      const mockConceptData = {
-        userId: 'user-123',
-        name: 'closures',
-        definition: 'Functions that capture variables',
-        masteryLevel: 'learning',
-      };
-
       mockDoc.mockReturnValue({
         get: vi.fn().mockResolvedValue({
           exists: true,
@@ -95,9 +91,9 @@ describe('Concepts Firebase Service', () => {
 
       const result = await conceptsService.getConcept('user-123', 'concept-123');
 
-      expect(result).toEqual({
+      expect(result).toMatchObject({
         conceptId: 'concept-123',
-        ...mockConceptData,
+        name: 'closures',
       });
     });
 
@@ -129,21 +125,13 @@ describe('Concepts Firebase Service', () => {
     it('should retrieve all concepts for a user', async () => {
       const mockConcepts = [
         { id: 'c1', data: () => ({ name: 'concept1', masteryLevel: 'learning' }) },
-        { id: 'c2', data: () => ({ name: 'concept2', masteryLevel: 'mastered' }) },
+        { id: 'c2', data: () => ({ name: 'concept2', masteryLevel: 'comfortable' }) },
       ];
 
       mockWhere.mockReturnValue({
-        orderBy: vi.fn().mockReturnValue({
-          get: vi.fn().mockResolvedValue({ docs: mockConcepts }),
-          limit: vi.fn().mockReturnValue({
-            get: vi.fn().mockResolvedValue({ docs: mockConcepts }),
-          }),
-        }),
-        where: vi.fn().mockReturnValue({
-          orderBy: vi.fn().mockReturnValue({
-            get: vi.fn().mockResolvedValue({ docs: mockConcepts }),
-          }),
-        }),
+        where: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockReturnThis(),
+        get: vi.fn().mockResolvedValue({ docs: mockConcepts }),
       });
 
       const result = await conceptsService.getUserConcepts('user-123');
@@ -155,16 +143,137 @@ describe('Concepts Firebase Service', () => {
 
     it('should return empty array when user has no concepts', async () => {
       mockWhere.mockReturnValue({
-        orderBy: vi.fn().mockReturnValue({
-          get: vi.fn().mockResolvedValue({ docs: [] }),
-          limit: vi.fn().mockReturnValue({
-            get: vi.fn().mockResolvedValue({ docs: [] }),
-          }),
-        }),
+        where: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockReturnThis(),
+        get: vi.fn().mockResolvedValue({ docs: [] }),
       });
 
       const result = await conceptsService.getUserConcepts('user-123');
       expect(result).toEqual([]);
+    });
+
+    it('should apply domain filter', async () => {
+      const mockConcepts = [
+        { id: 'c1', data: () => ({ name: 'concept1', domain: 'javascript' }) },
+      ];
+
+      const mockWhereChain = {
+        where: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockReturnThis(),
+        get: vi.fn().mockResolvedValue({ docs: mockConcepts }),
+      };
+      mockWhere.mockReturnValue(mockWhereChain);
+
+      const result = await conceptsService.getUserConcepts('user-123', { domain: 'javascript' });
+
+      expect(result).toHaveLength(1);
+      expect(mockWhereChain.where).toHaveBeenCalledWith('domain', '==', 'javascript');
+    });
+
+    it('should apply masteryLevel filter', async () => {
+      const mockConcepts = [
+        { id: 'c1', data: () => ({ name: 'concept1', masteryLevel: 'expert' }) },
+      ];
+
+      const mockWhereChain = {
+        where: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockReturnThis(),
+        get: vi.fn().mockResolvedValue({ docs: mockConcepts }),
+      };
+      mockWhere.mockReturnValue(mockWhereChain);
+
+      const result = await conceptsService.getUserConcepts('user-123', { masteryLevel: 'expert' });
+
+      expect(result).toHaveLength(1);
+      expect(mockWhereChain.where).toHaveBeenCalledWith('masteryLevel', '==', 'expert');
+    });
+  });
+
+  describe('updateConcept', () => {
+    it('should update concept fields', async () => {
+      const mockRef = { 
+        update: mockUpdate,
+        get: vi.fn().mockResolvedValue({
+          exists: true,
+          data: () => ({ userId: 'user-123' }),
+        }),
+      };
+      mockDoc.mockReturnValue(mockRef);
+
+      await conceptsService.updateConcept('user-123', 'concept-123', {
+        masteryLevel: 'comfortable',
+        description: 'Updated description',
+      });
+
+      expect(mockUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          masteryLevel: 'comfortable',
+          description: 'Updated description',
+        })
+      );
+    });
+
+    it('should throw error for non-existent concept', async () => {
+      mockDoc.mockReturnValue({
+        get: vi.fn().mockResolvedValue({ exists: false }),
+      });
+
+      await expect(
+        conceptsService.updateConcept('user-123', 'fake-id', { masteryLevel: 'learning' })
+      ).rejects.toThrow('not found');
+    });
+
+    it('should throw error for unauthorized access', async () => {
+      mockDoc.mockReturnValue({
+        get: vi.fn().mockResolvedValue({
+          exists: true,
+          data: () => ({ userId: 'other-user' }),
+        }),
+      });
+
+      await expect(
+        conceptsService.updateConcept('user-123', 'concept-123', { masteryLevel: 'learning' })
+      ).rejects.toThrow('Unauthorized');
+    });
+  });
+
+  describe('deleteConcept', () => {
+    it('should delete a concept', async () => {
+      const mockRef = {
+        get: vi.fn().mockResolvedValue({
+          exists: true,
+          data: () => ({ userId: 'user-123' }),
+        }),
+        delete: mockDelete,
+      };
+      mockDoc.mockReturnValue(mockRef);
+
+      await conceptsService.deleteConcept('user-123', 'concept-123');
+
+      expect(mockDelete).toHaveBeenCalled();
+    });
+
+    it('should throw error for non-existent concept', async () => {
+      mockDoc.mockReturnValue({
+        get: vi.fn().mockResolvedValue({ exists: false }),
+      });
+
+      await expect(
+        conceptsService.deleteConcept('user-123', 'fake-id')
+      ).rejects.toThrow('not found');
+    });
+
+    it('should throw error for unauthorized deletion', async () => {
+      mockDoc.mockReturnValue({
+        get: vi.fn().mockResolvedValue({
+          exists: true,
+          data: () => ({ userId: 'other-user' }),
+        }),
+      });
+
+      await expect(
+        conceptsService.deleteConcept('user-123', 'concept-123')
+      ).rejects.toThrow('Unauthorized');
     });
   });
 
@@ -204,129 +313,80 @@ describe('Concepts Firebase Service', () => {
       expect(result).toBeNull();
     });
   });
-});
+
+  describe('getConceptsByIds', () => {
+    it('should return empty array for empty input', async () => {
+      const result = await conceptsService.getConceptsByIds('user-123', []);
+      expect(result).toEqual([]);
+    });
+
+    it('should fetch concepts by IDs in batches', async () => {
+      const mockConcepts = [
+        { id: 'c1', data: () => ({ name: 'concept1' }) },
+        { id: 'c2', data: () => ({ name: 'concept2' }) },
+      ];
 
       mockWhere.mockReturnValue({
-        orderBy: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
           get: vi.fn().mockResolvedValue({ docs: mockConcepts }),
         }),
       });
 
-      const result = await getUserConcepts('user-123');
-
+      const result = await conceptsService.getConceptsByIds('user-123', ['c1', 'c2']);
+      
       expect(result).toHaveLength(2);
-      expect(result[0].id).toBe('c1');
-      expect(result[1].id).toBe('c2');
-    });
-
-    it('should handle empty results', async () => {
-      mockWhere.mockReturnValue({
-        orderBy: vi.fn().mockReturnValue({
-          get: vi.fn().mockResolvedValue({ docs: [] }),
-        }),
-      });
-
-      const result = await getUserConcepts('user-123');
-      expect(result).toEqual([]);
-    });
-  });
-
-  describe('updateConcept', () => {
-    it('should update concept fields', async () => {
-      const mockRef = { update: mockUpdate };
-      mockDoc.mockReturnValue({
-        get: vi.fn().mockResolvedValue({
-          exists: true,
-          data: () => ({ userId: 'user-123' }),
-          ref: mockRef,
-        }),
-      });
-
-      await updateConcept('user-123', 'concept-123', {
-        masteryLevel: 75,
-        description: 'Updated description',
-      });
-
-      expect(mockUpdate).toHaveBeenCalledWith(
-        expect.objectContaining({
-          masteryLevel: 75,
-          description: 'Updated description',
-        })
-      );
-    });
-
-    it('should throw error for non-existent concept', async () => {
-      mockDoc.mockReturnValue({
-        get: vi.fn().mockResolvedValue({ exists: false }),
-      });
-
-      await expect(
-        updateConcept('user-123', 'fake-id', { masteryLevel: 50 })
-      ).rejects.toThrow('Concept not found');
-    });
-  });
-
-  describe('findConceptByName', () => {
-    it('should find concept by exact name match', async () => {
-      const mockConcept = {
-        id: 'c1',
-        data: () => ({ name: 'closures', userId: 'user-123' }),
-      };
-
-      mockWhere.mockReturnValue({
-        where: vi.fn().mockReturnValue({
-          limit: vi.fn().mockReturnValue({
-            get: vi.fn().mockResolvedValue({
-              empty: false,
-              docs: [mockConcept],
-            }),
-          }),
-        }),
-      });
-
-      const result = await findConceptByName('user-123', 'closures');
-      expect(result).toBeTruthy();
-      expect(result?.id).toBe('c1');
-    });
-
-    it('should return null when not found', async () => {
-      mockWhere.mockReturnValue({
-        where: vi.fn().mockReturnValue({
-          limit: vi.fn().mockReturnValue({
-            get: vi.fn().mockResolvedValue({ empty: true }),
-          }),
-        }),
-      });
-
-      const result = await findConceptByName('user-123', 'nonexistent');
-      expect(result).toBeNull();
+      expect(result[0].conceptId).toBe('c1');
+      expect(result[1].conceptId).toBe('c2');
     });
   });
 
   describe('searchConcepts', () => {
-    it('should search concepts by query string', async () => {
+    it('should search concepts by query string (in-memory filter)', async () => {
+      // searchConcepts fetches all user concepts and filters in memory
       const mockResults = [
         { id: 'c1', data: () => ({ name: 'closures', displayName: 'Closures' }) },
         { id: 'c2', data: () => ({ name: 'promises', displayName: 'Promises' }) },
+        { id: 'c3', data: () => ({ name: 'closure-patterns', displayName: 'Closure Patterns' }) },
       ];
 
       mockWhere.mockReturnValue({
         get: vi.fn().mockResolvedValue({ docs: mockResults }),
       });
 
-      const result = await searchConcepts('user-123', 'clo');
+      const result = await conceptsService.searchConcepts('user-123', 'clo');
       
-      expect(result.length).toBeGreaterThan(0);
-      expect(result[0].id).toBe('c1');
+      // Should match 'closures' and 'closure-patterns' but not 'promises'
+      expect(result).toHaveLength(2);
+      expect(result.every(c => c.name.includes('clo'))).toBe(true);
     });
 
     it('should handle empty search results', async () => {
+      const mockResults = [
+        { id: 'c1', data: () => ({ name: 'closures', displayName: 'Closures' }) },
+      ];
+
       mockWhere.mockReturnValue({
-        get: vi.fn().mockResolvedValue({ docs: [] }),
+        get: vi.fn().mockResolvedValue({ docs: mockResults }),
       });
 
-      const result = await searchConcepts('user-123', 'xyz');
+      const result = await conceptsService.searchConcepts('user-123', 'xyz');
       expect(result).toEqual([]);
+    });
+
+    it('should respect limit parameter', async () => {
+      const mockResults = [
+        { id: 'c1', data: () => ({ name: 'react-hooks', displayName: 'React Hooks' }) },
+        { id: 'c2', data: () => ({ name: 'react-state', displayName: 'React State' }) },
+        { id: 'c3', data: () => ({ name: 'react-context', displayName: 'React Context' }) },
+        { id: 'c4', data: () => ({ name: 'react-router', displayName: 'React Router' }) },
+      ];
+
+      mockWhere.mockReturnValue({
+        get: vi.fn().mockResolvedValue({ docs: mockResults }),
+      });
+
+      const result = await conceptsService.searchConcepts('user-123', 'react', 2);
+      expect(result).toHaveLength(2);
     });
   });
 });

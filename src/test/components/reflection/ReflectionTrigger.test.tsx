@@ -20,7 +20,7 @@ describe("ReflectionTrigger", () => {
   it("renders the trigger banner", () => {
     render(<ReflectionTrigger {...mockProps} />);
     
-    expect(screen.getByText(/time to reflect/i)).toBeInTheDocument();
+    expect(screen.getByText(/ready to reflect/i)).toBeInTheDocument();
   });
 
   it("displays lightbulb icon", () => {

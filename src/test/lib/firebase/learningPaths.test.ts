@@ -209,18 +209,18 @@ describe('Learning Paths Firebase Service', () => {
         }),
       });
 
-      const mockPathUpdate = vi.fn();
+      // The service uses pathRef.update() directly, not pathRef.get().ref.update()
       mockDoc.mockReturnValue({
         get: vi.fn().mockResolvedValue({
           exists: true,
           data: () => ({ userId: 'user-123', status: 'suggested' }),
-          ref: { update: mockPathUpdate },
         }),
+        update: mockUpdate,
       });
 
       await pathsService.acceptPath('user-123', 'path-123');
 
-      expect(mockPathUpdate).toHaveBeenCalledWith(
+      expect(mockUpdate).toHaveBeenCalledWith(
         expect.objectContaining({
           status: 'active',
         })
@@ -230,18 +230,18 @@ describe('Learning Paths Firebase Service', () => {
 
   describe('abandonPath', () => {
     it('should mark path as abandoned', async () => {
-      const mockPathUpdate = vi.fn();
+      // The service uses pathRef.update() directly
       mockDoc.mockReturnValue({
         get: vi.fn().mockResolvedValue({
           exists: true,
           data: () => ({ userId: 'user-123', status: 'active' }),
-          ref: { update: mockPathUpdate },
         }),
+        update: mockUpdate,
       });
 
       await pathsService.abandonPath('user-123', 'path-123');
 
-      expect(mockPathUpdate).toHaveBeenCalledWith(
+      expect(mockUpdate).toHaveBeenCalledWith(
         expect.objectContaining({
           status: 'abandoned',
         })

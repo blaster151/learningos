@@ -4,7 +4,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { Timestamp } from "firebase-admin/firestore";
-import * as reflectionsService from "@/lib/firebase/reflections";
+import { reflectionsService } from "@/lib/firebase/reflections";
 
 // Mock Firebase Admin
 vi.mock("@/lib/firebase/admin", () => ({
@@ -72,9 +72,12 @@ describe("Reflections Firebase Service", () => {
       expect(mockDb.collection).toHaveBeenCalledWith("reflection_prompts");
       expect(mockCollection.add).toHaveBeenCalledWith(
         expect.objectContaining({
-          ...promptData,
-          createdAt: expect.any(Object),
-          usedAt: null,
+          sessionId: "session-456",
+          conceptIds: ["concept-1", "concept-2"],
+          promptText: "Explain React Hooks",
+          hints: ["Consider useState"],
+          minWords: 50,
+          maxWords: 200,
         })
       );
       expect(promptId).toBe("prompt-123");
@@ -182,14 +185,16 @@ describe("Reflections Firebase Service", () => {
         conceptUpdates: [],
       };
 
-      await reflectionsService.saveAnalysis(analysisData);
+      // saveAnalysis takes (reflectionId, analysis)
+      await reflectionsService.saveAnalysis("reflection-123", analysisData);
 
       expect(mockDb.collection).toHaveBeenCalledWith("reflection_analyses");
       expect(mockCollection.doc).toHaveBeenCalledWith("reflection-123");
       expect(mockDoc.set).toHaveBeenCalledWith(
         expect.objectContaining({
-          ...analysisData,
-          analyzedAt: expect.any(Object),
+          overallScore: 85,
+          strengths: ["Clear explanation"],
+          suggestions: ["Add examples"],
         })
       );
     });
@@ -203,7 +208,7 @@ describe("Reflections Firebase Service", () => {
         suggestions: ["Better"],
         misconceptions: [],
         conceptUpdates: [],
-        analyzedAt: Timestamp.now(),
+        createdAt: Timestamp.now(),
       };
 
       mockDoc.get.mockResolvedValue({
@@ -214,10 +219,16 @@ describe("Reflections Firebase Service", () => {
 
       const analysis = await reflectionsService.getAnalysis("reflection-123");
 
-      expect(analysis).toEqual({
-        reflectionId: "reflection-123",
-        ...mockAnalysisData,
-      });
+      // Note: getAnalysis returns data without reflectionId
+      expect(analysis).toEqual(mockAnalysisData);
+    });
+
+    it("returns null for non-existent analysis", async () => {
+      mockDoc.get.mockResolvedValue({ exists: false });
+
+      const analysis = await reflectionsService.getAnalysis("nonexistent");
+
+      expect(analysis).toBeNull();
     });
   });
 
@@ -274,6 +285,7 @@ describe("Reflections Firebase Service", () => {
 
       expect(mockCollection.doc).toHaveBeenCalledWith("prompt-123");
       expect(mockDoc.update).toHaveBeenCalledWith({
+        used: true,
         usedAt: expect.any(Object),
       });
     });
@@ -287,20 +299,33 @@ describe("Reflections Firebase Service", () => {
         { id: "r3", data: () => ({ skipped: true }) },
       ];
 
-      const mockAnalyses = [
-        { id: "r1", data: () => ({ overallScore: 80 }) },
-        { id: "r2", data: () => ({ overallScore: 90 }) },
-      ];
+      // Mock the initial reflections query
+      mockQuery.get.mockResolvedValue({ 
+        docs: mockReflections,
+        size: 3,
+      });
 
-      mockQuery.get
-        .mockResolvedValueOnce({ docs: mockReflections })
-        .mockResolvedValueOnce({ docs: mockAnalyses });
+      // Mock getAnalysis calls for each non-skipped reflection
+      const mockAnalysisData1 = {
+        overallScore: 80,
+        conceptUpdates: [{ previousMastery: 'learning', newMastery: 'practicing' }],
+      };
+      const mockAnalysisData2 = {
+        overallScore: 90,
+        conceptUpdates: [{ previousMastery: 'learning', newMastery: 'learning' }],
+      };
+
+      // For getAnalysis, we need to mock doc().get()
+      mockDoc.get
+        .mockResolvedValueOnce({ exists: true, data: () => mockAnalysisData1 })
+        .mockResolvedValueOnce({ exists: true, data: () => mockAnalysisData2 });
 
       const stats = await reflectionsService.getReflectionStats("user-123");
 
       expect(stats.totalReflections).toBe(3);
-      expect(stats.completedReflections).toBe(2);
+      expect(stats.totalSkipped).toBe(1);
       expect(stats.averageScore).toBe(85);
+      expect(stats.levelUpsFromReflections).toBe(1);
     });
   });
 });

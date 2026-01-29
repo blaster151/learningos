@@ -11,8 +11,8 @@ describe("GraphControls", () => {
   const mockProps = {
     onZoomIn: vi.fn(),
     onZoomOut: vi.fn(),
-    onFitView: vi.fn(),
-    onReset: vi.fn(),
+    onFitToScreen: vi.fn(),
+    onResetView: vi.fn(),
   };
 
   beforeEach(() => {
@@ -22,8 +22,9 @@ describe("GraphControls", () => {
   it("renders all control buttons", () => {
     render(<GraphControls {...mockProps} />);
     
-    expect(screen.getByTitle("Zoom In")).toBeInTheDocument();
-    expect(screen.getByTitle("Zoom Out")).toBeInTheDocument();
+    // The component includes keyboard hints in titles
+    expect(screen.getByTitle("Zoom In (+ key)")).toBeInTheDocument();
+    expect(screen.getByTitle("Zoom Out (- key)")).toBeInTheDocument();
     expect(screen.getByTitle("Fit to Screen")).toBeInTheDocument();
     expect(screen.getByTitle("Reset View")).toBeInTheDocument();
   });
@@ -32,7 +33,7 @@ describe("GraphControls", () => {
     const user = userEvent.setup();
     render(<GraphControls {...mockProps} />);
 
-    const zoomInButton = screen.getByTitle("Zoom In");
+    const zoomInButton = screen.getByLabelText("Zoom in");
     await user.click(zoomInButton);
 
     expect(mockProps.onZoomIn).toHaveBeenCalledOnce();
@@ -42,37 +43,37 @@ describe("GraphControls", () => {
     const user = userEvent.setup();
     render(<GraphControls {...mockProps} />);
 
-    const zoomOutButton = screen.getByTitle("Zoom Out");
+    const zoomOutButton = screen.getByLabelText("Zoom out");
     await user.click(zoomOutButton);
 
     expect(mockProps.onZoomOut).toHaveBeenCalledOnce();
   });
 
-  it("calls onFitView when fit to screen button is clicked", async () => {
+  it("calls onFitToScreen when fit to screen button is clicked", async () => {
     const user = userEvent.setup();
     render(<GraphControls {...mockProps} />);
 
-    const fitViewButton = screen.getByTitle("Fit to Screen");
+    const fitViewButton = screen.getByLabelText("Fit to screen");
     await user.click(fitViewButton);
 
-    expect(mockProps.onFitView).toHaveBeenCalledOnce();
+    expect(mockProps.onFitToScreen).toHaveBeenCalledOnce();
   });
 
-  it("calls onReset when reset button is clicked", async () => {
+  it("calls onResetView when reset button is clicked", async () => {
     const user = userEvent.setup();
     render(<GraphControls {...mockProps} />);
 
-    const resetButton = screen.getByTitle("Reset View");
+    const resetButton = screen.getByLabelText("Reset view");
     await user.click(resetButton);
 
-    expect(mockProps.onReset).toHaveBeenCalledOnce();
+    expect(mockProps.onResetView).toHaveBeenCalledOnce();
   });
 
   it("supports multiple rapid clicks", async () => {
     const user = userEvent.setup();
     render(<GraphControls {...mockProps} />);
 
-    const zoomInButton = screen.getByTitle("Zoom In");
+    const zoomInButton = screen.getByLabelText("Zoom in");
     await user.tripleClick(zoomInButton);
 
     expect(mockProps.onZoomIn).toHaveBeenCalledTimes(3);

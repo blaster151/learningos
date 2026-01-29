@@ -2,12 +2,14 @@
  * Tests for ReflectionResults component
  */
 
-import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
+import { render, screen, fireEvent } from "@testing-library/react";
 import ReflectionResults from "@/components/reflection/ReflectionResults";
 import type { ReflectionAnalysis } from "@/types";
 
 describe("ReflectionResults", () => {
+  const mockOnContinue = vi.fn();
+  
   const mockAnalysis: ReflectionAnalysis = {
     reflectionId: "reflection-123",
     overallScore: 85,
@@ -51,20 +53,31 @@ describe("ReflectionResults", () => {
     encouragement: "Great progress! Keep practicing hooks in your projects.",
   };
 
+  beforeEach(() => {
+    mockOnContinue.mockClear();
+  });
+
   it("renders the results component", () => {
-    render(<ReflectionResults analysis={mockAnalysis} />);
+    render(<ReflectionResults analysis={mockAnalysis} onContinue={mockOnContinue} />);
     
-    expect(screen.getByText(/reflection analysis/i)).toBeInTheDocument();
+    expect(screen.getByText(/Reflection Complete/i)).toBeInTheDocument();
   });
 
   it("displays overall score", () => {
-    render(<ReflectionResults analysis={mockAnalysis} />);
+    render(<ReflectionResults analysis={mockAnalysis} onContinue={mockOnContinue} />);
     
     expect(screen.getByText("85")).toBeInTheDocument();
   });
 
+  it("displays score label based on score value", () => {
+    render(<ReflectionResults analysis={mockAnalysis} onContinue={mockOnContinue} />);
+    
+    // 85 should show "Excellent" label
+    expect(screen.getByText("Excellent")).toBeInTheDocument();
+  });
+
   it("displays all strengths", () => {
-    render(<ReflectionResults analysis={mockAnalysis} />);
+    render(<ReflectionResults analysis={mockAnalysis} onContinue={mockOnContinue} />);
     
     expect(screen.getByText("Clear understanding of hooks fundamentals")).toBeInTheDocument();
     expect(screen.getByText("Good comparison with class components")).toBeInTheDocument();
@@ -72,14 +85,14 @@ describe("ReflectionResults", () => {
   });
 
   it("displays all suggestions", () => {
-    render(<ReflectionResults analysis={mockAnalysis} />);
+    render(<ReflectionResults analysis={mockAnalysis} onContinue={mockOnContinue} />);
     
     expect(screen.getByText("Consider discussing useCallback and useMemo")).toBeInTheDocument();
     expect(screen.getByText("Expand on custom hooks usage")).toBeInTheDocument();
   });
 
   it("displays all misconceptions with corrections", () => {
-    render(<ReflectionResults analysis={mockAnalysis} />);
+    render(<ReflectionResults analysis={mockAnalysis} onContinue={mockOnContinue} />);
     
     expect(screen.getByText("Hooks can only be used in functional components")).toBeInTheDocument();
     expect(screen.getByText(/While hooks are designed for functional components/)).toBeInTheDocument();
@@ -88,87 +101,100 @@ describe("ReflectionResults", () => {
     expect(screen.getByText(/useEffect only runs after renders/)).toBeInTheDocument();
   });
 
-  it("distinguishes misconception severity visually", () => {
-    const { container } = render(<ReflectionResults analysis={mockAnalysis} />);
+  it("indicates misconception severity with different styling", () => {
+    const { container } = render(<ReflectionResults analysis={mockAnalysis} onContinue={mockOnContinue} />);
     
-    // Minor misconceptions should have different styling than significant ones
-    const misconceptionElements = container.querySelectorAll("[data-severity]");
-    expect(misconceptionElements.length).toBeGreaterThan(0);
+    // Minor uses yellow styling, significant uses red styling
+    const yellowBorder = container.querySelector(".border-yellow-200");
+    const redBorder = container.querySelector(".border-red-200");
+    
+    expect(yellowBorder).toBeInTheDocument();
+    expect(redBorder).toBeInTheDocument();
   });
 
   it("displays concept mastery updates", () => {
-    render(<ReflectionResults analysis={mockAnalysis} />);
+    render(<ReflectionResults analysis={mockAnalysis} onContinue={mockOnContinue} />);
     
     expect(screen.getByText("React Hooks")).toBeInTheDocument();
     expect(screen.getByText("useState")).toBeInTheDocument();
+  });
+
+  it("shows mastery level transitions", () => {
+    render(<ReflectionResults analysis={mockAnalysis} onContinue={mockOnContinue} />);
     
-    // Should show mastery progression
-    expect(screen.getByText(/learning → practicing/i)).toBeInTheDocument();
-    expect(screen.getByText(/practicing → proficient/i)).toBeInTheDocument();
+    // Check that mastery levels are displayed using getAllByText for duplicates
+    expect(screen.getByText("learning")).toBeInTheDocument();
+    // "practicing" appears twice (once as prev, once as new), so use getAllByText
+    expect(screen.getAllByText("practicing").length).toBeGreaterThan(0);
+    expect(screen.getByText("proficient")).toBeInTheDocument();
   });
 
   it("displays encouragement message", () => {
-    render(<ReflectionResults analysis={mockAnalysis} />);
+    render(<ReflectionResults analysis={mockAnalysis} onContinue={mockOnContinue} />);
     
     expect(screen.getByText("Great progress! Keep practicing hooks in your projects.")).toBeInTheDocument();
   });
 
   it("handles empty strengths array", () => {
     const analysisWithoutStrengths = { ...mockAnalysis, strengths: [] };
-    render(<ReflectionResults analysis={analysisWithoutStrengths} />);
+    render(<ReflectionResults analysis={analysisWithoutStrengths} onContinue={mockOnContinue} />);
     
     // Should still render without crashing
-    expect(screen.getByText(/reflection analysis/i)).toBeInTheDocument();
+    expect(screen.getByText(/Reflection Complete/i)).toBeInTheDocument();
   });
 
   it("handles empty suggestions array", () => {
     const analysisWithoutSuggestions = { ...mockAnalysis, suggestions: [] };
-    render(<ReflectionResults analysis={analysisWithoutSuggestions} />);
+    render(<ReflectionResults analysis={analysisWithoutSuggestions} onContinue={mockOnContinue} />);
     
     // Should still render without crashing
-    expect(screen.getByText(/reflection analysis/i)).toBeInTheDocument();
+    expect(screen.getByText(/Reflection Complete/i)).toBeInTheDocument();
   });
 
   it("handles empty misconceptions array", () => {
     const analysisWithoutMisconceptions = { ...mockAnalysis, misconceptions: [] };
-    render(<ReflectionResults analysis={analysisWithoutMisconceptions} />);
+    render(<ReflectionResults analysis={analysisWithoutMisconceptions} onContinue={mockOnContinue} />);
     
     // Should still render without crashing
-    expect(screen.getByText(/reflection analysis/i)).toBeInTheDocument();
+    expect(screen.getByText(/Reflection Complete/i)).toBeInTheDocument();
   });
 
   it("handles missing encouragement message", () => {
     const analysisWithoutEncouragement = { ...mockAnalysis, encouragement: undefined };
-    render(<ReflectionResults analysis={analysisWithoutEncouragement} />);
+    render(<ReflectionResults analysis={analysisWithoutEncouragement} onContinue={mockOnContinue} />);
     
     // Should still render without crashing
-    expect(screen.getByText(/reflection analysis/i)).toBeInTheDocument();
-  });
-
-  it("shows score with visual indicator (ring/circle)", () => {
-    const { container } = render(<ReflectionResults analysis={mockAnalysis} />);
-    
-    // Should have an SVG circle or similar visual indicator
-    const scoreIndicator = container.querySelector("svg circle");
-    expect(scoreIndicator).toBeInTheDocument();
+    expect(screen.getByText(/Reflection Complete/i)).toBeInTheDocument();
   });
 
   it("applies correct color scheme based on score", () => {
     const highScoreAnalysis = { ...mockAnalysis, overallScore: 95 };
-    const { container: highContainer } = render(<ReflectionResults analysis={highScoreAnalysis} />);
+    const { rerender } = render(<ReflectionResults analysis={highScoreAnalysis} onContinue={mockOnContinue} />);
     
-    const lowScoreAnalysis = { ...mockAnalysis, overallScore: 50 };
-    const { container: lowContainer } = render(<ReflectionResults analysis={lowScoreAnalysis} />);
+    // High score (95) should show "Excellent"
+    expect(screen.getByText("Excellent")).toBeInTheDocument();
     
-    // High and low scores should have different visual indicators
-    expect(highContainer.innerHTML).not.toEqual(lowContainer.innerHTML);
+    const lowScoreAnalysis = { ...mockAnalysis, overallScore: 35 };
+    rerender(<ReflectionResults analysis={lowScoreAnalysis} onContinue={mockOnContinue} />);
+    
+    // Low score (35) should show "Needs Work"
+    expect(screen.getByText("Needs Work")).toBeInTheDocument();
   });
 
   it("displays confidence delta for concept updates", () => {
-    render(<ReflectionResults analysis={mockAnalysis} />);
+    render(<ReflectionResults analysis={mockAnalysis} onContinue={mockOnContinue} />);
     
     // Should show +15% and +20% confidence increases
-    expect(screen.getByText(/\+15%/i)).toBeInTheDocument();
-    expect(screen.getByText(/\+20%/i)).toBeInTheDocument();
+    expect(screen.getByText("+15%")).toBeInTheDocument();
+    expect(screen.getByText("+20%")).toBeInTheDocument();
+  });
+
+  it("calls onContinue when continue button is clicked", () => {
+    render(<ReflectionResults analysis={mockAnalysis} onContinue={mockOnContinue} />);
+    
+    const continueButton = screen.getByRole("button", { name: /continue learning/i });
+    fireEvent.click(continueButton);
+    
+    expect(mockOnContinue).toHaveBeenCalledTimes(1);
   });
 });

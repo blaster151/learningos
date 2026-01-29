@@ -16,7 +16,7 @@ export async function branchSession(
   parentSessionId: string,
   branchTopic: string
 ): Promise<LearningSession> {
-  const db = getAdminDb();
+  const db = await getAdminDb();
 
   // Get parent session
   const parentDoc = await db.collection("sessions").doc(parentSessionId).get();
@@ -65,7 +65,7 @@ export async function returnToParentSession(
   userId: string,
   branchSessionId: string
 ): Promise<LearningSession> {
-  const db = getAdminDb();
+  const db = await getAdminDb();
 
   // Get branch session
   const branchDoc = await db.collection("sessions").doc(branchSessionId).get();

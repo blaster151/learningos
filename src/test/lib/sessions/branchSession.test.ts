@@ -42,22 +42,13 @@ describe('Session Branching', () => {
         conceptsCovered: ['concept1', 'concept2'],
       };
 
+      // First call returns parent session, subsequent calls handle branch
       mockDoc.mockReturnValue({
-        get: vi.fn()
-          .mockResolvedValueOnce({
-            exists: true,
-            data: () => mockParentData,
-          })
-          .mockResolvedValueOnce({
-            id: 'branch-456',
-            data: () => ({
-              userId: 'user-123',
-              topic: 'Branch Topic',
-              parentSessionId: 'parent-123',
-              pathId: 'path-123',
-              status: 'active',
-            }),
-          }),
+        get: vi.fn().mockResolvedValue({
+          exists: true,
+          id: 'parent-123',
+          data: () => mockParentData,
+        }),
       });
 
       mockAdd.mockResolvedValue({
@@ -115,19 +106,22 @@ describe('Session Branching', () => {
       const mockBranchUpdate = vi.fn();
       const mockParentUpdate = vi.fn();
 
-      mockDoc.mockImplementation((id: string) => ({
-        get: vi.fn().mockResolvedValue({
-          exists: true,
-          id,
-          data: () =>
-            id === 'branch-123'
-              ? { userId: 'user-123', parentSessionId: 'parent-123', status: 'active' }
-              : { userId: 'user-123', status: 'paused' },
-          ref: {
-            update: id === 'branch-123' ? mockBranchUpdate : mockParentUpdate,
-          },
-        }),
-      }));
+      // The doc method is called twice - once for branch, once for parent
+      mockDoc.mockImplementation((id: string) => {
+        return {
+          get: vi.fn().mockResolvedValue({
+            exists: true,
+            id,
+            data: () =>
+              id === 'branch-123'
+                ? { userId: 'user-123', parentSessionId: 'parent-123', status: 'active' }
+                : { userId: 'user-123', status: 'paused' },
+            ref: {
+              update: id === 'branch-123' ? mockBranchUpdate : mockParentUpdate,
+            },
+          }),
+        };
+      });
 
       const result = await returnToParentSession('user-123', 'branch-123');
 
@@ -149,6 +143,7 @@ describe('Session Branching', () => {
         get: vi.fn().mockResolvedValue({
           exists: true,
           data: () => ({ userId: 'user-123', parentSessionId: null }),
+          ref: { update: vi.fn() },
         }),
       });
 
@@ -162,6 +157,7 @@ describe('Session Branching', () => {
         get: vi.fn().mockResolvedValue({
           exists: true,
           data: () => ({ userId: 'other-user', parentSessionId: 'parent-123' }),
+          ref: { update: vi.fn() },
         }),
       });
 

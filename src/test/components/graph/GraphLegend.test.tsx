@@ -10,53 +10,53 @@ describe("GraphLegend", () => {
   it("renders the legend component", () => {
     render(<GraphLegend />);
     
-    expect(screen.getByText(/mastery levels/i)).toBeInTheDocument();
-    expect(screen.getByText(/relation types/i)).toBeInTheDocument();
+    expect(screen.getByText("Mastery Levels")).toBeInTheDocument();
+    expect(screen.getByText("Relationships")).toBeInTheDocument();
   });
 
   it("displays all mastery levels", () => {
     render(<GraphLegend />);
     
-    expect(screen.getByText("Novice")).toBeInTheDocument();
-    expect(screen.getByText("Learning")).toBeInTheDocument();
-    expect(screen.getByText("Practicing")).toBeInTheDocument();
-    expect(screen.getByText("Proficient")).toBeInTheDocument();
-    expect(screen.getByText("Expert")).toBeInTheDocument();
+    expect(screen.getByText("exploring")).toBeInTheDocument();
+    expect(screen.getByText("learning")).toBeInTheDocument();
+    expect(screen.getByText("practicing")).toBeInTheDocument();
+    expect(screen.getByText("comfortable")).toBeInTheDocument();
+    expect(screen.getByText("expert")).toBeInTheDocument();
   });
 
   it("displays all relation types", () => {
     render(<GraphLegend />);
     
     expect(screen.getByText("Prerequisite")).toBeInTheDocument();
-    expect(screen.getByText("Related")).toBeInTheDocument();
-    expect(screen.getByText("Similar")).toBeInTheDocument();
-    expect(screen.getByText("Extends")).toBeInTheDocument();
+    expect(screen.getByText("Builds On")).toBeInTheDocument();
+    expect(screen.getByText("Similar To")).toBeInTheDocument();
+    expect(screen.getByText("Contrasts With")).toBeInTheDocument();
+    expect(screen.getByText("Abstracts To")).toBeInTheDocument();
     expect(screen.getByText("Applies To")).toBeInTheDocument();
-    expect(screen.getByText("Part Of")).toBeInTheDocument();
     expect(screen.getByText("Example Of")).toBeInTheDocument();
   });
 
   it("shows mastery level color indicators", () => {
     const { container } = render(<GraphLegend />);
     
-    // Check for color indicators (colored divs/spans)
-    const colorIndicators = container.querySelectorAll("[class*='bg-']");
-    expect(colorIndicators.length).toBeGreaterThan(0);
+    // Check for color indicators (colored divs with inline background color)
+    const colorIndicators = container.querySelectorAll(".rounded-full");
+    expect(colorIndicators.length).toBe(5); // 5 mastery levels
   });
 
   it("shows relation type color indicators", () => {
     const { container } = render(<GraphLegend />);
     
-    // Relation type indicators should be present
-    const relationIndicators = container.querySelectorAll("[class*='border-']");
-    expect(relationIndicators.length).toBeGreaterThan(0);
+    // Relation type indicators should be present (lines with inline background color)
+    const relationIndicators = container.querySelectorAll(".h-0\\.5");
+    expect(relationIndicators.length).toBe(7); // 7 relation types
   });
 
   it("includes node size explanation", () => {
     render(<GraphLegend />);
     
-    // Should explain that larger nodes = more connected concepts
-    expect(screen.getByText(/node size/i)).toBeInTheDocument();
+    expect(screen.getByText("Node Size")).toBeInTheDocument();
+    expect(screen.getByText(/size indicates/i)).toBeInTheDocument();
   });
 
   it("renders with proper styling", () => {
@@ -68,10 +68,12 @@ describe("GraphLegend", () => {
   });
 
   it("organizes content in sections", () => {
-    const { container } = render(<GraphLegend />);
+    render(<GraphLegend />);
     
-    // Should have multiple sections
-    const sections = container.querySelectorAll("div > div");
-    expect(sections.length).toBeGreaterThan(1);
+    // Should have the Legend header and sections
+    expect(screen.getByText("Legend")).toBeInTheDocument();
+    expect(screen.getByText("Mastery Levels")).toBeInTheDocument();
+    expect(screen.getByText("Relationships")).toBeInTheDocument();
+    expect(screen.getByText("Node Size")).toBeInTheDocument();
   });
 });

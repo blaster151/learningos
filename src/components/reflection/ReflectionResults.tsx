@@ -172,9 +172,16 @@ export default function ReflectionResults({
                         </span>
                       </div>
                     </div>
-                    {update.newMastery !== update.previousMastery && (
-                      <span className="text-2xl">🎉</span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {update.confidenceDelta > 0 && (
+                        <span className="text-sm font-medium text-green-600">
+                          +{Math.round(update.confidenceDelta * 100)}%
+                        </span>
+                      )}
+                      {update.newMastery !== update.previousMastery && (
+                        <span className="text-2xl">🎉</span>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
