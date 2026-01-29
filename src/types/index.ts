@@ -40,6 +40,8 @@ export interface UserProfile {
 // Learning Session
 // ===================================
 
+export type SessionStatus = "active" | "completed" | "abandoned";
+
 export interface LearningSession {
   sessionId: string;
   userId: string;
@@ -50,20 +52,29 @@ export interface LearningSession {
   // Context
   topic: string;
   goal?: string;
-  initialConcepts: string[]; // Concept IDs
+  initialConcepts: string[]; // Concept IDs present at start
   
   // Stats
   messageCount: number;
   conceptsCovered: string[]; // Unique concept IDs discussed
+  conceptsLearned: string[]; // Concepts with increased understanding
+  conceptsReviewed: string[]; // Concepts revisited
+  
+  // Path integration
+  pathId?: string; // If session is working through a path
+  currentMilestoneId?: string; // Which milestone user is on
   
   // Status
-  status: "active" | "completed" | "abandoned";
+  status: SessionStatus;
   
-  // Metadata
+  // Branching
   branch?: {
     fromSessionId: string;
+    branchPoint: Timestamp;
     reason: string;
+    returnTopic?: string; // Main topic to return to
   };
+  parentSessionId?: string; // If this is a branch
 }
 
 // ===================================
@@ -99,28 +110,36 @@ export interface ConceptNode {
   conceptId: string;
   name: string;
   definition: string;
-  domain?: string; // Future: for domain-specific abstractions
+  domain: string; // e.g., "programming", "algorithms", "mathematics"
+  category?: string; // sub-category within domain
   
   // Learning tracking (per user)
-  userId?: string; // Only for user-specific concepts
-  confidence: number; // 0-1
-  understanding: number; // 0-1
+  userId: string;
+  confidence: number; // 0.0-1.0 (user's self-assessment)
+  understanding: number; // 0.0-1.0 (system's assessment)
+  masteryLevel: MasteryLevel;
   
   // Timestamps
   firstEncountered: Timestamp;
   lastReviewed: Timestamp;
   lastReflected?: Timestamp;
   
+  // Learning context
+  learnedFrom?: string; // pathId or sessionId
+  sessionIds: string[]; // All sessions where this concept appeared
+  
   // Metadata
-  exampleContext?: string;
+  exampleContext?: string; // Example from when user learned it
   abstractPattern?: string; // Future: for abstraction scaffolding
-  definitionHistory?: Array<{
+  definitionHistory: Array<{
     definition: string;
+    source: "chat" | "reflection" | "path" | "user";
     timestamp: Timestamp;
   }>;
   
-  // Status
-  isEmergent?: boolean; // Future: user-discovered concepts
+  // Discovery
+  isEmergent: boolean; // User-discovered concept (not from path)
+  discoveredBy: "user" | "system" | "path";
 }
 
 // ===================================
@@ -128,12 +147,13 @@ export interface ConceptNode {
 // ===================================
 
 export type RelationType =
-  | "PREREQUISITE"
-  | "BUILDS_ON"
-  | "SIMILAR_TO"
-  | "CONTRASTS_WITH"
-  | "ABSTRACTS_TO"
-  | "APPLIES_TO";
+  | "prerequisite"      // A must be learned before B
+  | "builds_on"         // B extends/deepens A
+  | "similar_to"        // A and B share concepts
+  | "contrasts_with"    // A differs from B in important ways
+  | "abstracts_to"      // A is a specific case of B (generalization)
+  | "applies_to"        // A is used in the context of B
+  | "example_of";       // A is an example of B
 
 export interface ConceptRelation {
   relationId: string;
@@ -141,50 +161,104 @@ export interface ConceptRelation {
   sourceConceptId: string;
   targetConceptId: string;
   relationType: RelationType;
-  strength: number; // 0-1
+  strength: number; // 0.0-1.0 (how strong the connection)
   
   // Discovery tracking
   discoveredAt: Timestamp;
-  isEmergent?: boolean;
-  discoveryInsight?: string;
-  discoveredBy?: "user" | "system";
+  isEmergent: boolean; // Did user discover this connection themselves?
+  discoveryInsight?: string; // What user said when connecting
+  discoveredBy: "user" | "system" | "path"; // Who/what created this relation
+  
+  // Context
+  sessionId?: string; // Session where relation was discovered
 }
 
 // ===================================
 // Learning Path
 // ===================================
 
+export type PathStatus = "suggested" | "active" | "completed" | "abandoned";
+export type MilestoneStatus = "not_started" | "in_progress" | "completed";
+export type MasteryLevel = "exploring" | "learning" | "practicing" | "comfortable" | "expert";
+
 export interface LearningPath {
   pathId: string;
   userId: string;
-  goal: string;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
-  
-  // Path structure
-  milestones: Milestone[];
-  
-  // Progress
-  currentMilestoneIndex: number;
-  completedMilestones: string[];
-  
-  // Status
-  status: "active" | "completed" | "abandoned";
-}
-
-export interface Milestone {
-  milestoneId: string;
   title: string;
   description: string;
-  concepts: string[]; // Concept IDs to cover
-  estimatedTime?: number; // minutes
+  goal: string;
   
-  // Progress
-  isCompleted: boolean;
+  // Path structure
+  milestones: PathMilestone[];
+  estimatedMinutes: number;
+  
+  // Status & Progress
+  status: PathStatus;
+  progress: number; // 0.0-1.0 overall completion
+  currentMilestoneIndex: number;
+  
+  // Generation context
+  generatedFrom: {
+    userGoal: string;
+    knownConceptIds: string[];
+    userLevel: "beginner" | "intermediate" | "advanced";
+    learningStyle?: string;
+  };
+  
+  // Timestamps
+  createdAt: Timestamp;
+  startedAt?: Timestamp;
+  completedAt?: Timestamp;
+  lastActivityAt: Timestamp;
+}
+
+export interface PathMilestone {
+  milestoneId: string;
+  order: number; // 0-indexed position
+  title: string;
+  description: string;
+  
+  // Content
+  conceptIds: string[]; // Concept IDs to learn in this milestone
+  conceptNames: string[]; // Denormalized for display
+  estimatedMinutes: number;
+  
+  // Learning objectives
+  objectives: string[];
+  
+  // Status & Progress
+  status: MilestoneStatus;
+  progress: number; // 0.0-1.0
   completedAt?: Timestamp;
   
-  // Prerequisites
-  prerequisites?: string[]; // Other milestone IDs
+  // Dependencies
+  prerequisiteMilestoneIds: string[]; // Milestones that must come first
+}
+
+// Helper type for path generation input
+export interface PathGenerationInput {
+  userId: string;
+  goal: string;
+  knownConcepts: ConceptNode[];
+  userLevel: "beginner" | "intermediate" | "advanced";
+  timeAvailableMinutes?: number;
+  learningStyle?: string;
+  preferredDepth?: "quick" | "thorough" | "deep";
+}
+
+// Helper type for path generation output (before saving)
+export interface GeneratedPath {
+  title: string;
+  description: string;
+  milestones: Array<{
+    title: string;
+    description: string;
+    concepts: string[]; // concept names (will be converted to IDs)
+    objectives: string[];
+    estimatedMinutes: number;
+    prerequisites: number[]; // indices of prerequisite milestones
+  }>;
+  estimatedMinutes: number;
 }
 
 // ===================================

@@ -1,0 +1,163 @@
+import { NextRequest, NextResponse } from "next/server";
+import { generateLearningPath } from "@/lib/ai/pathGeneration";
+import { pathsService } from "@/lib/firebase/learningPaths";
+import { conceptsService } from "@/lib/firebase/concepts";
+import { Timestamp } from "firebase-admin/firestore";
+
+// ===================================
+// Types
+// ===================================
+
+interface GeneratePathRequest {
+  userId: string;
+  goal: string;
+  timeAvailableMinutes?: number;
+  preferredDepth?: "quick" | "thorough" | "deep";
+}
+
+// ===================================
+// POST - Generate new learning path
+// ===================================
+
+export async function POST(request: NextRequest) {
+  try {
+    const body: GeneratePathRequest = await request.json();
+    const { userId, goal, timeAvailableMinutes, preferredDepth } = body;
+
+    if (!userId) {
+      return NextResponse.json({ error: "userId is required" }, { status: 400 });
+    }
+
+    if (!goal || goal.trim().length < 5) {
+      return NextResponse.json(
+        { error: "goal is required and must be at least 5 characters" },
+        { status: 400 }
+      );
+    }
+
+    // Get user's existing concepts
+    const knownConcepts = await conceptsService.getUserConcepts(userId);
+
+    // Determine user level based on concepts
+    let userLevel: "beginner" | "intermediate" | "advanced" = "beginner";
+    if (knownConcepts.length >= 20) {
+      userLevel = "advanced";
+    } else if (knownConcepts.length >= 5) {
+      userLevel = "intermediate";
+    }
+
+    // Generate learning path using AI
+    const result = await generateLearningPath({
+      userId,
+      goal,
+      knownConcepts,
+      userLevel,
+      timeAvailableMinutes,
+      preferredDepth: preferredDepth || "thorough",
+    });
+
+    if (!result.success || !result.path) {
+      return NextResponse.json(
+        { error: result.error || "Failed to generate learning path" },
+        { status: 500 }
+      );
+    }
+
+    const generatedPath = result.path;
+
+    // Convert generated path to LearningPath format and resolve concepts
+    const milestones = await Promise.all(
+      generatedPath.milestones.map(async (milestone, index) => {
+        // Find or create concepts for this milestone
+        const conceptIds: string[] = [];
+        const conceptNames: string[] = [];
+
+        for (const conceptName of milestone.concepts) {
+          // Try to find existing concept
+          let existingConcept = await conceptsService.findConceptByName(
+            userId,
+            conceptName
+          );
+
+          let conceptId: string;
+          if (existingConcept) {
+            conceptId = existingConcept.conceptId;
+          } else {
+            // Create new concept placeholder
+            conceptId = await conceptsService.createConcept(userId, {
+              name: conceptName.toLowerCase(),
+              definition: "", // Will be filled in during learning
+              domain: "general", // Will be updated during learning
+              userId,
+              confidence: 0,
+              understanding: 0,
+              masteryLevel: "exploring",
+              firstEncountered: Timestamp.now(),
+              lastReviewed: Timestamp.now(),
+              sessionIds: [],
+              definitionHistory: [],
+              isEmergent: false,
+              discoveredBy: "path",
+            });
+          }
+
+          conceptIds.push(conceptId);
+          conceptNames.push(conceptName);
+        }
+
+        return {
+          milestoneId: `milestone_${Date.now()}_${index}`,
+          order: index,
+          title: milestone.title,
+          description: milestone.description,
+          conceptIds,
+          conceptNames,
+          estimatedMinutes: milestone.estimatedMinutes,
+          objectives: milestone.objectives,
+          status: "not_started" as const,
+          progress: 0,
+          prerequisiteMilestoneIds: milestone.prerequisites.map(
+            (prereqIndex) => `milestone_${Date.now()}_${prereqIndex}`
+          ),
+        };
+      })
+    );
+
+    // Create the learning path
+    const pathId = await pathsService.createPath(userId, {
+      userId,
+      title: generatedPath.title,
+      description: generatedPath.description,
+      goal,
+      milestones,
+      estimatedMinutes: generatedPath.estimatedMinutes,
+      status: "suggested",
+      progress: 0,
+      currentMilestoneIndex: 0,
+      generatedFrom: {
+        userGoal: goal,
+        knownConceptIds: knownConcepts.map((c) => c.conceptId),
+        userLevel,
+      },
+      createdAt: Timestamp.now(),
+      lastActivityAt: Timestamp.now(),
+    });
+
+    // Fetch the created path to return
+    const createdPath = await pathsService.getPath(userId, pathId);
+
+    return NextResponse.json({
+      pathId,
+      path: createdPath,
+    });
+  } catch (error) {
+    console.error("Error generating learning path:", error);
+    return NextResponse.json(
+      {
+        error: "Failed to generate learning path",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 }
+    );
+  }
+}

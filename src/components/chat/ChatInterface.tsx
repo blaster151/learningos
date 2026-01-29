@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { Button, Card } from "@/components/ui";
 import { BrainIcon, UserIcon } from "@/components/icons";
+import { ConceptTagsList, type ConceptData } from "./ConceptTag";
 
 // ===================================
 // Types
@@ -15,6 +16,7 @@ export interface ChatMessage {
   content: string;
   timestamp: Date;
   isStreaming?: boolean;
+  concepts?: ConceptData[];
 }
 
 interface ChatInterfaceProps {
@@ -62,42 +64,52 @@ function MessageBubble({ message, userPhotoURL }: MessageBubbleProps) {
 
   return (
     <div
-      className={`flex gap-3 ${isUser ? "flex-row-reverse" : "flex-row"}`}
+      className={`flex gap-2 sm:gap-3 ${isUser ? "flex-row-reverse" : "flex-row"}`}
+      role="article"
+      aria-label={`${isUser ? "Your" : "AI"} message`}
     >
       {/* Avatar */}
       <div
-        className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+        className={`flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center ${
           isUser
             ? "bg-blue-600"
             : "bg-gradient-to-br from-purple-500 to-indigo-600"
         }`}
+        aria-hidden="true"
       >
         {isUser ? (
           userPhotoURL ? (
             <img
               src={userPhotoURL}
-              alt="You"
-              className="w-8 h-8 rounded-full"
+              alt="Your avatar"
+              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover"
             />
           ) : (
-            <UserIcon className="w-4 h-4 text-white" />
+            <UserIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
           )
         ) : (
-          <BrainIcon className="w-4 h-4 text-white" />
+          <BrainIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
         )}
       </div>
 
       {/* Message Content */}
-      <div
-        className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-          isUser
-            ? "bg-blue-600 text-white rounded-br-md"
-            : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-bl-md"
-        }`}
-      >
-        <p className="whitespace-pre-wrap break-words">{message.content}</p>
-        {message.isStreaming && (
-          <span className="inline-block w-2 h-4 ml-1 bg-current animate-pulse rounded-sm" />
+      <div className={`max-w-[85%] sm:max-w-[80%] ${isUser ? "text-right" : "text-left"}`}>
+        <div
+          className={`inline-block rounded-2xl px-3 py-2 sm:px-4 sm:py-3 text-sm sm:text-base ${
+            isUser
+              ? "bg-blue-600 text-white rounded-br-md"
+              : "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-bl-md shadow-sm border border-gray-200 dark:border-gray-700"
+          }`}
+        >
+          <p className="whitespace-pre-wrap break-words leading-relaxed">{message.content}</p>
+          {message.isStreaming && (
+            <span className="inline-block w-1.5 h-3.5 ml-1 bg-current animate-pulse rounded-sm" aria-label="Typing" />
+          )}
+        </div>
+        
+        {/* Concept Tags - only show for assistant messages with concepts */}
+        {!isUser && !message.isStreaming && message.concepts && message.concepts.length > 0 && (
+          <ConceptTagsList concepts={message.concepts} />
         )}
       </div>
     </div>
@@ -110,15 +122,15 @@ function MessageBubble({ message, userPhotoURL }: MessageBubbleProps) {
 
 function TypingIndicator() {
   return (
-    <div className="flex gap-3">
-      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center">
-        <BrainIcon className="w-4 h-4 text-white" />
+    <div className="flex gap-2 sm:gap-3" role="status" aria-label="AI is typing">
+      <div className="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center" aria-hidden="true">
+        <BrainIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
       </div>
-      <div className="bg-gray-100 dark:bg-gray-800 rounded-2xl rounded-bl-md px-4 py-3">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl rounded-bl-md px-3 py-2 sm:px-4 sm:py-3 shadow-sm border border-gray-200 dark:border-gray-700">
         <div className="flex gap-1">
-          <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-          <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-          <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+          <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+          <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+          <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
         </div>
       </div>
     </div>
@@ -142,15 +154,16 @@ function QuickActions({ onAction }: QuickActionsProps) {
   ];
 
   return (
-    <div className="flex flex-wrap gap-2 mt-2 ml-12">
+    <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-2 ml-9 sm:ml-12" role="group" aria-label="Quick actions">
       {actions.map((action) => (
         <button
           key={action.id}
           onClick={() => onAction(action.id)}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+          className="inline-flex items-center gap-1 sm:gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 text-xs sm:text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 transition-all shadow-sm hover:shadow"
+          aria-label={action.label}
         >
-          <span>{action.icon}</span>
-          <span>{action.label}</span>
+          <span aria-hidden="true">{action.icon}</span>
+          <span className="hidden sm:inline">{action.label}</span>
         </button>
       ))}
     </div>
@@ -177,6 +190,46 @@ export function ChatInterface({
   // Expose onSessionEnd in case we need to use it later
   // Currently unused but available for session management
   void onSessionEnd;
+
+  // Fetch concepts for a message after streaming completes
+  const fetchConceptsForMessage = async (
+    userId: string,
+    messageId: string,
+    userMessage: string,
+    assistantMessage: string
+  ) => {
+    try {
+      // Call the concept extraction API
+      const response = await fetch("/api/concepts/extract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId,
+          messages: [
+            { role: "user", content: userMessage },
+            { role: "assistant", content: assistantMessage },
+          ],
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.concepts && data.concepts.length > 0) {
+          // Update the message with extracted concepts
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === messageId
+                ? { ...msg, concepts: data.concepts }
+                : msg
+            )
+          );
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch concepts:", error);
+      // Don't show error to user, concepts are optional enhancement
+    }
+  };
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -287,7 +340,7 @@ export function ChatInterface({
         );
       }
 
-      // Mark streaming complete
+      // Mark streaming complete and fetch concepts
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === assistantMessage.id
@@ -296,6 +349,11 @@ export function ChatInterface({
         )
       );
 
+      // Fetch concepts for this conversation (async, don't block UI)
+      if (user?.uid) {
+        fetchConceptsForMessage(user.uid, assistantMessage.id, trimmedInput, fullContent);
+      }
+
       // Notify parent of new session if created
       if (!sessionId && onSessionCreate) {
         // Session ID would come from response headers or body
@@ -303,13 +361,20 @@ export function ChatInterface({
       }
     } catch (error) {
       console.error("Failed to send message:", error);
-      // Add error message
+      
+      // Remove the user message that failed
+      setMessages((prev) => prev.filter((msg) => msg.id !== userMessage.id));
+      
+      // Show error toast/notification
+      const errorMessage = error instanceof Error ? error.message : "Network error";
+      
+      // Add error message to chat
       setMessages((prev) => [
         ...prev,
         {
           id: `msg-error-${Date.now()}`,
           role: "assistant",
-          content: "Sorry, I encountered an error. Please try again.",
+          content: `⚠️ Sorry, I encountered an error: ${errorMessage}. Please check your connection and try again.`,
           timestamp: new Date(),
         },
       ]);
@@ -327,22 +392,27 @@ export function ChatInterface({
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div 
+        className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4"
+        role="log"
+        aria-live="polite"
+        aria-label="Chat messages"
+      >
         {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center mb-4">
-              <BrainIcon className="w-8 h-8 text-white" />
+          <div className="flex flex-col items-center justify-center h-full text-center px-4">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg">
+              <BrainIcon className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
             </div>
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+            <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white mb-2">
               Start a Conversation
             </h2>
-            <p className="text-gray-600 dark:text-gray-400 max-w-md">
+            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 max-w-md mb-6">
               Ask me anything you want to learn about. I&apos;ll help you understand
               concepts through conversation and track your progress.
             </p>
-            <div className="mt-6 flex flex-wrap justify-center gap-2">
+            <div className="mt-2 flex flex-wrap justify-center gap-2 max-w-lg">
               {[
                 "Explain recursion simply",
                 "What is a closure in JavaScript?",
@@ -351,7 +421,8 @@ export function ChatInterface({
                 <button
                   key={prompt}
                   onClick={() => setInput(prompt)}
-                  className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                  className="px-3 py-2 text-xs sm:text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-blue-300 dark:hover:border-blue-600 transition-all shadow-sm hover:shadow"
+                  aria-label={`Use example prompt: ${prompt}`}
                 >
                   {prompt}
                 </button>
@@ -380,12 +451,12 @@ export function ChatInterface({
             )}
           </>
         )}
-        <div ref={messagesEndRef} />
+        <div ref={messagesEndRef} aria-hidden="true" />
       </div>
 
       {/* Input Area */}
-      <div className="border-t border-gray-200 dark:border-gray-800 p-4 bg-white dark:bg-gray-900">
-        <div className="flex gap-3 max-w-4xl mx-auto">
+      <div className="border-t border-gray-200 dark:border-gray-800 p-3 sm:p-4 bg-white dark:bg-gray-900 shadow-lg">
+        <div className="flex gap-2 sm:gap-3 max-w-4xl mx-auto">
           <div className="flex-1 relative">
             <textarea
               ref={inputRef}
@@ -394,20 +465,32 @@ export function ChatInterface({
               onKeyDown={handleKeyDown}
               placeholder="Ask me anything..."
               rows={1}
-              className="w-full resize-none rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 pr-12 text-gray-900 dark:text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full resize-none rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base text-gray-900 dark:text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               disabled={isLoading}
+              aria-label="Message input"
+              maxLength={2000}
             />
+            {input.length > 1800 && (
+              <span className="absolute bottom-2 right-2 text-xs text-gray-400" aria-live="polite">
+                {2000 - input.length}
+              </span>
+            )}
           </div>
           <Button
             onClick={handleSend}
             disabled={!input.trim() || isLoading}
-            className="px-4"
+            className="px-3 sm:px-4 h-10 sm:h-11 shrink-0"
             aria-label="Send message"
+            title="Send message (Enter)"
           >
-            <SendIcon className="w-5 h-5" />
+            {isLoading ? (
+              <span className="animate-spin" aria-hidden="true">⏳</span>
+            ) : (
+              <SendIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+            )}
           </Button>
         </div>
-        <p className="text-xs text-gray-500 dark:text-gray-400 text-center mt-2">
+        <p className="text-xs text-gray-500 dark:text-gray-400 text-center mt-2 hidden sm:block">
           Press Enter to send, Shift + Enter for new line
         </p>
       </div>

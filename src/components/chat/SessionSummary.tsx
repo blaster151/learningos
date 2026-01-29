@@ -27,11 +27,27 @@ interface Concept {
   masteryLevel: number;
 }
 
+interface AISummary {
+  summary: string;
+  keyInsights: string[];
+  conceptsCovered: string[];
+  suggestedNextSteps: string[];
+  overallProgress: "exploring" | "learning" | "understanding" | "mastering";
+}
+
 interface SessionSummaryProps {
   sessionId: string;
   onClose?: () => void;
   onContinue?: () => void;
 }
+
+// Progress label mapping
+const progressLabels: Record<string, { label: string; color: string; emoji: string }> = {
+  exploring: { label: "Exploring", color: "text-blue-500", emoji: "🔍" },
+  learning: { label: "Learning", color: "text-yellow-500", emoji: "📚" },
+  understanding: { label: "Understanding", color: "text-green-500", emoji: "💡" },
+  mastering: { label: "Mastering", color: "text-purple-500", emoji: "🏆" },
+};
 
 // ===================================
 // Session Summary Component
@@ -41,17 +57,19 @@ export function SessionSummary({ sessionId, onClose, onContinue }: SessionSummar
   const { user } = useAuth();
   const [session, setSession] = useState<SessionSummaryData | null>(null);
   const [concepts, setConcepts] = useState<Concept[]>([]);
+  const [aiSummary, setAiSummary] = useState<AISummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
 
   const loadSessionData = useCallback(async () => {
     if (!user || !sessionId) return;
 
     try {
       // Load session details
-      const sessionRes = await fetch(`/api/sessions?id=${sessionId}`);
+      const sessionRes = await fetch(`/api/sessions?sessionId=${sessionId}`);
       if (sessionRes.ok) {
         const sessionData = await sessionRes.json();
-        setSession(sessionData);
+        setSession(sessionData.session);
       }
 
       // Load concepts for this user (recently practiced)
@@ -60,12 +78,42 @@ export function SessionSummary({ sessionId, onClose, onContinue }: SessionSummar
         const conceptsData = await conceptsRes.json();
         setConcepts(conceptsData.concepts || []);
       }
+
+      // Try to load existing AI summary
+      const summaryRes = await fetch(`/api/sessions/summary?sessionId=${sessionId}`);
+      if (summaryRes.ok) {
+        const summaryData = await summaryRes.json();
+        setAiSummary(summaryData);
+      }
     } catch (error) {
       console.error("Failed to load session summary:", error);
     } finally {
       setIsLoading(false);
     }
   }, [user, sessionId]);
+
+  // Generate AI summary on demand
+  const generateSummary = async () => {
+    if (!user || !sessionId) return;
+    
+    setIsGeneratingSummary(true);
+    try {
+      const response = await fetch("/api/sessions/summary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId, userId: user.uid }),
+      });
+
+      if (response.ok) {
+        const summaryData = await response.json();
+        setAiSummary(summaryData);
+      }
+    } catch (error) {
+      console.error("Failed to generate summary:", error);
+    } finally {
+      setIsGeneratingSummary(false);
+    }
+  };
 
   useEffect(() => {
     loadSessionData();
@@ -144,6 +192,79 @@ export function SessionSummary({ sessionId, onClose, onContinue }: SessionSummar
             <p className="text-xs text-gray-500">Duration</p>
           </div>
         </div>
+
+        {/* AI Summary Section */}
+        {aiSummary ? (
+          <div className="space-y-4">
+            {/* Progress Badge */}
+            <div className="flex items-center gap-2">
+              <span className="text-lg">{progressLabels[aiSummary.overallProgress]?.emoji}</span>
+              <span className={`font-medium ${progressLabels[aiSummary.overallProgress]?.color}`}>
+                {progressLabels[aiSummary.overallProgress]?.label}
+              </span>
+            </div>
+
+            {/* Summary */}
+            <p className="text-gray-600 dark:text-gray-400 text-sm">
+              {aiSummary.summary}
+            </p>
+
+            {/* Key Insights */}
+            {aiSummary.keyInsights.length > 0 && (
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Key Insights
+                </h4>
+                <ul className="space-y-1">
+                  {aiSummary.keyInsights.map((insight, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400">
+                      <span className="text-green-500 mt-0.5">✓</span>
+                      {insight}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Suggested Next Steps */}
+            {aiSummary.suggestedNextSteps.length > 0 && (
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Suggested Next Steps
+                </h4>
+                <ul className="space-y-1">
+                  {aiSummary.suggestedNextSteps.map((step, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400">
+                      <span className="text-blue-500 mt-0.5">→</span>
+                      {step}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="text-center py-4">
+            <Button
+              onClick={generateSummary}
+              disabled={isGeneratingSummary}
+              variant="outline"
+              className="w-full"
+            >
+              {isGeneratingSummary ? (
+                <>
+                  <span className="animate-spin mr-2">⏳</span>
+                  Generating Summary...
+                </>
+              ) : (
+                <>
+                  <span className="mr-2">✨</span>
+                  Generate AI Summary
+                </>
+              )}
+            </Button>
+          </div>
+        )}
 
         {/* Concepts Covered */}
         {concepts.length > 0 && (

@@ -3,6 +3,8 @@ import { openai, AI_CONFIG } from "@/lib/ai/config";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { Timestamp } from "firebase-admin/firestore";
 import { extractConcepts } from "@/lib/ai/conceptExtraction";
+import { updateGraphFromMessage } from "@/lib/ai/conceptGraphUpdater";
+import { progressTracker } from "@/lib/learning/progressTracker";
 
 // ===================================
 // Types
@@ -129,52 +131,30 @@ export async function POST(request: NextRequest) {
                   .get()).data().count,
               });
 
-              // Extract and save concepts (async, don't block response)
-              extractConcepts([
-                { role: "user", content: message },
-                { role: "assistant", content: fullResponse },
-              ]).then(async (result) => {
-                if (result.concepts.length > 0) {
-                  for (const concept of result.concepts) {
-                    try {
-                      // Check if concept exists
-                      const existing = await db.collection("concepts")
-                        .where("userId", "==", userId)
-                        .where("name", "==", concept.name.toLowerCase())
-                        .limit(1)
-                        .get();
+              // Get session for topic context
+              const sessionDoc = await db.collection("sessions").doc(sessionId).get();
+              const sessionData = sessionDoc.data();
+              const sessionTopic = sessionData?.topic;
 
-                      if (existing.empty) {
-                        await db.collection("concepts").add({
-                          userId,
-                          name: concept.name.toLowerCase(),
-                          displayName: concept.name,
-                          description: concept.description,
-                          category: concept.category,
-                          masteryLevel: Math.round(concept.confidence * 25),
-                          exposureCount: 1,
-                          sessionIds: [sessionId],
-                          lastPracticed: Timestamp.now(),
-                          createdAt: Timestamp.now(),
-                          updatedAt: Timestamp.now(),
-                        });
-                      } else {
-                        const doc = existing.docs[0];
-                        const data = doc.data();
-                        await doc.ref.update({
-                          exposureCount: (data.exposureCount || 0) + 1,
-                          masteryLevel: Math.min(100, (data.masteryLevel || 0) + 5),
-                          sessionIds: [...(data.sessionIds || []), sessionId].slice(-10),
-                          lastPracticed: Timestamp.now(),
-                          updatedAt: Timestamp.now(),
-                        });
-                      }
-                    } catch (conceptErr) {
-                      console.error("Failed to save concept:", conceptErr);
+              // Update concept graph from messages (async, don't block response)
+              updateGraphFromMessage(userId, sessionId, message, "user", sessionTopic)
+                .catch((err) => console.error("Graph update failed for user message:", err));
+
+              updateGraphFromMessage(userId, sessionId, fullResponse, "assistant", sessionTopic)
+                .catch((err) => console.error("Graph update failed for assistant message:", err));
+
+              // Update path progress if session is following a path (async)
+              if (sessionData?.pathId) {
+                progressTracker
+                  .updateProgressFromSession(userId, sessionId)
+                  .then((result) => {
+                    if (result?.celebrationMessage) {
+                      console.log("Progress update:", result.celebrationMessage);
+                      // TODO: Send celebration message to client via WebSocket or similar
                     }
-                  }
-                }
-              }).catch((err) => console.error("Concept extraction failed:", err));
+                  })
+                  .catch((err) => console.error("Progress tracking failed:", err));
+              }
             } catch (dbError) {
               console.error("Failed to save messages to Firestore:", dbError);
               // Don't fail the response if DB save fails
