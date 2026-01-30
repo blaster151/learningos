@@ -56,21 +56,21 @@ export default function ReflectionModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-0 md:p-4">
+      <div className="bg-white dark:bg-gray-900 w-full h-full md:rounded-lg md:shadow-xl md:max-w-2xl md:w-full md:h-auto md:max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+        <div className="px-4 md:px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between sticky top-0 bg-white dark:bg-gray-900 z-10">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
               Time to Reflect
             </h2>
-            <p className="text-sm text-gray-600 mt-1">
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
               Take a moment to think about what you've learned
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
             aria-label="Close"
           >
             <svg
@@ -90,10 +90,10 @@ export default function ReflectionModal({
         </div>
 
         {/* Content */}
-        <div className="px-6 py-4 space-y-4">
+        <div className="px-4 md:px-6 py-4 space-y-4">
           {/* Prompt */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-gray-800">{prompt.promptText}</p>
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <p className="text-gray-800 dark:text-gray-200">{prompt.promptText}</p>
           </div>
 
           {/* Hints (Collapsible) */}
@@ -101,7 +101,7 @@ export default function ReflectionModal({
             <div>
               <button
                 onClick={() => setShowHints(!showHints)}
-                className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700"
+                className="flex items-center gap-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
               >
                 <svg
                   className={`w-4 h-4 transition-transform ${
@@ -123,7 +123,7 @@ export default function ReflectionModal({
               {showHints && (
                 <ul className="mt-2 space-y-1 pl-6">
                   {prompt.hints.map((hint, index) => (
-                    <li key={index} className="text-sm text-gray-600 list-disc">
+                    <li key={index} className="text-sm text-gray-600 dark:text-gray-400 list-disc">
                       {hint}
                     </li>
                   ))}
@@ -138,23 +138,23 @@ export default function ReflectionModal({
               value={content}
               onChange={(e) => setContent(e.target.value)}
               placeholder="Write your reflection here..."
-              className="w-full h-48 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              className="w-full h-48 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
               disabled={submitting}
             />
 
             {/* Word Count Progress */}
             <div className="mt-2 space-y-2">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">
+                <span className="text-gray-600 dark:text-gray-400">
                   Word count: <span className="font-medium">{wordCount}</span> / {prompt.minWords}–{prompt.maxWords}
                 </span>
                 <span
                   className={`font-medium ${
                     canSubmit
-                      ? "text-green-600"
+                      ? "text-green-600 dark:text-green-400"
                       : wordCount > prompt.maxWords
-                      ? "text-red-600"
-                      : "text-gray-500"
+                      ? "text-red-600 dark:text-red-400"
+                      : "text-gray-500 dark:text-gray-400"
                   }`}
                 >
                   {canSubmit
@@ -164,7 +164,7 @@ export default function ReflectionModal({
                     : `${prompt.minWords - wordCount} more words needed`}
                 </span>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                 <div
                   className={`h-2 rounded-full transition-all ${
                     canSubmit ? "bg-green-500" : "bg-blue-500"
@@ -177,18 +177,18 @@ export default function ReflectionModal({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+        <div className="px-4 md:px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between sticky bottom-0 bg-white dark:bg-gray-900">
           <button
             onClick={onSkip}
             disabled={submitting}
-            className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+            className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50 min-h-[44px]"
           >
             Not now
           </button>
           <button
             onClick={handleSubmit}
             disabled={!canSubmit || submitting}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium min-h-[44px]"
           >
             {submitting ? (
               <span className="flex items-center gap-2">

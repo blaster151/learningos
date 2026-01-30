@@ -14,6 +14,7 @@ interface CreateUserRequest {
 }
 
 interface UpdateUserRequest {
+  displayName?: string;
   learningGoal?: string;
   selectedTopics?: string[];
   experienceLevel?: string;
@@ -155,6 +156,7 @@ export async function PATCH(request: NextRequest) {
 
     // Only update provided fields
     const updates: Record<string, unknown> = {};
+    if (body.displayName !== undefined) updates.displayName = body.displayName;
     if (body.learningGoal !== undefined) updates.learningGoal = body.learningGoal;
     if (body.selectedTopics !== undefined) updates.selectedTopics = body.selectedTopics;
     if (body.experienceLevel !== undefined) updates.experienceLevel = body.experienceLevel;

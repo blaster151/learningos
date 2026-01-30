@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { ChatInterface, ChatMessage, SessionSummary } from "@/components/chat";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button } from "@/components/ui";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button, Skeleton, SkeletonText } from "@/components/ui";
 import { MessageCircleIcon, PlusIcon, HistoryIcon } from "@/components/icons";
 import { useAuth } from "@/lib/auth/AuthContext";
 
@@ -131,8 +131,38 @@ export default function ChatPage() {
 
   if (isLoading) {
     return (
-      <div className="h-full flex items-center justify-center">
-        <div className="animate-pulse text-gray-500">Loading chat...</div>
+      <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-900">
+        {/* Skeleton header */}
+        <div className="p-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Skeleton className="w-10 h-10 rounded-full" />
+              <div className="space-y-2">
+                <Skeleton className="w-32 h-4" />
+                <Skeleton className="w-24 h-3" />
+              </div>
+            </div>
+            <Skeleton className="w-24 h-9 rounded-md" />
+          </div>
+        </div>
+        {/* Skeleton messages */}
+        <div className="flex-1 p-4 space-y-4 overflow-hidden">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className={`flex gap-3 ${i % 2 === 0 ? "flex-row-reverse" : ""}`}>
+              <Skeleton className="w-8 h-8 rounded-full shrink-0" />
+              <div className={`max-w-[70%] space-y-2 ${i % 2 === 0 ? "items-end" : ""}`}>
+                <Skeleton className={`h-16 rounded-2xl ${i % 2 === 0 ? "w-40" : "w-64"}`} />
+              </div>
+            </div>
+          ))}
+        </div>
+        {/* Skeleton input */}
+        <div className="p-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800">
+          <div className="flex gap-3">
+            <Skeleton className="flex-1 h-11 rounded-xl" />
+            <Skeleton className="w-11 h-11 rounded-lg" />
+          </div>
+        </div>
       </div>
     );
   }

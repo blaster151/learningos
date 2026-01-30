@@ -574,37 +574,307 @@ function shouldTriggerReflection(session: Session): boolean {
 
 **Total: 17 points**
 
+### Pre-Sprint 5 Status Check
+
+**Already Implemented (leverage existing):**
+| Component | Location | Status |
+|-----------|----------|--------|
+| ErrorBoundary | `src/components/error/ErrorBoundary.tsx` | ✅ Complete |
+| Toast System | `src/components/error/Toast.tsx` | ✅ Complete (ToastProvider + useToast) |
+| Session List API | `src/app/api/sessions/route.ts` GET | ✅ Returns user sessions |
+| User Profile API | `src/lib/api/userProfile.ts` | ✅ Client functions exist |
+| Settings Page Shell | `src/app/dashboard/settings/page.tsx` | ⚠️ Display only, Edit disabled |
+| Graph Stats | `src/lib/firebase/graphData.ts` | ✅ getGraphStats() exists |
+| Reflection Stats | `src/lib/firebase/reflections.ts` | ✅ getReflectionStats() exists |
+
+**Needs Implementation:**
+- Skeleton UI components (none exist)
+- Profile update API endpoint (`PATCH /api/users`)
+- Session history UI page (`/dashboard/learn/history`)
+- Stats dashboard UI (`/dashboard/settings/stats`)
+- Mobile responsive audit + fixes
+- API error response standardization
+- Production logging abstraction
+
+---
+
 ### Day-by-Day Breakdown
 
-**Day 1: Error Handling**
-- Implement global error boundary
-- Add API error handling
-- Create error toast system
-- Set up error logging (consider Sentry)
+#### Day 1: Error Handling & Logging (TECH-01)
 
-**Day 2: Loading States**
-- Create skeleton components
-- Add loading states to all async operations
-- Implement optimistic updates where appropriate
-- Add empty states
+**Status:** ~60% done (ErrorBoundary + Toasts exist)
 
-**Day 3: Profile & History**
-- Create SCR-PROFILE-01 (settings)
-- Create SCR-SESS-01 (history)
-- Implement profile update API
-- Build session list with search
+**Remaining Tasks:**
 
-**Day 4: Mobile & Stats**
-- Mobile responsive passes
-- Create SCR-PROFILE-02 (stats)
-- Build basic analytics display
-- Touch interaction optimization
+| Task | File(s) | Complexity | LLM Suitability |
+|------|---------|------------|-----------------|
+| Create API error helper | `src/lib/api/error.ts` | 🟢 Simple | Sonnet ✓ |
+| Standardize API route error responses | `src/app/api/**/route.ts` | 🟢 Simple | Sonnet ✓ |
+| Create logging abstraction | `src/lib/utils/logging.ts` | 🟢 Simple | Sonnet ✓ |
+| Wire toasts to auth failures | `src/lib/auth/AuthContext.tsx` | 🟡 Medium | Sonnet ✓ |
+| Wire toasts to chat/session errors | `src/components/chat/*` | 🟡 Medium | Sonnet ✓ |
+| Add Sentry integration (optional) | `src/lib/utils/logging.ts` | 🟡 Medium | Opus recommended |
 
-**Day 5: Final Polish**
-- Bug fixes from testing
-- Performance audit
-- Accessibility audit (basic)
-- Final demo preparation
+**API Error Helper Pattern:**
+```typescript
+// src/lib/api/error.ts
+export function createErrorResponse(
+  status: number,
+  code: string,
+  message: string
+) {
+  return NextResponse.json(
+    { error: { code, message, status } },
+    { status }
+  );
+}
+```
+
+**Day 1 Deliverables:**
+- [ ] `createErrorResponse` helper used across all API routes
+- [ ] `logError` abstraction with dev/prod modes
+- [ ] Auth failures show user-friendly toasts
+- [ ] Chat send failures show recovery toasts
+
+---
+
+#### Day 2: Loading States & Skeletons (TECH-02)
+
+**Status:** 0% done (no skeleton components)
+
+**Tasks:**
+
+| Task | File(s) | Complexity | LLM Suitability |
+|------|---------|------------|-----------------|
+| Create Skeleton primitives | `src/components/ui/Skeleton.tsx` | 🟢 Simple | Sonnet ✓ |
+| Create SkeletonCard | `src/components/ui/SkeletonCard.tsx` | 🟢 Simple | Sonnet ✓ |
+| Create SkeletonList | `src/components/ui/SkeletonList.tsx` | 🟢 Simple | Sonnet ✓ |
+| Add skeleton to graph loading | `src/app/dashboard/learn/page.tsx` | 🟡 Medium | Sonnet ✓ |
+| Add skeleton to chat history | `src/components/chat/ChatInterface.tsx` | 🟡 Medium | Sonnet ✓ |
+| Add empty states to lists | Various components | 🟢 Simple | Sonnet ✓ |
+| Add loading to ReflectionModal submit | `src/components/reflection/ReflectionModal.tsx` | 🟢 Simple | Sonnet ✓ |
+
+**Skeleton Component Pattern:**
+```typescript
+// src/components/ui/Skeleton.tsx
+export function Skeleton({ className }: { className?: string }) {
+  return (
+    <div 
+      className={cn(
+        "animate-pulse bg-gray-200 dark:bg-gray-700 rounded",
+        className
+      )} 
+    />
+  );
+}
+
+export function SkeletonText({ lines = 3 }: { lines?: number }) {
+  return (
+    <div className="space-y-2">
+      {Array.from({ length: lines }).map((_, i) => (
+        <Skeleton 
+          key={i} 
+          className={cn("h-4", i === lines - 1 && "w-3/4")} 
+        />
+      ))}
+    </div>
+  );
+}
+```
+
+**Day 2 Deliverables:**
+- [ ] Reusable Skeleton, SkeletonCard, SkeletonText, SkeletonList components
+- [ ] Graph view shows skeleton while loading
+- [ ] Chat shows skeleton for message history load
+- [ ] All lists have empty states ("No sessions yet", "No concepts found")
+- [ ] ReflectionModal shows "Submitting..." state
+
+---
+
+#### Day 3: Profile & Session History (STORY-603, STORY-701)
+
+**Status:** Session API exists; Settings page is display-only
+
+**Tasks:**
+
+| Task | File(s) | Complexity | LLM Suitability |
+|------|---------|------------|-----------------|
+| Add PATCH endpoint for profile | `src/app/api/users/route.ts` | 🟡 Medium | Sonnet ✓ |
+| Create profile edit form | `src/app/dashboard/settings/page.tsx` | 🟡 Medium | Sonnet ✓ |
+| Add useUserProfile hook | `src/lib/hooks/useUserProfile.ts` | 🟡 Medium | Sonnet ✓ |
+| Create session history page | `src/app/dashboard/learn/history/page.tsx` | 🟡 Medium | Sonnet ✓ |
+| Create SessionCard component | `src/components/dashboard/SessionCard.tsx` | 🟢 Simple | Sonnet ✓ |
+| Add session search/filter | `src/app/dashboard/learn/history/page.tsx` | 🟡 Medium | Opus recommended |
+| Wire "Resume Session" action | `src/components/dashboard/SessionCard.tsx` | 🟡 Medium | Sonnet ✓ |
+
+**Profile Update Fields:**
+```typescript
+interface ProfileUpdateData {
+  displayName?: string;
+  learningGoal?: string;
+  selectedTopics?: string[];
+  preferredPace?: "slow" | "moderate" | "fast";
+  notificationsEnabled?: boolean;
+}
+```
+
+**Session History UI:**
+```
+/dashboard/learn/history
+├── Search bar (topic, date range)
+├── Filter chips (active, completed, all)
+└── SessionCard list
+    ├── Topic + Goal
+    ├── Date + Duration
+    ├── Concepts covered (tags)
+    └── [Resume] [View Summary] buttons
+```
+
+**Day 3 Deliverables:**
+- [ ] User can edit display name, goal, topics, pace
+- [ ] Profile changes persist via PATCH /api/users
+- [ ] Session history page at `/dashboard/learn/history`
+- [ ] Sessions filterable by status
+- [ ] "Resume" navigates to chat with session context
+
+---
+
+#### Day 4: Stats Dashboard & Mobile (STORY-602, TECH-03)
+
+**Status:** Stats APIs exist; no UI; mobile untested
+
+**Tasks:**
+
+| Task | File(s) | Complexity | LLM Suitability |
+|------|---------|------------|-----------------|
+| Create stats dashboard page | `src/app/dashboard/settings/stats/page.tsx` | 🟡 Medium | Sonnet ✓ |
+| Create StatCard component | `src/components/dashboard/StatCard.tsx` | 🟢 Simple | Sonnet ✓ |
+| Aggregate learning stats API | `src/app/api/stats/learning/route.ts` | 🟡 Medium | Opus recommended |
+| Mobile audit: navigation | `src/components/dashboard/DashboardShell.tsx` | 🟡 Medium | Sonnet ✓ |
+| Mobile audit: graph controls | `src/components/graph/GraphControls.tsx` | 🟢 Simple | Sonnet ✓ |
+| Mobile audit: chat interface | `src/components/chat/ChatInterface.tsx` | 🟡 Medium | Sonnet ✓ |
+| Mobile audit: reflection modal | `src/components/reflection/ReflectionModal.tsx` | 🟢 Simple | Sonnet ✓ |
+| Touch target optimization | Various components | 🟢 Simple | Sonnet ✓ |
+
+**Stats to Display:**
+```typescript
+interface LearningStats {
+  // From graphData.getGraphStats()
+  totalConcepts: number;
+  masteryDistribution: Record<MasteryLevel, number>;
+  domainCounts: Record<string, number>;
+  
+  // From reflections.getReflectionStats()
+  totalReflections: number;
+  averageScore: number;
+  levelUpsFromReflections: number;
+  
+  // From user profile / sessions
+  totalSessions: number;
+  totalMessages: number;
+  streak: number;
+  
+  // Computed
+  learningVelocity: number; // concepts per week
+  mostActiveDay: string;
+}
+```
+
+**Mobile Responsive Checklist:**
+```
+[ ] Sidebar collapses to hamburger menu on mobile
+[ ] Graph controls stack vertically or collapse to menu
+[ ] Chat input stays fixed at bottom
+[ ] Reflection modal is full-screen on mobile
+[ ] All touch targets >= 44x44px
+[ ] No horizontal scroll on any page
+```
+
+**Day 4 Deliverables:**
+- [ ] Stats page shows concept counts, mastery breakdown, streaks
+- [ ] Simple bar/pie visualization for mastery distribution
+- [ ] All pages render correctly at 375px width
+- [ ] Navigation works via hamburger menu on mobile
+- [ ] Graph is usable on touch devices
+
+---
+
+#### Day 5: Integration, QA & Launch Prep
+
+**Tasks:**
+
+| Task | Complexity | LLM Suitability |
+|------|------------|-----------------|
+| Run full test suite, fix regressions | 🟡 Medium | Opus recommended |
+| Add integration tests for new pages | 🟡 Medium | Sonnet ✓ |
+| Performance audit (Lighthouse) | 🟢 Simple | Human review |
+| Accessibility audit (basic) | 🟢 Simple | Human review |
+| Update README with new features | 🟢 Simple | Sonnet ✓ |
+| Create CHANGELOG for sprint | 🟢 Simple | Sonnet ✓ |
+| Final demo walkthrough | N/A | Human |
+
+**Day 5 Deliverables:**
+- [ ] All tests passing (unit + E2E)
+- [ ] Lighthouse performance score > 80
+- [ ] No critical accessibility issues
+- [ ] Documentation updated
+- [ ] Demo-ready application
+
+---
+
+### Sprint 5 Implementation Priority Order
+
+**Phase 1 (P0 - Must Have):**
+1. TECH-01: Error handling polish (Day 1) - 60% done
+2. TECH-02: Skeletons + loading states (Day 2) - 0% done
+3. TECH-03: Mobile responsive (Day 4) - untested
+
+**Phase 2 (P1 - Should Have):**
+4. STORY-603: Profile editing (Day 3) - shell exists
+5. STORY-701: Session history (Day 3) - API exists
+
+**Phase 3 (P2 - Nice to Have):**
+6. STORY-602: Stats dashboard (Day 4) - APIs exist, no UI
+
+---
+
+### Task Complexity Legend for LLM Delegation
+
+| Symbol | Complexity | Description | Recommended LLM |
+|--------|------------|-------------|-----------------|
+| 🟢 | Simple | Single file, clear pattern, < 100 lines | Sonnet 3.5 |
+| 🟡 | Medium | Multiple files, some integration, < 300 lines | Sonnet 3.5 or Opus |
+| 🔴 | Complex | Cross-cutting, architecture decisions, debugging | Opus 4 |
+
+**Sonnet-Friendly Tasks (can batch):**
+- All skeleton components (copy existing Button/Card patterns)
+- API error helper (simple utility)
+- StatCard, SessionCard components
+- Empty state components
+- Mobile CSS fixes (Tailwind responsive classes)
+- Basic form fields for profile edit
+
+**Opus-Recommended Tasks:**
+- Stats aggregation API (needs to combine multiple services)
+- Session search/filter with debounce + URL state
+- Test debugging / integration issues
+- Sentry integration with proper error classification
+
+---
+
+### Sprint 5 Dependencies
+
+```
+TECH-01 ─────┐
+             ├──► Day 5 (all P0 done → QA)
+TECH-02 ─────┤
+             │
+TECH-03 ─────┘
+             
+STORY-603 ──► STORY-602 (profile enables viewing stats)
+             
+STORY-701 (independent, can parallelize with STORY-603)
+```
 
 ### Sprint 5 Deliverables
 

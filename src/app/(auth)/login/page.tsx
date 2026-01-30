@@ -3,14 +3,14 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useAuth } from "@/lib/auth/AuthContext";
+import { useAuthWithToast } from "@/lib/hooks";
 import { createUserProfile, checkOnboardingStatus } from "@/lib/api/userProfile";
 import { Button, Input, Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui";
 import { GoogleIcon, EmailIcon, LockIcon, EyeIcon, EyeOffIcon, BrainIcon, AlertCircleIcon } from "@/components/icons";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { signIn, signInWithGoogle, error, clearError } = useAuth();
+  const { signIn, signInWithGoogle, error, clearError } = useAuthWithToast();
 
   // Form state
   const [email, setEmail] = useState("");

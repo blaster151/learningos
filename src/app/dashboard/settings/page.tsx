@@ -1,12 +1,86 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button } from "@/components/ui";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button, Input } from "@/components/ui";
+import { Spinner } from "@/components/ui/Spinner";
 import { SettingsIcon, UserIcon, LogOutIcon } from "@/components/icons";
 import Image from "next/image";
+import Link from "next/link";
+
+interface ProfileData {
+  displayName: string;
+  learningGoal: string;
+  preferredPace: "slow" | "moderate" | "fast";
+}
 
 export default function SettingsPage() {
   const { user, signOut } = useAuth();
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [formData, setFormData] = useState<ProfileData>({
+    displayName: "",
+    learningGoal: "",
+    preferredPace: "moderate",
+  });
+  const [originalData, setOriginalData] = useState<ProfileData | null>(null);
+
+  useEffect(() => {
+    if (user) {
+      loadProfile();
+    }
+  }, [user]);
+
+  const loadProfile = async () => {
+    try {
+      const response = await fetch(`/api/users?userId=${user?.uid}`);
+      if (response.ok) {
+        const data = await response.json();
+        const profile = {
+          displayName: data.user?.displayName || user?.displayName || "",
+          learningGoal: data.user?.learningGoal || "",
+          preferredPace: data.user?.preferredPace || "moderate",
+        };
+        setFormData(profile);
+        setOriginalData(profile);
+      }
+    } catch (error) {
+      console.error("Failed to load profile:", error);
+    }
+  };
+
+  const handleSave = async () => {
+    try {
+      setIsSaving(true);
+      const response = await fetch(`/api/users?userId=${user?.uid}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          displayName: formData.displayName,
+          learningGoal: formData.learningGoal,
+          preferredPace: formData.preferredPace,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to save profile");
+      }
+
+      setOriginalData(formData);
+      setIsEditing(false);
+    } catch (error) {
+      console.error("Failed to save profile:", error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    if (originalData) {
+      setFormData(originalData);
+    }
+    setIsEditing(false);
+  };
 
   const handleSignOut = async () => {
     try {
@@ -54,12 +128,86 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-              <Button variant="outline" disabled>
-                Edit Profile
-              </Button>
-            </div>
+            {isEditing ? (
+              <div className="pt-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Display Name
+                  </label>
+                  <Input
+                    value={formData.displayName}
+                    onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
+                    placeholder="Your name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Learning Goal
+                  </label>
+                  <textarea
+                    value={formData.learningGoal}
+                    onChange={(e) => setFormData({ ...formData, learningGoal: e.target.value })}
+                    placeholder="What do you want to learn?"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    rows={3}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Preferred Pace
+                  </label>
+                  <select
+                    value={formData.preferredPace}
+                    onChange={(e) => setFormData({ ...formData, preferredPace: e.target.value as ProfileData["preferredPace"] })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="slow">Slow - Take my time</option>
+                    <option value="moderate">Moderate - Balanced approach</option>
+                    <option value="fast">Fast - Move quickly</option>
+                  </select>
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={handleSave} disabled={isSaving}>
+                    {isSaving ? (
+                      <>
+                        <Spinner className="w-4 h-4 mr-2" />
+                        Saving...
+                      </>
+                    ) : (
+                      "Save Changes"
+                    )}
+                  </Button>
+                  <Button variant="outline" onClick={handleCancel} disabled={isSaving}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+                <Button variant="outline" onClick={() => setIsEditing(true)}>
+                  Edit Profile
+                </Button>
+              </div>
+            )}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Stats Link */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <SettingsIcon className="w-6 h-6" />
+            Learning Stats
+          </CardTitle>
+          <CardDescription>
+            View your learning progress and achievements
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link href="/dashboard/settings/stats">
+            <Button variant="outline">View Stats</Button>
+          </Link>
         </CardContent>
       </Card>
 

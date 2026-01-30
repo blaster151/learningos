@@ -454,8 +454,8 @@ export function ChatInterface({
         <div ref={messagesEndRef} aria-hidden="true" />
       </div>
 
-      {/* Input Area */}
-      <div className="border-t border-gray-200 dark:border-gray-800 p-3 sm:p-4 bg-white dark:bg-gray-900 shadow-lg">
+      {/* Input Area - sticky for mobile keyboard handling */}
+      <div className="border-t border-gray-200 dark:border-gray-800 p-3 sm:p-4 bg-white dark:bg-gray-900 shadow-lg sticky bottom-0 safe-area-inset-bottom">
         <div className="flex gap-2 sm:gap-3 max-w-4xl mx-auto">
           <div className="flex-1 relative">
             <textarea
@@ -465,10 +465,11 @@ export function ChatInterface({
               onKeyDown={handleKeyDown}
               placeholder="Ask me anything..."
               rows={1}
-              className="w-full resize-none rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base text-gray-900 dark:text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              className="w-full resize-none rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 sm:px-4 py-2.5 sm:py-3 text-base sm:text-base text-gray-900 dark:text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               disabled={isLoading}
               aria-label="Message input"
               maxLength={2000}
+              style={{ fontSize: "16px" }} // Prevents iOS zoom on focus
             />
             {input.length > 1800 && (
               <span className="absolute bottom-2 right-2 text-xs text-gray-400" aria-live="polite">
@@ -479,7 +480,7 @@ export function ChatInterface({
           <Button
             onClick={handleSend}
             disabled={!input.trim() || isLoading}
-            className="px-3 sm:px-4 h-10 sm:h-11 shrink-0"
+            className="px-3 sm:px-4 min-w-[44px] min-h-[44px] h-10 sm:h-11 shrink-0"
             aria-label="Send message"
             title="Send message (Enter)"
           >

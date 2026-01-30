@@ -14,10 +14,10 @@ export default function GraphControls({
   onResetView,
 }: GraphControlsProps) {
   return (
-    <div className="absolute bottom-4 right-4 flex flex-col gap-2 bg-white rounded-lg shadow-lg p-2">
+    <div className="absolute bottom-4 right-4 flex flex-col gap-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-2">
       <button
         onClick={onZoomIn}
-        className="p-2 hover:bg-gray-100 rounded transition-colors"
+        className="p-3 md:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
         title="Zoom In (+ key)"
         aria-label="Zoom in"
       >
@@ -38,7 +38,7 @@ export default function GraphControls({
 
       <button
         onClick={onZoomOut}
-        className="p-2 hover:bg-gray-100 rounded transition-colors"
+        className="p-3 md:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
         title="Zoom Out (- key)"
         aria-label="Zoom out"
       >
@@ -57,11 +57,11 @@ export default function GraphControls({
         </svg>
       </button>
 
-      <div className="border-t border-gray-200 my-1" />
+      <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
 
       <button
         onClick={onFitToScreen}
-        className="p-2 hover:bg-gray-100 rounded transition-colors"
+        className="p-3 md:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
         title="Fit to Screen"
         aria-label="Fit to screen"
       >
@@ -82,7 +82,7 @@ export default function GraphControls({
 
       <button
         onClick={onResetView}
-        className="p-2 hover:bg-gray-100 rounded transition-colors"
+        className="p-3 md:p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
         title="Reset View"
         aria-label="Reset view"
       >
@@ -101,7 +101,7 @@ export default function GraphControls({
         </svg>
       </button>
 
-      <div className="text-xs text-gray-500 px-2 py-1 text-center border-t border-gray-200 mt-1">
+      <div className="hidden md:block text-xs text-gray-500 dark:text-gray-400 px-2 py-1 text-center border-t border-gray-200 dark:border-gray-700 mt-1">
         <div>+/- Zoom</div>
         <div>Drag to pan</div>
       </div>
