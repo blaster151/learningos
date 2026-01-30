@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAuth } from "@/lib/hooks/useAuth";
+import { useAuth } from "@/lib/auth/AuthContext";
+import { authFetch } from "@/lib/api/authFetch";
 import { PathCard, ProgressRing } from "@/components/learning";
 import type { LearningPath } from "@/types";
 
@@ -27,7 +28,8 @@ export default function LearnPage() {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch("/api/paths");
+      if (!user) return;
+      const response = await authFetch(user, "/api/paths");
       if (!response.ok) {
         throw new Error("Failed to load paths");
       }
@@ -58,7 +60,8 @@ export default function LearnPage() {
     try {
       setGenerating(true);
       setError(null);
-      const response = await fetch("/api/paths/generate", {
+      if (!user) return;
+      const response = await authFetch(user, "/api/paths/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ goal: goalInput }),
@@ -80,7 +83,8 @@ export default function LearnPage() {
 
   const handleAcceptPath = async (pathId: string) => {
     try {
-      const response = await fetch(`/api/paths/${pathId}`, {
+      if (!user) return;
+      const response = await authFetch(user, `/api/paths/${pathId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "accept" }),
@@ -98,7 +102,8 @@ export default function LearnPage() {
 
   const handleAbandonPath = async (pathId: string) => {
     try {
-      const response = await fetch(`/api/paths/${pathId}`, {
+      if (!user) return;
+      const response = await authFetch(user, `/api/paths/${pathId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "abandon" }),

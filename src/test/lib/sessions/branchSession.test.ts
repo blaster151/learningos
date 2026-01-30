@@ -135,7 +135,7 @@ describe('Session Branching', () => {
           status: 'active',
         })
       );
-      expect(result.id).toBe('parent-123');
+      expect(result.sessionId).toBe('parent-123');
     });
 
     it('should throw error if session is not a branch', async () => {

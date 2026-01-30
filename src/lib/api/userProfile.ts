@@ -2,6 +2,7 @@
 // Client-side functions for interacting with user profile endpoints
 
 import type { User } from "firebase/auth";
+import { authFetch } from "@/lib/api/authFetch";
 
 // ===================================
 // Types
@@ -37,7 +38,7 @@ export interface OnboardingData {
  * Create or update user profile after authentication
  */
 export async function createUserProfile(user: User): Promise<{ isNew: boolean }> {
-  const response = await fetch("/api/users", {
+  const response = await authFetch(user, "/api/users", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -59,8 +60,8 @@ export async function createUserProfile(user: User): Promise<{ isNew: boolean }>
 /**
  * Get user profile by ID
  */
-export async function getUserProfile(userId: string): Promise<UserProfileResponse | null> {
-  const response = await fetch(`/api/users?userId=${userId}`);
+export async function getUserProfile(user: User): Promise<UserProfileResponse | null> {
+  const response = await authFetch(user, `/api/users?userId=${user.uid}`);
 
   if (response.status === 404) {
     return null;
@@ -79,10 +80,10 @@ export async function getUserProfile(userId: string): Promise<UserProfileRespons
  * Complete user onboarding
  */
 export async function completeOnboarding(
-  userId: string,
+  user: User,
   data: OnboardingData
 ): Promise<void> {
-  const response = await fetch(`/api/users/onboarding?userId=${userId}`, {
+  const response = await authFetch(user, `/api/users/onboarding?userId=${user.uid}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -98,9 +99,9 @@ export async function completeOnboarding(
  * Check if user has completed onboarding
  */
 export async function checkOnboardingStatus(
-  userId: string
+  user: User
 ): Promise<{ exists: boolean; onboardingCompleted: boolean }> {
-  const response = await fetch(`/api/users/onboarding?userId=${userId}`);
+  const response = await authFetch(user, `/api/users/onboarding?userId=${user.uid}`);
 
   if (!response.ok) {
     const error = await response.json();
@@ -114,10 +115,10 @@ export async function checkOnboardingStatus(
  * Update user profile
  */
 export async function updateUserProfile(
-  userId: string,
+  user: User,
   updates: Partial<OnboardingData>
 ): Promise<void> {
-  const response = await fetch(`/api/users?userId=${userId}`, {
+  const response = await authFetch(user, `/api/users?userId=${user.uid}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(updates),

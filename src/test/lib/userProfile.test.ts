@@ -36,20 +36,25 @@ describe('User Profile API Client', () => {
         email: 'test@example.com',
         displayName: 'Test User',
         photoURL: 'https://example.com/photo.jpg',
-      } as import('firebase/auth').User;
+        getIdToken: vi.fn().mockResolvedValue('test-token'),
+      } as unknown as import('firebase/auth').User;
 
       const result = await createUserProfile(mockUser);
 
-      expect(mockFetch).toHaveBeenCalledWith('/api/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const [url, init] = mockFetch.mock.calls[0];
+      expect(url).toBe('/api/users');
+      expect(init.method).toBe('POST');
+      expect(init.body).toBe(
+        JSON.stringify({
           userId: 'test-123',
           email: 'test@example.com',
           displayName: 'Test User',
           photoURL: 'https://example.com/photo.jpg',
-        }),
-      });
+        })
+      );
+      expect(init.headers.get('Authorization')).toBe('Bearer test-token');
+      expect(init.headers.get('Content-Type')).toBe('application/json');
       expect(result.isNew).toBe(true);
     });
 
@@ -66,7 +71,8 @@ describe('User Profile API Client', () => {
         email: 'test@example.com',
         displayName: null,
         photoURL: null,
-      } as import('firebase/auth').User;
+        getIdToken: vi.fn().mockResolvedValue('test-token'),
+      } as unknown as import('firebase/auth').User;
 
       await expect(createUserProfile(mockUser)).rejects.toThrow();
     });
@@ -87,10 +93,18 @@ describe('User Profile API Client', () => {
       });
 
       const { getUserProfile } = await import('@/lib/api/userProfile');
-      
-      const result = await getUserProfile('test-123');
 
-      expect(mockFetch).toHaveBeenCalledWith('/api/users?userId=test-123');
+      const mockUser = {
+        uid: 'test-123',
+        getIdToken: vi.fn().mockResolvedValue('test-token'),
+      } as unknown as import('firebase/auth').User;
+      
+      const result = await getUserProfile(mockUser);
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const [url, init] = mockFetch.mock.calls[0];
+      expect(url).toBe('/api/users?userId=test-123');
+      expect(init.headers.get('Authorization')).toBe('Bearer test-token');
       expect(result?.userId).toBe('test-123');
       expect(result?.learningGoal).toBe('Learn TypeScript');
     });
@@ -102,8 +116,13 @@ describe('User Profile API Client', () => {
       });
 
       const { getUserProfile } = await import('@/lib/api/userProfile');
+
+      const mockUser = {
+        uid: 'non-existent',
+        getIdToken: vi.fn().mockResolvedValue('test-token'),
+      } as unknown as import('firebase/auth').User;
       
-      const result = await getUserProfile('non-existent');
+      const result = await getUserProfile(mockUser);
 
       expect(result).toBeNull();
     });
@@ -117,26 +136,32 @@ describe('User Profile API Client', () => {
       });
 
       const { completeOnboarding } = await import('@/lib/api/userProfile');
+
+      const mockUser = {
+        uid: 'test-123',
+        getIdToken: vi.fn().mockResolvedValue('test-token'),
+      } as unknown as import('firebase/auth').User;
       
-      await completeOnboarding('test-123', {
+      await completeOnboarding(mockUser, {
         learningGoal: 'Master JavaScript',
         experienceLevel: 'intermediate',
         selectedTopics: ['javascript', 'typescript'],
         preferredPace: 'moderate',
       });
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        '/api/users/onboarding?userId=test-123',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            learningGoal: 'Master JavaScript',
-            experienceLevel: 'intermediate',
-            selectedTopics: ['javascript', 'typescript'],
-            preferredPace: 'moderate',
-          }),
-        }
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const [url, init] = mockFetch.mock.calls[0];
+      expect(url).toBe('/api/users/onboarding?userId=test-123');
+      expect(init.method).toBe('POST');
+      expect(init.headers.get('Authorization')).toBe('Bearer test-token');
+      expect(init.headers.get('Content-Type')).toBe('application/json');
+      expect(init.body).toBe(
+        JSON.stringify({
+          learningGoal: 'Master JavaScript',
+          experienceLevel: 'intermediate',
+          selectedTopics: ['javascript', 'typescript'],
+          preferredPace: 'moderate',
+        })
       );
     });
   });
@@ -152,10 +177,18 @@ describe('User Profile API Client', () => {
       });
 
       const { checkOnboardingStatus } = await import('@/lib/api/userProfile');
-      
-      const result = await checkOnboardingStatus('test-123');
 
-      expect(mockFetch).toHaveBeenCalledWith('/api/users/onboarding?userId=test-123');
+      const mockUser = {
+        uid: 'test-123',
+        getIdToken: vi.fn().mockResolvedValue('test-token'),
+      } as unknown as import('firebase/auth').User;
+      
+      const result = await checkOnboardingStatus(mockUser);
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const [url, init] = mockFetch.mock.calls[0];
+      expect(url).toBe('/api/users/onboarding?userId=test-123');
+      expect(init.headers.get('Authorization')).toBe('Bearer test-token');
       expect(result.exists).toBe(true);
       expect(result.onboardingCompleted).toBe(true);
     });
@@ -170,8 +203,13 @@ describe('User Profile API Client', () => {
       });
 
       const { checkOnboardingStatus } = await import('@/lib/api/userProfile');
+
+      const mockUser = {
+        uid: 'new-user',
+        getIdToken: vi.fn().mockResolvedValue('test-token'),
+      } as unknown as import('firebase/auth').User;
       
-      const result = await checkOnboardingStatus('new-user');
+      const result = await checkOnboardingStatus(mockUser);
 
       expect(result.onboardingCompleted).toBe(false);
     });
@@ -185,18 +223,23 @@ describe('User Profile API Client', () => {
       });
 
       const { updateUserProfile } = await import('@/lib/api/userProfile');
+
+      const mockUser = {
+        uid: 'test-123',
+        getIdToken: vi.fn().mockResolvedValue('test-token'),
+      } as unknown as import('firebase/auth').User;
       
-      await updateUserProfile('test-123', {
+      await updateUserProfile(mockUser, {
         learningGoal: 'Updated Goal',
       });
 
-      expect(mockFetch).toHaveBeenCalledWith('/api/users?userId=test-123', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          learningGoal: 'Updated Goal',
-        }),
-      });
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const [url, init] = mockFetch.mock.calls[0];
+      expect(url).toBe('/api/users?userId=test-123');
+      expect(init.method).toBe('PATCH');
+      expect(init.headers.get('Authorization')).toBe('Bearer test-token');
+      expect(init.headers.get('Content-Type')).toBe('application/json');
+      expect(init.body).toBe(JSON.stringify({ learningGoal: 'Updated Goal' }));
     });
   });
 });

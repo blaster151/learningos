@@ -58,7 +58,7 @@ describe('ProgressRing', () => {
       <ProgressRing progress={40} className="custom-class" />
     );
 
-    const wrapper = container.firstChild;
+    const wrapper = container.firstChild as HTMLElement;
     expect(wrapper?.className).toContain('custom-class');
   });
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { authFetch } from "@/lib/api/authFetch";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui";
 import { BrainIcon, CheckIcon } from "@/components/icons";
 
@@ -139,12 +140,11 @@ export function LearningProgress() {
 
     try {
       const params = new URLSearchParams({
-        userId: user.uid,
         sortBy,
         limit: "100",
       });
 
-      const response = await fetch(`/api/concepts?${params}`);
+      const response = await authFetch(user, `/api/concepts?${params}`);
       if (response.ok) {
         const data = await response.json();
         setConcepts(data.concepts || []);

@@ -31,6 +31,35 @@ vi.mock('@/lib/ai/pathGeneration', () => ({
   generateLearningPath: vi.fn(),
 }));
 
+// Mock server auth to avoid Firebase Admin dependency
+vi.mock('@/lib/auth/serverAuth', () => {
+  class AuthError extends Error {
+    status: number;
+    constructor(message: string, status: number) {
+      super(message);
+      this.status = status;
+    }
+  }
+
+  return {
+    requireAuthUser: vi.fn(async () => ({ uid: 'user-123', email: 'user-123@example.com' })),
+    assertSameUser: (requestedUserId: string | null | undefined, authedUserId: string) => {
+      if (!requestedUserId) return;
+      if (requestedUserId !== authedUserId) throw new AuthError('Forbidden', 403);
+    },
+    AuthError,
+    authErrorResponse: (error: unknown) => {
+      if (error instanceof AuthError) {
+        return new Response(JSON.stringify({ error: error.message }), {
+          status: error.status,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      return null;
+    },
+  };
+});
+
 import { GET as getPathsList } from '@/app/api/paths/route';
 import { POST as generatePath } from '@/app/api/paths/generate/route';
 import { GET as getPathDetail, PATCH as updatePath } from '@/app/api/paths/[pathId]/route';
@@ -76,12 +105,18 @@ describe('Paths API Routes', () => {
       expect(data.paths[0].status).toBe('active');
     });
 
-    it('should require userId parameter', async () => {
+    it('should allow omitting userId parameter', async () => {
+      const mockPaths = [{ pathId: 'p1', title: 'Path 1', status: 'active' }];
+      vi.mocked(pathsService.getUserPaths).mockResolvedValue(mockPaths as any);
+
       const request = new NextRequest('http://localhost:3000/api/paths');
 
       const response = await getPathsList(request);
+      const data = await response.json();
 
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(200);
+      expect(data.paths).toHaveLength(1);
+      expect(pathsService.getUserPaths).toHaveBeenCalledWith('user-123', undefined);
     });
   });
 
@@ -167,7 +202,7 @@ describe('Paths API Routes', () => {
 
       const request = new NextRequest('http://localhost:3000/api/paths/path-123?userId=user-123');
 
-      const response = await getPathDetail(request, { params: { pathId: 'path-123' } });
+      const response = await getPathDetail(request, { params: Promise.resolve({ pathId: 'path-123' }) });
       const data = await response.json();
 
       expect(response.status).toBe(200);
@@ -179,7 +214,7 @@ describe('Paths API Routes', () => {
 
       const request = new NextRequest('http://localhost:3000/api/paths/fake-id?userId=user-123');
 
-      const response = await getPathDetail(request, { params: { pathId: 'fake-id' } });
+      const response = await getPathDetail(request, { params: Promise.resolve({ pathId: 'fake-id' }) });
 
       expect(response.status).toBe(404);
     });
@@ -197,7 +232,7 @@ describe('Paths API Routes', () => {
         body: JSON.stringify({ userId: 'user-123', action: 'accept' }),
       });
 
-      const response = await updatePath(request, { params: { pathId: 'path-123' } });
+      const response = await updatePath(request, { params: Promise.resolve({ pathId: 'path-123' }) });
 
       expect(response.status).toBe(200);
       expect(pathsService.acceptPath).toHaveBeenCalledWith('user-123', 'path-123');
@@ -214,7 +249,7 @@ describe('Paths API Routes', () => {
         body: JSON.stringify({ userId: 'user-123', action: 'abandon' }),
       });
 
-      const response = await updatePath(request, { params: { pathId: 'path-123' } });
+      const response = await updatePath(request, { params: Promise.resolve({ pathId: 'path-123' }) });
 
       expect(response.status).toBe(200);
       expect(pathsService.abandonPath).toHaveBeenCalledWith('user-123', 'path-123');
@@ -229,7 +264,7 @@ describe('Paths API Routes', () => {
         body: JSON.stringify({ userId: 'user-123', action: 'invalid' }),
       });
 
-      const response = await updatePath(request, { params: { pathId: 'path-123' } });
+      const response = await updatePath(request, { params: Promise.resolve({ pathId: 'path-123' }) });
 
       expect(response.status).toBe(400);
     });

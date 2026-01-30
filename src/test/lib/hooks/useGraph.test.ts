@@ -12,17 +12,21 @@ import type { GraphData, GraphFilters } from "@/types";
 global.fetch = vi.fn();
 
 describe("useGraph", () => {
+  const mockUser = {
+    uid: "user-123",
+    getIdToken: vi.fn().mockResolvedValue("test-token"),
+  } as any;
+
   const mockGraphData: GraphData = {
     nodes: [
       {
         id: "concept-1",
         name: "JavaScript",
         displayName: "JavaScript",
-        mastery: 0.7,
+        mastery: "practicing",
         domain: "Programming",
         size: 10,
         color: "#10b981",
-        conceptCount: 5,
       },
     ],
     links: [],
@@ -51,7 +55,7 @@ describe("useGraph", () => {
   });
 
   it("initializes with default state", () => {
-    const { result } = renderHook(() => useGraph({ userId: "user-123" }));
+    const { result } = renderHook(() => useGraph({ user: mockUser }));
 
     expect(result.current.graphData).toBeNull();
     expect(result.current.filters).toEqual({
@@ -65,7 +69,7 @@ describe("useGraph", () => {
   });
 
   it("fetches graph data on mount", async () => {
-    const { result } = renderHook(() => useGraph({ userId: "user-123" }));
+    const { result } = renderHook(() => useGraph({ user: mockUser }));
 
     await waitFor(() => {
       expect(result.current.loading).toBe(false);
@@ -77,7 +81,7 @@ describe("useGraph", () => {
   });
 
   it("updates filters", async () => {
-    const { result } = renderHook(() => useGraph({ userId: "user-123" }));
+    const { result } = renderHook(() => useGraph({ user: mockUser }));
 
     await waitFor(() => {
       expect(result.current.loading).toBe(false);
@@ -97,7 +101,7 @@ describe("useGraph", () => {
   });
 
   it("refetches data when filters change", async () => {
-    const { result } = renderHook(() => useGraph({ userId: "user-123" }));
+    const { result } = renderHook(() => useGraph({ user: mockUser }));
 
     await waitFor(() => {
       expect(result.current.loading).toBe(false);
@@ -121,7 +125,7 @@ describe("useGraph", () => {
   it("handles fetch errors", async () => {
     (global.fetch as any).mockRejectedValue(new Error("Network error"));
 
-    const { result } = renderHook(() => useGraph({ userId: "user-123" }));
+    const { result } = renderHook(() => useGraph({ user: mockUser }));
 
     await waitFor(() => {
       expect(result.current.loading).toBe(false);
@@ -138,7 +142,7 @@ describe("useGraph", () => {
       json: async () => ({ error: "Server error" }),
     });
 
-    const { result } = renderHook(() => useGraph({ userId: "user-123" }));
+    const { result } = renderHook(() => useGraph({ user: mockUser }));
 
     await waitFor(() => {
       expect(result.current.loading).toBe(false);
@@ -148,7 +152,7 @@ describe("useGraph", () => {
   });
 
   it("sets loading state during fetch", async () => {
-    const { result } = renderHook(() => useGraph({ userId: "user-123" }));
+    const { result } = renderHook(() => useGraph({ user: mockUser }));
 
     expect(result.current.loading).toBe(true);
 
@@ -158,7 +162,7 @@ describe("useGraph", () => {
   });
 
   it("provides stats from API response", async () => {
-    const { result } = renderHook(() => useGraph({ userId: "user-123" }));
+    const { result } = renderHook(() => useGraph({ user: mockUser }));
 
     await waitFor(() => {
       expect(result.current.loading).toBe(false);
@@ -175,7 +179,7 @@ describe("useGraph", () => {
     // First call fails
     (global.fetch as any).mockRejectedValueOnce(new Error("Network error"));
 
-    const { result } = renderHook(() => useGraph({ userId: "user-123" }));
+    const { result } = renderHook(() => useGraph({ user: mockUser }));
 
     await waitFor(() => {
       expect(result.current.error).toBeTruthy();

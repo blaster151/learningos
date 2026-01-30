@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { authFetch } from "@/lib/api/authFetch";
 import { SessionCard } from "@/components/dashboard/SessionCard";
 import { SkeletonList, EmptyState } from "@/components/ui";
 import { MessageCircleIcon } from "@/components/icons";
@@ -38,7 +39,8 @@ export default function SessionHistoryPage() {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch(`/api/sessions?userId=${user?.uid}`);
+      if (!user) return;
+      const response = await authFetch(user, `/api/sessions?userId=${user.uid}`);
       if (!response.ok) {
         throw new Error("Failed to load sessions");
       }

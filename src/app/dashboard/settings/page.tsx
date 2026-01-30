@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { authFetch } from "@/lib/api/authFetch";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button, Input } from "@/components/ui";
 import { Spinner } from "@/components/ui/Spinner";
 import { SettingsIcon, UserIcon, LogOutIcon } from "@/components/icons";
@@ -33,7 +34,8 @@ export default function SettingsPage() {
 
   const loadProfile = async () => {
     try {
-      const response = await fetch(`/api/users?userId=${user?.uid}`);
+      if (!user) return;
+      const response = await authFetch(user, `/api/users?userId=${user.uid}`);
       if (response.ok) {
         const data = await response.json();
         const profile = {
@@ -52,7 +54,8 @@ export default function SettingsPage() {
   const handleSave = async () => {
     try {
       setIsSaving(true);
-      const response = await fetch(`/api/users?userId=${user?.uid}`, {
+      if (!user) return;
+      const response = await authFetch(user, `/api/users?userId=${user.uid}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

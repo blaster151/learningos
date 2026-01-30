@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAuth } from "@/lib/hooks/useAuth";
+import { useAuth } from "@/lib/auth/AuthContext";
+import { authFetch } from "@/lib/api/authFetch";
 import { ProgressRing } from "@/components/learning";
 import type { LearningPath } from "@/types";
 
@@ -17,9 +18,10 @@ export default function RecommendedPath() {
   }, [user]);
 
   const loadRecommendedPath = async () => {
+    if (!user) return;
     try {
       setLoading(true);
-      const response = await fetch("/api/paths?status=active");
+      const response = await authFetch(user, "/api/paths?status=active");
       if (response.ok) {
         const data = await response.json();
         const activePath = data.paths?.[0];
@@ -27,7 +29,7 @@ export default function RecommendedPath() {
           setPath(activePath);
         } else {
           // Try to get a suggested path
-          const suggestedResponse = await fetch("/api/paths?status=suggested");
+          const suggestedResponse = await authFetch(user, "/api/paths?status=suggested");
           if (suggestedResponse.ok) {
             const suggestedData = await suggestedResponse.json();
             setPath(suggestedData.paths?.[0] || null);

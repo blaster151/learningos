@@ -11,6 +11,11 @@ import { Timestamp } from "firebase-admin/firestore";
 import { shouldTriggerReflection } from "@/lib/reflection/shouldTriggerReflection";
 import { generateReflectionPrompt, type GeneratedPrompt } from "@/lib/ai/reflectionPrompt";
 import type { ConceptNode, LearningSession } from "@/types";
+import {
+  assertSameUser,
+  authErrorResponse,
+  requireAuthUser,
+} from "@/lib/auth/serverAuth";
 
 // ===================================
 // Types
@@ -28,15 +33,12 @@ interface ReflectionPromptResponse {
 
 export async function GET(request: NextRequest) {
   try {
-    const userId = request.nextUrl.searchParams.get("userId");
+    const authed = await requireAuthUser(request);
+    const requestedUserId = request.nextUrl.searchParams.get("userId");
     const sessionId = request.nextUrl.searchParams.get("sessionId");
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: "userId is required" },
-        { status: 400 }
-      );
-    }
+    assertSameUser(requestedUserId, authed.uid);
+    const userId = authed.uid;
 
     if (!sessionId) {
       return NextResponse.json(
@@ -63,6 +65,10 @@ export async function GET(request: NextRequest) {
     }
 
     const sessionData = sessionDoc.data();
+
+    if (sessionData?.userId !== userId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
     const session: LearningSession = {
       sessionId: sessionDoc.id,
       userId: sessionData?.userId,
@@ -199,6 +205,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(response);
   } catch (error) {
+    const authRes = authErrorResponse(error);
+    if (authRes) return authRes;
     console.error("Error generating reflection prompt:", error);
     return NextResponse.json(
       { error: "Failed to generate reflection prompt" },

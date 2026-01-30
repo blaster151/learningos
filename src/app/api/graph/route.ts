@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { conceptsService } from "@/lib/firebase/concepts";
 import { relationsService } from "@/lib/firebase/conceptRelations";
 import type { MasteryLevel } from "@/types";
+import {
+  assertSameUser,
+  authErrorResponse,
+  requireAuthUser,
+} from "@/lib/auth/serverAuth";
 
 // ===================================
 // GET - Get user's concept graph
@@ -9,14 +14,14 @@ import type { MasteryLevel } from "@/types";
 
 export async function GET(request: NextRequest) {
   try {
+    const authed = await requireAuthUser(request);
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get("userId");
+    const requestedUserId = searchParams.get("userId");
     const domain = searchParams.get("domain");
     const minMastery = searchParams.get("minMastery") as MasteryLevel | null;
 
-    if (!userId) {
-      return NextResponse.json({ error: "userId is required" }, { status: 400 });
-    }
+    assertSameUser(requestedUserId, authed.uid);
+    const userId = authed.uid;
 
     // Build filters
     const filters: Parameters<typeof conceptsService.getUserConcepts>[1] = {};
@@ -58,6 +63,8 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
+    const authRes = authErrorResponse(error);
+    if (authRes) return authRes;
     console.error("Error fetching concept graph:", error);
     return NextResponse.json(
       { error: "Failed to fetch concept graph" },

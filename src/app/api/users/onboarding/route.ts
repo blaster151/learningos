@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebase/admin";
+import {
+  assertSameUser,
+  authErrorResponse,
+  requireAuthUser,
+} from "@/lib/auth/serverAuth";
 
 // ===================================
 // Types
@@ -18,16 +23,13 @@ interface OnboardingData {
 
 export async function POST(request: NextRequest) {
   try {
+    const authed = await requireAuthUser(request);
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get("userId");
+    const requestedUserId = searchParams.get("userId");
     const body: OnboardingData = await request.json();
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: "userId is required" },
-        { status: 400 }
-      );
-    }
+    assertSameUser(requestedUserId, authed.uid);
+    const userId = authed.uid;
 
     const { learningGoal, experienceLevel, selectedTopics, preferredPace } = body;
 
@@ -65,6 +67,8 @@ export async function POST(request: NextRequest) {
       userId,
     });
   } catch (error) {
+    const authRes = authErrorResponse(error);
+    if (authRes) return authRes;
     console.error("Error completing onboarding:", error);
     return NextResponse.json(
       { error: "Failed to complete onboarding" },
@@ -79,15 +83,11 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    const authed = await requireAuthUser(request);
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get("userId");
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: "userId is required" },
-        { status: 400 }
-      );
-    }
+    const requestedUserId = searchParams.get("userId");
+    assertSameUser(requestedUserId, authed.uid);
+    const userId = authed.uid;
 
     const db = await getAdminDb();
     const userRef = db.collection("users").doc(userId);
@@ -106,6 +106,8 @@ export async function GET(request: NextRequest) {
       onboardingCompleted: userData?.onboardingCompleted || false,
     });
   } catch (error) {
+    const authRes = authErrorResponse(error);
+    if (authRes) return authRes;
     console.error("Error checking onboarding status:", error);
     return NextResponse.json(
       { error: "Failed to check onboarding status" },

@@ -217,8 +217,6 @@ export async function extractConceptsFromConversation(
   const seenNames = new Set<string>();
 
   for (const msg of messages) {
-    if (msg.role === "system") continue;
-    
     const result = await extractConceptsEnhanced(msg.content, {
       existingConcepts,
       sessionTopic,

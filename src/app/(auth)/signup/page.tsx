@@ -71,8 +71,10 @@ export default function SignUpPage() {
     setIsLoading(true);
     try {
       const credential = await signUp(email, password, displayName);
-      await createUserProfile(credential.user);
-      router.push("/onboarding");
+      if (credential) {
+        await createUserProfile(credential.user);
+        router.push("/onboarding");
+      }
     } catch {
       // Error is handled by AuthContext
     } finally {
@@ -86,8 +88,10 @@ export default function SignUpPage() {
     setIsGoogleLoading(true);
     try {
       const credential = await signInWithGoogle();
-      await createUserProfile(credential.user);
-      router.push("/onboarding");
+      if (credential) {
+        await createUserProfile(credential.user);
+        router.push("/onboarding");
+      }
     } catch {
       // Error is handled by AuthContext
     } finally {

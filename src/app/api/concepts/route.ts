@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { Timestamp } from "firebase-admin/firestore";
+import {
+  assertSameUser,
+  authErrorResponse,
+  requireAuthUser,
+} from "@/lib/auth/serverAuth";
 
 // ===================================
 // Types
@@ -26,12 +31,16 @@ interface Concept {
 
 export async function POST(request: NextRequest) {
   try {
+    const authed = await requireAuthUser(request);
     const body: Concept = await request.json();
-    const { userId, name, description, category, masteryLevel = 0, relatedConcepts = [] } = body;
 
-    if (!userId || !name) {
+    assertSameUser(body.userId ?? null, authed.uid);
+    const userId = authed.uid;
+    const { name, description, category, masteryLevel = 0, relatedConcepts = [] } = body;
+
+    if (!name) {
       return NextResponse.json(
-        { error: "userId and name are required" },
+        { error: "name is required" },
         { status: 400 }
       );
     }
@@ -96,6 +105,8 @@ export async function POST(request: NextRequest) {
       updatedAt: now.toDate().toISOString(),
     }, { status: 201 });
   } catch (error) {
+    const authRes = authErrorResponse(error);
+    if (authRes) return authRes;
     console.error("Error creating/updating concept:", error);
     return NextResponse.json(
       { error: "Failed to create/update concept" },
@@ -110,18 +121,15 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    const authed = await requireAuthUser(request);
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get("userId");
+    const requestedUserId = searchParams.get("userId");
     const category = searchParams.get("category");
     const limit = parseInt(searchParams.get("limit") || "50");
     const sortBy = searchParams.get("sortBy") || "masteryLevel"; // masteryLevel, lastPracticed, name
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: "userId is required" },
-        { status: 400 }
-      );
-    }
+    assertSameUser(requestedUserId, authed.uid);
+    const userId = authed.uid;
 
     const db = await getAdminDb();
     
@@ -181,6 +189,8 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
+    const authRes = authErrorResponse(error);
+    if (authRes) return authRes;
     console.error("Error fetching concepts:", error);
     return NextResponse.json(
       { error: "Failed to fetch concepts" },

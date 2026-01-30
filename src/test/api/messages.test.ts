@@ -6,10 +6,45 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createMockRequest } from '@/test/apiTestUtils';
 
+// Mock server auth
+vi.mock('@/lib/auth/serverAuth', () => {
+  class AuthError extends Error {
+    status: number;
+    constructor(message: string, status: number) {
+      super(message);
+      this.status = status;
+    }
+  }
+
+  return {
+    requireAuthUser: vi.fn(async () => ({ uid: 'test-user-123', email: 'test@example.com' })),
+    AuthError,
+    authErrorResponse: (error: unknown) => {
+      if (error instanceof AuthError) {
+        return new Response(JSON.stringify({ error: error.message }), {
+          status: error.status,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      return null;
+    },
+  };
+});
+
 // Mock Firebase Admin
 vi.mock('@/lib/firebase/admin', () => ({
   getAdminDb: vi.fn(() => Promise.resolve({
     collection: vi.fn((collectionName: string) => {
+      if (collectionName === 'sessions') {
+        return {
+          doc: vi.fn(() => ({
+            get: vi.fn(() => Promise.resolve({
+              exists: true,
+              data: () => ({ userId: 'test-user-123' }),
+            })),
+          })),
+        };
+      }
       if (collectionName === 'messages') {
         return {
           doc: vi.fn(() => ({

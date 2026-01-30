@@ -2,18 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { graphDataService } from "@/lib/firebase/graphData";
 import { reflectionsService } from "@/lib/firebase/reflections";
+import {
+  assertSameUser,
+  authErrorResponse,
+  requireAuthUser,
+} from "@/lib/auth/serverAuth";
 
 export async function GET(request: NextRequest) {
   try {
+    const authed = await requireAuthUser(request);
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get("userId");
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: "userId is required" },
-        { status: 400 }
-      );
-    }
+    const requestedUserId = searchParams.get("userId");
+    assertSameUser(requestedUserId, authed.uid);
+    const userId = authed.uid;
 
     // Fetch data from multiple sources in parallel
     const [graphStats, reflectionStats, userData] = await Promise.all([
@@ -44,6 +45,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(response);
   } catch (error) {
+    const authRes = authErrorResponse(error);
+    if (authRes) return authRes;
     console.error("Error fetching learning stats:", error);
     return NextResponse.json(
       { error: "Failed to fetch learning stats" },

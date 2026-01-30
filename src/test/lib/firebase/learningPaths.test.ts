@@ -57,8 +57,8 @@ describe('Learning Paths Firebase Service', () => {
           knownConceptIds: [],
           userLevel: 'beginner' as const,
         },
-        createdAt: { seconds: 123, nanoseconds: 0 },
-        lastActivityAt: { seconds: 123, nanoseconds: 0 },
+        createdAt: { seconds: 123, nanoseconds: 0, toDate: () => new Date(123000), toMillis: () => 123000 },
+        lastActivityAt: { seconds: 123, nanoseconds: 0, toDate: () => new Date(123000), toMillis: () => 123000 },
       };
 
       const result = await pathsService.createPath('user-123', pathData);

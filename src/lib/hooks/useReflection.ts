@@ -2,6 +2,8 @@
 
 import { useState, useCallback, useEffect } from "react";
 import type { ReflectionAnalysis } from "@/types";
+import type { User } from "firebase/auth";
+import { authFetch } from "@/lib/api/authFetch";
 
 interface GeneratedPrompt {
   promptId: string;
@@ -14,7 +16,7 @@ interface GeneratedPrompt {
 }
 
 interface UseReflectionOptions {
-  userId: string;
+  user: User | null;
   sessionId?: string;
   autoCheck?: boolean; // Auto-check if reflection should be triggered
 }
@@ -51,7 +53,7 @@ interface UseReflectionReturn {
  * Hook for managing reflection prompts, submissions, and analysis
  */
 export function useReflection({
-  userId,
+  user,
   sessionId,
   autoCheck = false,
 }: UseReflectionOptions): UseReflectionReturn {
@@ -73,14 +75,14 @@ export function useReflection({
    * Check if reflection should be triggered
    */
   const checkForReflection = useCallback(async () => {
-    if (!userId || !sessionId) return;
+    if (!user || !sessionId) return;
 
     setPromptLoading(true);
     setPromptError(null);
 
     try {
-      const params = new URLSearchParams({ userId, sessionId });
-      const response = await fetch(`/api/reflect/prompt?${params}`);
+      const params = new URLSearchParams({ userId: user.uid, sessionId });
+      const response = await authFetch(user, `/api/reflect/prompt?${params}`);
 
       if (!response.ok) {
         throw new Error("Failed to check for reflection");
@@ -100,24 +102,25 @@ export function useReflection({
     } finally {
       setPromptLoading(false);
     }
-  }, [userId, sessionId]);
+  }, [user, sessionId]);
+
 
   /**
    * Submit reflection for analysis
    */
   const submitReflection = useCallback(
     async (content: string): Promise<ReflectionAnalysis | null> => {
-      if (!userId || !prompt) return null;
+      if (!user || !prompt) return null;
 
       setSubmitting(true);
       setSubmitError(null);
 
       try {
-        const response = await fetch("/api/reflect/submit", {
+        const response = await authFetch(user, "/api/reflect/submit", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            userId,
+            userId: user.uid,
             promptId: prompt.promptId,
             reflectionContent: content,
             sessionId: prompt.sessionId,
@@ -145,21 +148,21 @@ export function useReflection({
         setSubmitting(false);
       }
     },
-    [userId, prompt]
+    [user, prompt]
   );
 
   /**
    * Skip the current reflection
    */
   const skipReflection = useCallback(async () => {
-    if (!userId || !sessionId) return;
+    if (!user || !sessionId) return;
 
     try {
       // Record dismissal for cooldown tracking
-      await fetch("/api/reflect/dismiss", {
+      await authFetch(user, "/api/reflect/dismiss", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, sessionId }),
+        body: JSON.stringify({ userId: user.uid, sessionId }),
       });
 
       setShouldReflect(false);
@@ -170,19 +173,19 @@ export function useReflection({
       setShouldReflect(false);
       setPrompt(null);
     }
-  }, [userId, sessionId]);
+  }, [user, sessionId]);
 
   /**
    * Load reflection history
    */
   const loadHistory = useCallback(async () => {
-    if (!userId) return;
+    if (!user) return;
 
     setHistoryLoading(true);
 
     try {
-      const params = new URLSearchParams({ userId, limit: "10" });
-      const response = await fetch(`/api/reflect/submit?${params}`);
+      const params = new URLSearchParams({ userId: user.uid, limit: "10" });
+      const response = await authFetch(user, `/api/reflect/submit?${params}`);
 
       if (!response.ok) {
         throw new Error("Failed to load reflection history");
@@ -195,7 +198,7 @@ export function useReflection({
     } finally {
       setHistoryLoading(false);
     }
-  }, [userId]);
+  }, [user]);
 
   // Auto-check for reflection on mount if enabled
   useEffect(() => {

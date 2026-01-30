@@ -67,6 +67,9 @@ export default function LoginPage() {
     setIsGoogleLoading(true);
     try {
       const credential = await signInWithGoogle();
+      if (!credential) {
+        return;
+      }
       // Create profile if new user (returns isNew flag)
       const result = await createUserProfile(credential.user);
       
@@ -74,7 +77,7 @@ export default function LoginPage() {
         router.push("/onboarding");
       } else {
         // Check if returning user completed onboarding
-        const status = await checkOnboardingStatus(credential.user.uid);
+        const status = await checkOnboardingStatus(credential.user);
         router.push(status.onboardingCompleted ? "/dashboard" : "/onboarding");
       }
     } catch {

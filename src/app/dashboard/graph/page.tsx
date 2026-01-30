@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import { useGraph } from "@/lib/hooks/useGraph";
+import { useAuth } from "@/lib/auth/AuthContext";
 import {
   ConceptGraph,
   GraphControls,
@@ -11,15 +12,13 @@ import {
   SkeletonGraph,
 } from "@/components/graph";
 
-// Mock user ID - in real app, get from auth context
-const MOCK_USER_ID = "user123";
-
 export default function GraphPage() {
+  const { user } = useAuth();
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const graphRef = useRef<any>(null);
 
   const { graphData, filters, setFilters, availableDomains, loading, error, stats } =
-    useGraph({ userId: MOCK_USER_ID });
+    useGraph({ user });
 
   const handleNodeClick = useCallback((nodeId: string) => {
     setSelectedNodeId(nodeId);
@@ -167,7 +166,7 @@ export default function GraphPage() {
       {selectedNodeId && (
         <ConceptDetailPanel
           conceptId={selectedNodeId}
-          userId={MOCK_USER_ID}
+          userId={user?.uid || ""}
           onClose={handleCloseDetail}
         />
       )}

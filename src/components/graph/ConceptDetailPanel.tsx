@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useAuth } from "@/lib/auth/AuthContext";
+import { authFetch } from "@/lib/api/authFetch";
 import type { ConceptNode, MasteryLevel } from "@/types";
 
 interface ConceptDetailPanelProps {
@@ -36,18 +38,21 @@ export default function ConceptDetailPanel({
   onClose,
   onStartPath,
 }: ConceptDetailPanelProps) {
+  const { user } = useAuth();
   const [detail, setDetail] = useState<ConceptDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchDetail = async () => {
+      if (!user) return;
       setLoading(true);
       setError(null);
 
       try {
         const params = new URLSearchParams({ userId });
-        const response = await fetch(
+        const response = await authFetch(
+          user,
           `/api/graph/concepts/${conceptId}?${params}`
         );
 
@@ -65,7 +70,7 @@ export default function ConceptDetailPanel({
     };
 
     fetchDetail();
-  }, [conceptId, userId]);
+  }, [conceptId, userId, user]);
 
   return (
     <>

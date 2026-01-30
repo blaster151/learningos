@@ -1,7 +1,15 @@
 // Core TypeScript types for LearningOS data models
 // Based on technical-architecture.md
 
-import type { Timestamp } from "firebase/firestore";
+// Define a minimal Timestamp interface compatible with both firebase and firebase-admin
+// This avoids the conflict between client Timestamp (from firebase/firestore) 
+// and admin Timestamp (from firebase-admin/firestore)
+export interface Timestamp {
+  seconds: number;
+  nanoseconds: number;
+  toDate(): Date;
+  toMillis(): number;
+}
 
 // ===================================
 // User Profile
@@ -178,7 +186,7 @@ export interface ConceptRelation {
 // ===================================
 
 export type PathStatus = "suggested" | "active" | "completed" | "abandoned";
-export type MilestoneStatus = "not_started" | "in_progress" | "completed";
+export type MilestoneStatus = "not_started" | "in_progress" | "completed" | "locked" | "available";
 export type MasteryLevel = "exploring" | "learning" | "practicing" | "comfortable" | "expert";
 
 export interface LearningPath {

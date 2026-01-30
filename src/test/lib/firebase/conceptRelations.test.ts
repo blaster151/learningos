@@ -49,10 +49,14 @@ describe('Concept Relations Firebase Service', () => {
       const result = await relationsService.createRelation(
         'user-123',
         {
+          userId: 'user-123',
           sourceConceptId: 'concept-a',
           targetConceptId: 'concept-b',
           relationType: 'prerequisite',
           strength: 0.8,
+          isEmergent: false,
+          discoveredBy: 'system',
+          discoveredAt: { seconds: 1000, nanoseconds: 0, toDate: () => new Date(), toMillis: () => 1000000 },
         }
       );
 
@@ -74,10 +78,14 @@ describe('Concept Relations Firebase Service', () => {
 
       await expect(
         relationsService.createRelation('user-123', {
+          userId: 'user-123',
           sourceConceptId: 'concept-a',
           targetConceptId: 'concept-b',
           relationType: 'prerequisite',
           strength: 0.8,
+          isEmergent: false,
+          discoveredBy: 'system',
+          discoveredAt: { seconds: 1000, nanoseconds: 0, toDate: () => new Date(), toMillis: () => 1000000 },
         })
       ).rejects.toThrow('Relation already exists');
     });

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { generateSessionSummary } from "@/lib/ai/sessionSummary";
 import { Timestamp } from "firebase-admin/firestore";
+import { authErrorResponse, requireAuthUser } from "@/lib/auth/serverAuth";
 
 // ===================================
 // Types
@@ -18,8 +19,9 @@ interface SummaryRequest {
 
 export async function POST(request: NextRequest) {
   try {
+    const authed = await requireAuthUser(request);
     const body: SummaryRequest = await request.json();
-    const { sessionId, userId } = body;
+    const { sessionId } = body;
 
     if (!sessionId) {
       return NextResponse.json(
@@ -41,12 +43,9 @@ export async function POST(request: NextRequest) {
 
     const sessionData = sessionDoc.data();
 
-    // Check if session belongs to user (if userId provided)
-    if (userId && sessionData?.userId !== userId) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 403 }
-      );
+    // Always enforce ownership
+    if (sessionData?.userId !== authed.uid) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Check if we already have a cached summary
@@ -95,6 +94,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(summary);
   } catch (error) {
+    const authRes = authErrorResponse(error);
+    if (authRes) return authRes;
     console.error("Error generating session summary:", error);
     return NextResponse.json(
       { error: "Failed to generate summary" },
@@ -109,6 +110,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    const authed = await requireAuthUser(request);
     const { searchParams } = new URL(request.url);
     const sessionId = searchParams.get("sessionId");
 
@@ -131,6 +133,10 @@ export async function GET(request: NextRequest) {
 
     const sessionData = sessionDoc.data();
 
+    if (sessionData?.userId !== authed.uid) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     if (!sessionData?.summary) {
       return NextResponse.json(
         { error: "No summary generated yet", needsGeneration: true },
@@ -143,6 +149,8 @@ export async function GET(request: NextRequest) {
       generatedAt: sessionData.summaryGeneratedAt?.toDate?.()?.toISOString(),
     });
   } catch (error) {
+    const authRes = authErrorResponse(error);
+    if (authRes) return authRes;
     console.error("Error fetching session summary:", error);
     return NextResponse.json(
       { error: "Failed to fetch summary" },

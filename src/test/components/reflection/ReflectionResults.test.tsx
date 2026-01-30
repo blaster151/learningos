@@ -2,7 +2,7 @@
  * Tests for ReflectionResults component
  */
 
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import ReflectionResults from "@/components/reflection/ReflectionResults";
 import type { ReflectionAnalysis } from "@/types";
@@ -46,7 +46,7 @@ describe("ReflectionResults", () => {
         conceptId: "concept-2",
         conceptName: "useState",
         previousMastery: "practicing",
-        newMastery: "proficient",
+        newMastery: "comfortable",
         confidenceDelta: 0.20,
       },
     ],
@@ -126,7 +126,7 @@ describe("ReflectionResults", () => {
     expect(screen.getByText("learning")).toBeInTheDocument();
     // "practicing" appears twice (once as prev, once as new), so use getAllByText
     expect(screen.getAllByText("practicing").length).toBeGreaterThan(0);
-    expect(screen.getByText("proficient")).toBeInTheDocument();
+    expect(screen.getByText("comfortable")).toBeInTheDocument();
   });
 
   it("displays encouragement message", () => {

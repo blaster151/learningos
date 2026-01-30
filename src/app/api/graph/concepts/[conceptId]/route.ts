@@ -9,6 +9,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebase/admin";
 import type { ConceptNode, ConceptRelation, MasteryLevel } from "@/types";
+import {
+  assertSameUser,
+  authErrorResponse,
+  requireAuthUser,
+} from "@/lib/auth/serverAuth";
 
 // ===================================
 // Types
@@ -62,15 +67,12 @@ export async function GET(
   try {
     const { conceptId } = await params;
 
-    // Get userId from query params or auth (simplified for now)
-    const userId = request.nextUrl.searchParams.get("userId");
+    const authed = await requireAuthUser(request);
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: "userId is required" },
-        { status: 400 }
-      );
-    }
+    // Get userId from query params or auth (simplified for now)
+    const requestedUserId = request.nextUrl.searchParams.get("userId");
+    assertSameUser(requestedUserId, authed.uid);
+    const userId = authed.uid;
 
     if (!conceptId) {
       return NextResponse.json(
@@ -133,6 +135,8 @@ export async function GET(
 
     return NextResponse.json(response);
   } catch (error) {
+    const authRes = authErrorResponse(error);
+    if (authRes) return authRes;
     console.error("Error fetching concept details:", error);
     return NextResponse.json(
       { error: "Failed to fetch concept details" },

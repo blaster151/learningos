@@ -48,9 +48,9 @@ export async function branchSession(
   const branchDoc = await branchRef.get();
 
   return {
-    id: branchDoc.id,
+    sessionId: branchDoc.id,
     ...branchDoc.data(),
-  } as LearningSession;
+  } as unknown as LearningSession;
 }
 
 /**
@@ -103,7 +103,7 @@ export async function returnToParentSession(
   });
 
   return {
-    id: parentDoc.id,
+    sessionId: parentDoc.id,
     ...parentDoc.data(),
-  } as LearningSession;
+  } as unknown as LearningSession;
 }

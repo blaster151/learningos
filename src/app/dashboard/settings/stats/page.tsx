@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { authFetch } from "@/lib/api/authFetch";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -87,7 +88,8 @@ export default function StatsPage() {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch(`/api/stats/learning?userId=${user?.uid}`);
+      if (!user) return;
+      const response = await authFetch(user, `/api/stats/learning?userId=${user.uid}`);
       if (!response.ok) {
         throw new Error("Failed to load stats");
       }

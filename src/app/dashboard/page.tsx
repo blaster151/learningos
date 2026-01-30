@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { authFetch } from "@/lib/api/authFetch";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui";
 import { BookIcon, MessageCircleIcon, ChevronRightIcon } from "@/components/icons";
 import Link from "next/link";
@@ -28,7 +29,7 @@ export default function DashboardPage() {
 
     try {
       // Fetch sessions count
-      const sessionsRes = await fetch(`/api/sessions?userId=${user.uid}`);
+      const sessionsRes = await authFetch(user, `/api/sessions?userId=${user.uid}`);
       if (sessionsRes.ok) {
         const sessionsData = await sessionsRes.json();
         const sessionsList = sessionsData.sessions || [];
@@ -45,7 +46,7 @@ export default function DashboardPage() {
       }
 
       // Fetch concepts count
-      const conceptsRes = await fetch(`/api/concepts?userId=${user.uid}&limit=1`);
+      const conceptsRes = await authFetch(user, `/api/concepts?userId=${user.uid}&limit=1`);
       if (conceptsRes.ok) {
         const conceptsData = await conceptsRes.json();
         setStats((prev) => ({

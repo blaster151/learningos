@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { Timestamp } from "firebase-admin/firestore";
+import {
+  assertSameUser,
+  authErrorResponse,
+  requireAuthUser,
+} from "@/lib/auth/serverAuth";
 
 // ===================================
 // Types
@@ -18,15 +23,12 @@ interface CreateSessionRequest {
 
 export async function POST(request: NextRequest) {
   try {
+    const authed = await requireAuthUser(request);
     const body: CreateSessionRequest = await request.json();
-    const { userId, topic, goal } = body;
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: "userId is required" },
-        { status: 400 }
-      );
-    }
+    assertSameUser(body.userId ?? null, authed.uid);
+    const userId = authed.uid;
+    const { topic, goal } = body;
 
     const db = await getAdminDb();
     const now = Timestamp.now();
@@ -63,6 +65,8 @@ export async function POST(request: NextRequest) {
       lastActivity: now.toDate().toISOString(),
     });
   } catch (error) {
+    const authRes = authErrorResponse(error);
+    if (authRes) return authRes;
     console.error("Error creating session:", error);
     return NextResponse.json(
       { error: "Failed to create session" },
@@ -77,16 +81,13 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    const authed = await requireAuthUser(request);
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get("userId");
+    const requestedUserId = searchParams.get("userId");
     const sessionId = searchParams.get("sessionId");
 
-    if (!userId && !sessionId) {
-      return NextResponse.json(
-        { error: "userId or sessionId is required" },
-        { status: 400 }
-      );
-    }
+    assertSameUser(requestedUserId, authed.uid);
+    const userId = authed.uid;
 
     const db = await getAdminDb();
 
@@ -102,6 +103,11 @@ export async function GET(request: NextRequest) {
       }
 
       const data = sessionDoc.data();
+
+      if (data?.userId !== userId) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+
       return NextResponse.json({
         session: {
           sessionId: sessionDoc.id,
@@ -134,6 +140,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ sessions });
   } catch (error) {
+    const authRes = authErrorResponse(error);
+    if (authRes) return authRes;
     console.error("Error fetching sessions:", error);
     return NextResponse.json(
       { error: "Failed to fetch sessions" },
@@ -148,6 +156,7 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
+    const authed = await requireAuthUser(request);
     const { searchParams } = new URL(request.url);
     const sessionId = searchParams.get("sessionId");
     const body = await request.json();
@@ -168,6 +177,11 @@ export async function PATCH(request: NextRequest) {
         { error: "Session not found" },
         { status: 404 }
       );
+    }
+
+    const sessionData = sessionDoc.data();
+    if (sessionData?.userId !== authed.uid) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Build update object
@@ -192,6 +206,8 @@ export async function PATCH(request: NextRequest) {
       sessionId,
     });
   } catch (error) {
+    const authRes = authErrorResponse(error);
+    if (authRes) return authRes;
     console.error("Error updating session:", error);
     return NextResponse.json(
       { error: "Failed to update session" },

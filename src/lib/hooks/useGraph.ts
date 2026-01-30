@@ -2,9 +2,11 @@
 
 import { useState, useEffect, useCallback } from "react";
 import type { GraphData, GraphFilters } from "@/types";
+import type { User } from "firebase/auth";
+import { authFetch } from "@/lib/api/authFetch";
 
 interface UseGraphOptions {
-  userId: string;
+  user: User | null;
   initialFilters?: GraphFilters;
 }
 
@@ -28,7 +30,7 @@ interface UseGraphReturn {
  * Hook for managing graph data and filters
  */
 export function useGraph({
-  userId,
+  user,
   initialFilters,
 }: UseGraphOptions): UseGraphReturn {
   const [graphData, setGraphData] = useState<GraphData | null>(null);
@@ -45,14 +47,14 @@ export function useGraph({
   const [stats, setStats] = useState<UseGraphReturn["stats"]>(null);
 
   const fetchGraphData = useCallback(async () => {
-    if (!userId) return;
+    if (!user) return;
 
     setLoading(true);
     setError(null);
 
     try {
       // Fetch graph data with filters
-      const params = new URLSearchParams({ userId });
+      const params = new URLSearchParams({ userId: user.uid });
       
       if (filters.domains.length > 0) {
         params.append("domains", filters.domains.join(","));
@@ -66,7 +68,7 @@ export function useGraph({
         params.append("search", filters.searchQuery);
       }
 
-      const response = await fetch(`/api/graph?${params}`);
+      const response = await authFetch(user, `/api/graph?${params}`);
 
       if (!response.ok) {
         throw new Error("Failed to fetch graph data");
@@ -82,7 +84,7 @@ export function useGraph({
     } finally {
       setLoading(false);
     }
-  }, [userId, filters]);
+  }, [user, filters]);
 
   // Fetch data on mount and when filters change
   useEffect(() => {

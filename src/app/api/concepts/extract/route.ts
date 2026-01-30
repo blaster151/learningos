@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { extractConcepts } from "@/lib/ai/conceptExtraction";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { Timestamp } from "firebase-admin/firestore";
+import {
+  assertSameUser,
+  authErrorResponse,
+  requireAuthUser,
+} from "@/lib/auth/serverAuth";
 
 // ===================================
 // Types
@@ -22,12 +27,16 @@ interface ExtractRequest {
 
 export async function POST(request: NextRequest) {
   try {
+    const authed = await requireAuthUser(request);
     const body: ExtractRequest = await request.json();
-    const { userId, messages, sessionId } = body;
+    const { userId: requestedUserId, messages, sessionId } = body;
 
-    if (!userId || !messages || messages.length === 0) {
+    assertSameUser(requestedUserId ?? null, authed.uid);
+    const userId = authed.uid;
+
+    if (!messages || messages.length === 0) {
       return NextResponse.json(
-        { error: "userId and messages are required" },
+        { error: "messages are required" },
         { status: 400 }
       );
     }
@@ -123,6 +132,8 @@ export async function POST(request: NextRequest) {
       mainTopic: result.mainTopic,
     });
   } catch (error) {
+    const authRes = authErrorResponse(error);
+    if (authRes) return authRes;
     console.error("Error extracting concepts:", error);
     return NextResponse.json(
       { error: "Failed to extract concepts" },

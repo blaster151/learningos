@@ -8,9 +8,9 @@ interface SessionListProps {
   currentSessionId?: string;
 }
 
-const statusStyles = {
+const statusStyles: Record<string, string> = {
   active: "bg-green-100 text-green-800 border-green-200",
-  paused: "bg-yellow-100 text-yellow-800 border-yellow-200",
+  abandoned: "bg-yellow-100 text-yellow-800 border-yellow-200",
   completed: "bg-gray-100 text-gray-800 border-gray-200",
 };
 
@@ -34,12 +34,12 @@ export default function SessionList({
   };
 
   const formatDuration = (session: LearningSession): string => {
-    if (!session.startTime) return "—";
-    const start = session.startTime.seconds * 1000;
-    const end = session.endTime?.seconds
-      ? session.endTime.seconds * 1000
-      : session.lastMessageTime?.seconds
-      ? session.lastMessageTime.seconds * 1000
+    if (!session.startedAt) return "—";
+    const start = session.startedAt.seconds * 1000;
+    const end = session.endedAt?.seconds
+      ? session.endedAt.seconds * 1000
+      : session.lastActivity?.seconds
+      ? session.lastActivity.seconds * 1000
       : Date.now();
     const durationMs = end - start;
     const minutes = Math.floor(durationMs / 60000);
@@ -52,13 +52,13 @@ export default function SessionList({
   return (
     <div className="space-y-3">
       {sessions.map((session) => {
-        const isActive = session.id === currentSessionId;
+        const isActive = session.sessionId === currentSessionId;
         const isClickable = onSessionClick && !isActive;
 
         return (
           <div
-            key={session.id}
-            onClick={isClickable ? () => onSessionClick(session.id!) : undefined}
+            key={session.sessionId}
+            onClick={isClickable ? () => onSessionClick(session.sessionId!) : undefined}
             className={`border rounded-lg p-4 transition-all ${
               isActive
                 ? "border-blue-500 bg-blue-50 shadow-md"
@@ -154,9 +154,9 @@ export default function SessionList({
             )}
 
             <div className="text-xs text-gray-500">
-              Started {formatDate(session.startTime)}
-              {session.lastMessageTime && (
-                <> • Last activity {formatDate(session.lastMessageTime)}</>
+              Started {formatDate(session.startedAt)}
+              {session.lastActivity && (
+                <> • Last activity {formatDate(session.lastActivity)}</>
               )}
             </div>
 
@@ -164,7 +164,7 @@ export default function SessionList({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onBranchSession(session.id!);
+                  onBranchSession(session.sessionId!);
                 }}
                 className="mt-3 text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
               >

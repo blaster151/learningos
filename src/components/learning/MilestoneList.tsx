@@ -9,11 +9,12 @@ interface MilestoneListProps {
 const statusStyles: Record<MilestoneStatus, string> = {
   locked: "bg-gray-100 border-gray-300 text-gray-500",
   available: "bg-blue-50 border-blue-300 text-blue-900",
-  "in-progress": "bg-yellow-50 border-yellow-300 text-yellow-900",
+  in_progress: "bg-yellow-50 border-yellow-300 text-yellow-900",
+  not_started: "bg-gray-50 border-gray-300 text-gray-600",
   completed: "bg-green-50 border-green-300 text-green-900",
 };
 
-const statusIcons: Record<MilestoneStatus, JSX.Element> = {
+const statusIcons: Record<MilestoneStatus, React.ReactElement> = {
   locked: (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
@@ -34,7 +35,7 @@ const statusIcons: Record<MilestoneStatus, JSX.Element> = {
       />
     </svg>
   ),
-  "in-progress": (
+  in_progress: (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         strokeLinecap="round"
@@ -47,6 +48,16 @@ const statusIcons: Record<MilestoneStatus, JSX.Element> = {
         strokeLinejoin="round"
         strokeWidth={2}
         d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+      />
+    </svg>
+  ),
+  not_started: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
       />
     </svg>
   ),
@@ -77,8 +88,8 @@ export default function MilestoneList({ milestones, onMilestoneClick }: Mileston
         const isClickable = onMilestoneClick && milestone.status !== "locked";
         return (
           <div
-            key={milestone.id}
-            onClick={isClickable ? () => onMilestoneClick(milestone.id) : undefined}
+            key={milestone.milestoneId}
+            onClick={isClickable ? () => onMilestoneClick(milestone.milestoneId) : undefined}
             className={`border-2 rounded-lg p-4 transition-all ${
               statusStyles[milestone.status]
             } ${isClickable ? "cursor-pointer hover:shadow-md" : "cursor-default"}`}
@@ -91,7 +102,7 @@ export default function MilestoneList({ milestones, onMilestoneClick }: Mileston
                   <span className="text-sm font-semibold text-gray-500">
                     Milestone {index + 1}
                   </span>
-                  {milestone.status === "in-progress" && (
+                  {milestone.status === "in_progress" && (
                     <span className="px-2 py-0.5 text-xs font-medium bg-yellow-200 text-yellow-900 rounded">
                       Current
                     </span>
@@ -109,9 +120,9 @@ export default function MilestoneList({ milestones, onMilestoneClick }: Mileston
                 <h4 className="text-lg font-semibold mb-2">{milestone.title}</h4>
                 <p className="text-sm mb-3">{milestone.description}</p>
 
-                {milestone.requiredConcepts && milestone.requiredConcepts.length > 0 && (
+                {milestone.conceptIds && milestone.conceptIds.length > 0 && (
                   <div className="flex flex-wrap gap-2 mb-3">
-                    {milestone.requiredConcepts.map((conceptId) => (
+                    {milestone.conceptIds.map((conceptId) => (
                       <span
                         key={conceptId}
                         className="px-2 py-1 text-xs font-medium bg-white border border-current rounded"
@@ -124,7 +135,7 @@ export default function MilestoneList({ milestones, onMilestoneClick }: Mileston
 
                 <div className="flex items-center gap-4 text-sm">
                   <span className="font-medium">
-                    {milestone.estimatedHours || 0}h estimated
+                    {Math.round((milestone.estimatedMinutes || 0) / 60)}h estimated
                   </span>
                   {milestone.progress !== undefined && (
                     <div className="flex items-center gap-2 flex-1">

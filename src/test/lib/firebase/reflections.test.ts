@@ -65,6 +65,7 @@ describe("Reflections Firebase Service", () => {
         hints: ["Consider useState"],
         minWords: 50,
         maxWords: 200,
+        createdAt: { seconds: 123, nanoseconds: 0, toDate: () => new Date(123000), toMillis: () => 123000 },
       };
 
       const promptId = await reflectionsService.createPrompt(promptData);
@@ -132,6 +133,7 @@ describe("Reflections Firebase Service", () => {
         content: "React Hooks are...",
         wordCount: 150,
         skipped: false,
+        submittedAt: { seconds: 123, nanoseconds: 0, toDate: () => new Date(123000), toMillis: () => 123000 },
       };
 
       const reflectionId = await reflectionsService.createSubmission(submissionData);

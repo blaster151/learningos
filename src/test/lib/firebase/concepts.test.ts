@@ -62,11 +62,18 @@ describe('Concepts Firebase Service', () => {
 
       const result = await conceptsService.createConcept('user-123', {
         name: 'closures',
-        displayName: 'Closures',
-        description: 'Understanding closures',
+        definition: 'Understanding closures',
         domain: 'javascript',
         masteryLevel: 'learning',
-        confidenceScore: 0.5,
+        confidence: 0.5,
+        understanding: 0.5,
+        userId: 'user-123',
+        firstEncountered: { seconds: 1000, nanoseconds: 0, toDate: () => new Date(), toMillis: () => 1000000 },
+        lastReviewed: { seconds: 1000, nanoseconds: 0, toDate: () => new Date(), toMillis: () => 1000000 },
+        sessionIds: [],
+        isEmergent: false,
+        discoveredBy: 'system',
+        definitionHistory: [],
       });
 
       expect(result).toBe('new-concept-id');
@@ -202,13 +209,13 @@ describe('Concepts Firebase Service', () => {
 
       await conceptsService.updateConcept('user-123', 'concept-123', {
         masteryLevel: 'comfortable',
-        description: 'Updated description',
+        definition: 'Updated definition',
       });
 
       expect(mockUpdate).toHaveBeenCalledWith(
         expect.objectContaining({
           masteryLevel: 'comfortable',
-          description: 'Updated description',
+          definition: 'Updated definition',
         })
       );
     });

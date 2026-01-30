@@ -5,9 +5,10 @@ import { ChatInterface, ChatMessage, SessionSummary } from "@/components/chat";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button, Skeleton, SkeletonText } from "@/components/ui";
 import { MessageCircleIcon, PlusIcon, HistoryIcon } from "@/components/icons";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { authFetch } from "@/lib/api/authFetch";
 
 interface Session {
-  id: string;
+  sessionId: string;
   topic: string;
   status: "active" | "paused" | "completed";
   createdAt: string;
@@ -29,7 +30,7 @@ export default function ChatPage() {
     if (!user) return;
     
     try {
-      const response = await fetch(`/api/sessions?userId=${user.uid}`);
+      const response = await authFetch(user, `/api/sessions?userId=${user.uid}`);
       if (response.ok) {
         const data = await response.json();
         setSessions(data.sessions || []);
@@ -37,7 +38,7 @@ export default function ChatPage() {
         // Auto-select most recent active session
         const activeSession = data.sessions?.find((s: Session) => s.status === "active");
         if (activeSession) {
-          setActiveSessionId(activeSession.id);
+          setActiveSessionId(activeSession.sessionId);
         }
       }
     } catch (error) {
@@ -50,7 +51,8 @@ export default function ChatPage() {
   // Load messages for active session
   const loadMessages = useCallback(async (sessionId: string) => {
     try {
-      const response = await fetch(`/api/messages?sessionId=${sessionId}`);
+      if (!user) return;
+      const response = await authFetch(user, `/api/messages?sessionId=${sessionId}`);
       if (response.ok) {
         const data = await response.json();
         setInitialMessages(data.messages || []);
@@ -58,7 +60,7 @@ export default function ChatPage() {
     } catch (error) {
       console.error("Failed to load messages:", error);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     loadSessions();
@@ -77,7 +79,7 @@ export default function ChatPage() {
     if (!user) return;
 
     try {
-      const response = await fetch("/api/sessions", {
+      const response = await authFetch(user, "/api/sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -89,7 +91,7 @@ export default function ChatPage() {
 
       if (response.ok) {
         const newSession = await response.json();
-        setActiveSessionId(newSession.id);
+        setActiveSessionId(newSession.sessionId);
         setInitialMessages([]);
         setSessions((prev) => [newSession, ...prev]);
         setShowHistory(false);
@@ -102,14 +104,13 @@ export default function ChatPage() {
 
   // End session and show summary
   const endSession = async () => {
-    if (!activeSessionId) return;
+    if (!user || !activeSessionId) return;
 
     try {
-      await fetch("/api/sessions", {
+      await authFetch(user, `/api/sessions?sessionId=${activeSessionId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          id: activeSessionId,
           status: "completed",
         }),
       });
@@ -216,10 +217,10 @@ export default function ChatPage() {
               <div className="space-y-2">
                 {sessions.map((session) => (
                   <button
-                    key={session.id}
-                    onClick={() => selectSession(session.id)}
+                    key={session.sessionId}
+                    onClick={() => selectSession(session.sessionId)}
                     className={`w-full text-left p-4 rounded-lg border transition-colors ${
-                      session.id === activeSessionId
+                      session.sessionId === activeSessionId
                         ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
                         : "border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
                     }`}
@@ -297,7 +298,7 @@ export default function ChatPage() {
   }
 
   // Active chat session
-  const currentSession = sessions.find((s) => s.id === activeSessionId);
+  const currentSession = sessions.find((s) => s.sessionId === activeSessionId);
 
   return (
     <div className="h-full flex flex-col">

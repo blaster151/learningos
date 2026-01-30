@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { Timestamp } from "firebase-admin/firestore";
+import {
+  assertSameUser,
+  authErrorResponse,
+  requireAuthUser,
+} from "@/lib/auth/serverAuth";
 
 // ===================================
 // Types
@@ -27,14 +32,24 @@ interface UpdateUserRequest {
 
 export async function POST(request: NextRequest) {
   try {
+    const authed = await requireAuthUser(request);
     const body: CreateUserRequest = await request.json();
-    const { userId, email, displayName, photoURL } = body;
+    const { userId: requestedUserId, email: requestedEmail, displayName, photoURL } = body;
 
-    if (!userId || !email) {
+    assertSameUser(requestedUserId, authed.uid);
+
+    const userId = authed.uid;
+    const email = authed.email ?? requestedEmail;
+
+    if (!email) {
       return NextResponse.json(
-        { error: "userId and email are required" },
+        { error: "email is required" },
         { status: 400 }
       );
+    }
+
+    if (authed.email && requestedEmail && authed.email !== requestedEmail) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const db = await getAdminDb();
@@ -79,6 +94,8 @@ export async function POST(request: NextRequest) {
       isNew: true,
     });
   } catch (error) {
+    const authRes = authErrorResponse(error);
+    if (authRes) return authRes;
     console.error("Error creating user profile:", error);
     return NextResponse.json(
       { error: "Failed to create user profile" },
@@ -93,15 +110,12 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    const authed = await requireAuthUser(request);
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get("userId");
+    const requestedUserId = searchParams.get("userId");
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: "userId is required" },
-        { status: 400 }
-      );
-    }
+    assertSameUser(requestedUserId, authed.uid);
+    const userId = authed.uid;
 
     const db = await getAdminDb();
     const userRef = db.collection("users").doc(userId);
@@ -118,6 +132,8 @@ export async function GET(request: NextRequest) {
       user: userDoc.data(),
     });
   } catch (error) {
+    const authRes = authErrorResponse(error);
+    if (authRes) return authRes;
     console.error("Error fetching user profile:", error);
     return NextResponse.json(
       { error: "Failed to fetch user profile" },
@@ -132,16 +148,13 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
+    const authed = await requireAuthUser(request);
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get("userId");
+    const requestedUserId = searchParams.get("userId");
     const body: UpdateUserRequest = await request.json();
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: "userId is required" },
-        { status: 400 }
-      );
-    }
+    assertSameUser(requestedUserId, authed.uid);
+    const userId = authed.uid;
 
     const db = await getAdminDb();
     const userRef = db.collection("users").doc(userId);
@@ -176,6 +189,8 @@ export async function PATCH(request: NextRequest) {
       userId,
     });
   } catch (error) {
+    const authRes = authErrorResponse(error);
+    if (authRes) return authRes;
     console.error("Error updating user profile:", error);
     return NextResponse.json(
       { error: "Failed to update user profile" },

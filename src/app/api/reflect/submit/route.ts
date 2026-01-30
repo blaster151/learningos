@@ -15,6 +15,11 @@ import {
 import { updateMasteryFromReflection } from "@/lib/reflection/updateMasteryFromReflection";
 import type { ConceptNode, MasteryLevel } from "@/types";
 import type { GeneratedPrompt } from "@/lib/ai/reflectionPrompt";
+import {
+  assertSameUser,
+  authErrorResponse,
+  requireAuthUser,
+} from "@/lib/auth/serverAuth";
 
 // ===================================
 // Types
@@ -57,8 +62,12 @@ interface ReflectionSubmitResponse {
 
 export async function POST(request: NextRequest) {
   try {
+    const authed = await requireAuthUser(request);
     const body: ReflectionSubmitRequest = await request.json();
-    const { userId, promptId, reflectionContent, sessionId } = body;
+    const { userId: requestedUserId, promptId, reflectionContent, sessionId } = body;
+
+    assertSameUser(requestedUserId ?? null, authed.uid);
+    const userId = authed.uid;
 
     // Validate input
     if (!userId || !promptId || !reflectionContent) {
@@ -252,6 +261,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(response);
   } catch (error) {
+    const authRes = authErrorResponse(error);
+    if (authRes) return authRes;
     console.error("Error processing reflection:", error);
     return NextResponse.json(
       {
@@ -269,15 +280,12 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const userId = request.nextUrl.searchParams.get("userId");
+    const authed = await requireAuthUser(request);
+    const requestedUserId = request.nextUrl.searchParams.get("userId");
     const limit = parseInt(request.nextUrl.searchParams.get("limit") || "10");
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: "userId is required" },
-        { status: 400 }
-      );
-    }
+    assertSameUser(requestedUserId, authed.uid);
+    const userId = authed.uid;
 
     const db = await getAdminDb();
 
@@ -303,6 +311,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ reflections });
   } catch (error) {
+    const authRes = authErrorResponse(error);
+    if (authRes) return authRes;
     console.error("Error fetching reflections:", error);
     return NextResponse.json(
       { error: "Failed to fetch reflections" },

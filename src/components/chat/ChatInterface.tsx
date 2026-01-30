@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { authFetch } from "@/lib/api/authFetch";
 import { Button, Card } from "@/components/ui";
 import { BrainIcon, UserIcon } from "@/components/icons";
 import { ConceptTagsList, type ConceptData } from "./ConceptTag";
@@ -193,18 +194,17 @@ export function ChatInterface({
 
   // Fetch concepts for a message after streaming completes
   const fetchConceptsForMessage = async (
-    userId: string,
     messageId: string,
     userMessage: string,
     assistantMessage: string
   ) => {
+    if (!user) return;
     try {
       // Call the concept extraction API
-      const response = await fetch("/api/concepts/extract", {
+      const response = await authFetch(user, "/api/concepts/extract", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId,
           messages: [
             { role: "user", content: userMessage },
             { role: "assistant", content: assistantMessage },
@@ -272,6 +272,19 @@ export function ChatInterface({
     const trimmedInput = input.trim();
     if (!trimmedInput || isLoading) return;
 
+    if (!user) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `msg-error-${Date.now()}`,
+          role: "assistant",
+          content: "⚠️ Please sign in to chat.",
+          timestamp: new Date(),
+        },
+      ]);
+      return;
+    }
+
     // Create user message
     const userMessage: ChatMessage = {
       id: `msg-${Date.now()}`,
@@ -287,13 +300,12 @@ export function ChatInterface({
 
     try {
       // Call chat API
-      const response = await fetch("/api/chat", {
+      const response = await authFetch(user, "/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: trimmedInput,
           sessionId,
-          userId: user?.uid,
           history: messages.slice(-10), // Send last 10 messages for context
         }),
       });
@@ -350,9 +362,7 @@ export function ChatInterface({
       );
 
       // Fetch concepts for this conversation (async, don't block UI)
-      if (user?.uid) {
-        fetchConceptsForMessage(user.uid, assistantMessage.id, trimmedInput, fullContent);
-      }
+      fetchConceptsForMessage(assistantMessage.id, trimmedInput, fullContent);
 
       // Notify parent of new session if created
       if (!sessionId && onSessionCreate) {

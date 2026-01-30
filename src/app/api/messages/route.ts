@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebase/admin";
+import { authErrorResponse, requireAuthUser } from "@/lib/auth/serverAuth";
 
 // ===================================
 // GET - Get messages for a session
@@ -7,6 +8,7 @@ import { getAdminDb } from "@/lib/firebase/admin";
 
 export async function GET(request: NextRequest) {
   try {
+    const authed = await requireAuthUser(request);
     const { searchParams } = new URL(request.url);
     const sessionId = searchParams.get("sessionId");
     const limit = parseInt(searchParams.get("limit") || "50");
@@ -20,6 +22,15 @@ export async function GET(request: NextRequest) {
     }
 
     const db = await getAdminDb();
+
+    // Verify session ownership to prevent IDOR
+    const sessionDoc = await db.collection("sessions").doc(sessionId).get();
+    if (!sessionDoc.exists) {
+      return NextResponse.json({ error: "Session not found" }, { status: 404 });
+    }
+    if (sessionDoc.data()?.userId !== authed.uid) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
     
     let query = db
       .collection("messages")
@@ -59,6 +70,8 @@ export async function GET(request: NextRequest) {
         : null,
     });
   } catch (error) {
+    const authRes = authErrorResponse(error);
+    if (authRes) return authRes;
     console.error("Error fetching messages:", error);
     return NextResponse.json(
       { error: "Failed to fetch messages" },

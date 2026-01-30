@@ -6,6 +6,35 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createMockRequest } from '@/test/apiTestUtils';
 
+// Mock server auth
+vi.mock('@/lib/auth/serverAuth', () => {
+  class AuthError extends Error {
+    status: number;
+    constructor(message: string, status: number) {
+      super(message);
+      this.status = status;
+    }
+  }
+
+  return {
+    requireAuthUser: vi.fn(async () => ({ uid: 'test-user-123', email: 'test@example.com' })),
+    assertSameUser: (requestedUserId: string | null | undefined, authedUserId: string) => {
+      if (!requestedUserId) return;
+      if (requestedUserId !== authedUserId) throw new AuthError('Forbidden', 403);
+    },
+    AuthError,
+    authErrorResponse: (error: unknown) => {
+      if (error instanceof AuthError) {
+        return new Response(JSON.stringify({ error: error.message }), {
+          status: error.status,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      return null;
+    },
+  };
+});
+
 // Mock Firebase Admin
 vi.mock('@/lib/firebase/admin', () => ({
   getAdminDb: vi.fn(() => Promise.resolve({
@@ -72,7 +101,7 @@ describe('Concepts API', () => {
   });
 
   describe('POST /api/concepts - Validation', () => {
-    it('should return 400 if userId is missing', async () => {
+    it('should allow creating a concept without userId in body', async () => {
       const { POST } = await import('@/app/api/concepts/route');
       
       const request = createMockRequest('/api/concepts', {
@@ -84,9 +113,7 @@ describe('Concepts API', () => {
 
       const response = await POST(request);
 
-      expect(response.status).toBe(400);
-      const data = await response.json();
-      expect(data.error).toBeDefined();
+      expect(response.status).toBe(201);
     }, 15000); // Increase timeout for first test with dynamic import
 
     it('should return 400 if name is missing', async () => {
@@ -141,7 +168,7 @@ describe('Concepts API', () => {
       expect(data.stats.new).toBeDefined();
     });
 
-    it('should return 400 if userId is missing', async () => {
+    it('should return concepts without userId param', async () => {
       const { GET } = await import('@/app/api/concepts/route');
       
       const request = createMockRequest('/api/concepts', {
@@ -150,7 +177,7 @@ describe('Concepts API', () => {
 
       const response = await GET(request);
 
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(200);
     });
 
     it('should support sorting by mastery level', async () => {

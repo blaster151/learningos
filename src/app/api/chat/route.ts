@@ -5,6 +5,11 @@ import { Timestamp } from "firebase-admin/firestore";
 import { extractConcepts } from "@/lib/ai/conceptExtraction";
 import { updateGraphFromMessage } from "@/lib/ai/conceptGraphUpdater";
 import { progressTracker } from "@/lib/learning/progressTracker";
+import {
+  assertSameUser,
+  authErrorResponse,
+  requireAuthUser,
+} from "@/lib/auth/serverAuth";
 
 // ===================================
 // Types
@@ -49,12 +54,23 @@ Remember: Your goal is not just to answer questions, but to help users truly und
 
 export async function POST(request: NextRequest) {
   try {
+    const authed = await requireAuthUser(request);
     const body: ChatRequest = await request.json();
-    const { message, sessionId, userId, history = [] } = body;
+    const { message, sessionId, userId: requestedUserId, history = [] } = body;
+
+    assertSameUser(requestedUserId, authed.uid);
+    const userId = authed.uid;
 
     if (!message?.trim()) {
       return new Response(JSON.stringify({ error: "Message is required" }), {
         status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (message.length > 8000) {
+      return new Response(JSON.stringify({ error: "Message too long" }), {
+        status: 413,
         headers: { "Content-Type": "application/json" },
       });
     }
@@ -99,10 +115,17 @@ export async function POST(request: NextRequest) {
           }
 
           // Save messages to Firestore after streaming completes
-          if (userId && sessionId) {
+          if (sessionId) {
             try {
               const db = await getAdminDb();
               const now = Timestamp.now();
+
+              // Verify session ownership before writing
+              const sessionDoc = await db.collection("sessions").doc(sessionId).get();
+              if (!sessionDoc.exists || sessionDoc.data()?.userId !== userId) {
+                controller.close();
+                return;
+              }
 
               // Save user message
               await db.collection("messages").add({
@@ -132,7 +155,6 @@ export async function POST(request: NextRequest) {
               });
 
               // Get session for topic context
-              const sessionDoc = await db.collection("sessions").doc(sessionId).get();
               const sessionData = sessionDoc.data();
               const sessionTopic = sessionData?.topic;
 
@@ -177,6 +199,8 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
+    const authRes = authErrorResponse(error);
+    if (authRes) return authRes;
     console.error("Chat API error:", error);
     return new Response(
       JSON.stringify({ error: "Failed to process chat request" }),

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { authFetch } from "@/lib/api/authFetch";
 import { Card, CardHeader, CardTitle, CardContent, Button } from "@/components/ui";
 import { MessageCircleIcon, BrainIcon, CheckIcon } from "@/components/icons";
 import Link from "next/link";
@@ -66,21 +67,21 @@ export function SessionSummary({ sessionId, onClose, onContinue }: SessionSummar
 
     try {
       // Load session details
-      const sessionRes = await fetch(`/api/sessions?sessionId=${sessionId}`);
+      const sessionRes = await authFetch(user, `/api/sessions?sessionId=${encodeURIComponent(sessionId)}`);
       if (sessionRes.ok) {
         const sessionData = await sessionRes.json();
         setSession(sessionData.session);
       }
 
       // Load concepts for this user (recently practiced)
-      const conceptsRes = await fetch(`/api/concepts?userId=${user.uid}&sortBy=lastPracticed&limit=10`);
+      const conceptsRes = await authFetch(user, `/api/concepts?sortBy=lastPracticed&limit=10`);
       if (conceptsRes.ok) {
         const conceptsData = await conceptsRes.json();
         setConcepts(conceptsData.concepts || []);
       }
 
       // Try to load existing AI summary
-      const summaryRes = await fetch(`/api/sessions/summary?sessionId=${sessionId}`);
+      const summaryRes = await authFetch(user, `/api/sessions/summary?sessionId=${encodeURIComponent(sessionId)}`);
       if (summaryRes.ok) {
         const summaryData = await summaryRes.json();
         setAiSummary(summaryData);
@@ -98,10 +99,10 @@ export function SessionSummary({ sessionId, onClose, onContinue }: SessionSummar
     
     setIsGeneratingSummary(true);
     try {
-      const response = await fetch("/api/sessions/summary", {
+      const response = await authFetch(user, "/api/sessions/summary", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId, userId: user.uid }),
+        body: JSON.stringify({ sessionId }),
       });
 
       if (response.ok) {

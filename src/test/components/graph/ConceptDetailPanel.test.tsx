@@ -5,6 +5,19 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+
+// Mock auth context for authFetch
+vi.mock("@/lib/auth/AuthContext", () => ({
+  useAuth: (() => {
+    const user = {
+      uid: "user-123",
+      getIdToken: vi.fn().mockResolvedValue("test-token"),
+    };
+
+    return () => ({ user });
+  })(),
+}));
+
 import ConceptDetailPanel from "@/components/graph/ConceptDetailPanel";
 
 // Mock fetch

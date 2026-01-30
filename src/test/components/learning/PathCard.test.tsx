@@ -29,6 +29,8 @@ describe('PathCard', () => {
         estimatedMinutes: 120,
         objectives: ['Understand JSX syntax'],
         status: 'available',
+        progress: 0,
+        prerequisiteMilestoneIds: [],
       },
       {
         milestoneId: 'm2',
@@ -40,6 +42,8 @@ describe('PathCard', () => {
         estimatedMinutes: 240,
         objectives: ['Master hooks'],
         status: 'locked',
+        progress: 0,
+        prerequisiteMilestoneIds: ['m1'],
       },
     ],
     estimatedMinutes: 1200,

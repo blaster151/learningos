@@ -27,7 +27,7 @@ export async function resumeSession(
   sessionId: string,
   loadMessageCount: number = 10
 ): Promise<ResumedSessionContext> {
-  const db = getAdminDb();
+  const db = await getAdminDb();
 
   // Get session
   const sessionDoc = await db.collection("sessions").doc(sessionId).get();
@@ -48,7 +48,7 @@ export async function resumeSession(
   });
 
   const session: LearningSession = {
-    id: sessionDoc.id,
+    sessionId: sessionDoc.id,
     ...sessionData,
     status: "active",
   } as LearningSession;
@@ -62,8 +62,8 @@ export async function resumeSession(
     .get();
 
   const recentMessages: Message[] = messagesSnapshot.docs
-    .map((doc) => ({
-      id: doc.id,
+    .map((doc: FirebaseFirestore.QueryDocumentSnapshot) => ({
+      messageId: doc.id,
       ...doc.data(),
     }))
     .reverse() as Message[];

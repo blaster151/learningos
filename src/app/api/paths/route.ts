@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { pathsService } from "@/lib/firebase/learningPaths";
 import type { PathStatus } from "@/types";
+import {
+  assertSameUser,
+  authErrorResponse,
+  requireAuthUser,
+} from "@/lib/auth/serverAuth";
 
 // ===================================
 // GET - Get all paths for a user
@@ -8,13 +13,13 @@ import type { PathStatus } from "@/types";
 
 export async function GET(request: NextRequest) {
   try {
+    const authed = await requireAuthUser(request);
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get("userId");
+    const requestedUserId = searchParams.get("userId");
     const statusParam = searchParams.get("status");
 
-    if (!userId) {
-      return NextResponse.json({ error: "userId is required" }, { status: 400 });
-    }
+    assertSameUser(requestedUserId, authed.uid);
+    const userId = authed.uid;
 
     let status: PathStatus | undefined;
     if (statusParam) {
@@ -37,6 +42,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ paths });
   } catch (error) {
+    const authRes = authErrorResponse(error);
+    if (authRes) return authRes;
     console.error("Error fetching paths:", error);
     return NextResponse.json(
       { error: "Failed to fetch paths" },

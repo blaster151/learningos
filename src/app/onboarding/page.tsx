@@ -169,7 +169,7 @@ export default function OnboardingPage() {
       setIsSubmitting(true);
       try {
         if (user) {
-          await completeOnboarding(user.uid, data);
+          await completeOnboarding(user, data);
         }
         router.push("/dashboard");
       } catch (error) {

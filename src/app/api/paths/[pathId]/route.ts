@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { pathsService } from "@/lib/firebase/learningPaths";
+import {
+  assertSameUser,
+  authErrorResponse,
+  requireAuthUser,
+} from "@/lib/auth/serverAuth";
 
 // ===================================
 // GET - Get path details
@@ -7,17 +12,18 @@ import { pathsService } from "@/lib/firebase/learningPaths";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { pathId: string } }
+  { params }: { params: Promise<{ pathId: string }> }
 ) {
   try {
+    const authed = await requireAuthUser(request);
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get("userId");
+    const requestedUserId = searchParams.get("userId");
+    const { pathId } = await params;
 
-    if (!userId) {
-      return NextResponse.json({ error: "userId is required" }, { status: 400 });
-    }
+    assertSameUser(requestedUserId, authed.uid);
+    const userId = authed.uid;
 
-    const path = await pathsService.getPath(userId, params.pathId);
+    const path = await pathsService.getPath(userId, pathId);
 
     if (!path) {
       return NextResponse.json({ error: "Path not found" }, { status: 404 });
@@ -25,6 +31,8 @@ export async function GET(
 
     return NextResponse.json({ path });
   } catch (error) {
+    const authRes = authErrorResponse(error);
+    if (authRes) return authRes;
     console.error("Error fetching path:", error);
     return NextResponse.json(
       { error: "Failed to fetch path" },
@@ -39,15 +47,16 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { pathId: string } }
+  { params }: { params: Promise<{ pathId: string }> }
 ) {
   try {
+    const authed = await requireAuthUser(request);
     const body = await request.json();
-    const { userId, action } = body;
+    const { userId: requestedUserId, action } = body;
+    const { pathId } = await params;
 
-    if (!userId) {
-      return NextResponse.json({ error: "userId is required" }, { status: 400 });
-    }
+    assertSameUser(requestedUserId ?? null, authed.uid);
+    const userId = authed.uid;
 
     if (!action) {
       return NextResponse.json({ error: "action is required" }, { status: 400 });
@@ -55,11 +64,11 @@ export async function PATCH(
 
     switch (action) {
       case "accept":
-        await pathsService.acceptPath(userId, params.pathId);
+        await pathsService.acceptPath(userId, pathId);
         break;
 
       case "abandon":
-        await pathsService.abandonPath(userId, params.pathId);
+        await pathsService.abandonPath(userId, pathId);
         break;
 
       default:
@@ -70,10 +79,12 @@ export async function PATCH(
     }
 
     // Fetch updated path
-    const updatedPath = await pathsService.getPath(userId, params.pathId);
+    const updatedPath = await pathsService.getPath(userId, pathId);
 
     return NextResponse.json({ path: updatedPath });
   } catch (error) {
+    const authRes = authErrorResponse(error);
+    if (authRes) return authRes;
     console.error("Error updating path:", error);
     return NextResponse.json(
       {

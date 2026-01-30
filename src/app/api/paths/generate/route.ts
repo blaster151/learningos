@@ -3,6 +3,11 @@ import { generateLearningPath } from "@/lib/ai/pathGeneration";
 import { pathsService } from "@/lib/firebase/learningPaths";
 import { conceptsService } from "@/lib/firebase/concepts";
 import { Timestamp } from "firebase-admin/firestore";
+import {
+  assertSameUser,
+  authErrorResponse,
+  requireAuthUser,
+} from "@/lib/auth/serverAuth";
 
 // ===================================
 // Types
@@ -21,12 +26,12 @@ interface GeneratePathRequest {
 
 export async function POST(request: NextRequest) {
   try {
+    const authed = await requireAuthUser(request);
     const body: GeneratePathRequest = await request.json();
-    const { userId, goal, timeAvailableMinutes, preferredDepth } = body;
+    const { userId: requestedUserId, goal, timeAvailableMinutes, preferredDepth } = body;
 
-    if (!userId) {
-      return NextResponse.json({ error: "userId is required" }, { status: 400 });
-    }
+    assertSameUser(requestedUserId ?? null, authed.uid);
+    const userId = authed.uid;
 
     if (!goal || goal.trim().length < 5) {
       return NextResponse.json(
@@ -151,6 +156,8 @@ export async function POST(request: NextRequest) {
       path: createdPath,
     });
   } catch (error) {
+    const authRes = authErrorResponse(error);
+    if (authRes) return authRes;
     console.error("Error generating learning path:", error);
     return NextResponse.json(
       {

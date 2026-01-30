@@ -4,6 +4,10 @@
 import { NextResponse } from "next/server";
 
 export async function GET() {
+  if (process.env.NODE_ENV !== "development") {
+    return NextResponse.json({ error: "Not Found" }, { status: 404 });
+  }
+
   const results = {
     firebase: { client: false, admin: false, error: null as string | null },
     openai: { connected: false, error: null as string | null },

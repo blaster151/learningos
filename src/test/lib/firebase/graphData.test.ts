@@ -4,6 +4,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { graphDataService } from "@/lib/firebase/graphData";
+import type { GraphFilters } from "@/types";
 
 // Mock Firebase Admin
 vi.mock("@/lib/firebase/admin", () => ({
@@ -153,7 +154,7 @@ describe("GraphData Firebase Service", () => {
         .mockResolvedValueOnce({ docs: mockConcepts })
         .mockResolvedValueOnce({ docs: [] });
 
-      const filters = {
+      const filters: GraphFilters = {
         domains: [],
         masteryLevels: ["practicing"],
         searchQuery: "",

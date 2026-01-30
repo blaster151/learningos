@@ -25,6 +25,10 @@ interface GeneratedPrompt {
 describe("useReflection", () => {
   const mockUserId = "user-123";
   const mockSessionId = "session-456";
+  const mockUser = {
+    uid: mockUserId,
+    getIdToken: vi.fn().mockResolvedValue("test-token"),
+  } as any;
 
   const mockPrompt: GeneratedPrompt = {
     promptId: "prompt-123",
@@ -54,7 +58,7 @@ describe("useReflection", () => {
   });
 
   it("initializes with default state", () => {
-    const { result } = renderHook(() => useReflection({ userId: mockUserId, sessionId: mockSessionId }));
+    const { result } = renderHook(() => useReflection({ user: mockUser, sessionId: mockSessionId }));
 
     expect(result.current.shouldReflect).toBe(false);
     expect(result.current.prompt).toBeNull();
@@ -70,14 +74,15 @@ describe("useReflection", () => {
       json: async () => ({ shouldReflect: true, prompt: mockPrompt }),
     });
 
-    const { result } = renderHook(() => useReflection({ userId: mockUserId, sessionId: mockSessionId }));
+    const { result } = renderHook(() => useReflection({ user: mockUser, sessionId: mockSessionId }));
 
     await act(async () => {
       await result.current.checkForReflection();
     });
 
     expect(global.fetch).toHaveBeenCalledWith(
-      expect.stringContaining("/api/reflect/prompt")
+      expect.stringContaining("/api/reflect/prompt"),
+      expect.any(Object)
     );
     expect(result.current.shouldReflect).toBe(true);
     expect(result.current.prompt).toEqual(mockPrompt);
@@ -89,7 +94,7 @@ describe("useReflection", () => {
       json: async () => ({ shouldReflect: false, prompt: null }),
     });
 
-    const { result } = renderHook(() => useReflection({ userId: mockUserId, sessionId: mockSessionId }));
+    const { result } = renderHook(() => useReflection({ user: mockUser, sessionId: mockSessionId }));
 
     await act(async () => {
       await result.current.checkForReflection();
@@ -106,7 +111,7 @@ describe("useReflection", () => {
       json: async () => ({ shouldReflect: true, prompt: mockPrompt }),
     });
 
-    const { result } = renderHook(() => useReflection({ userId: mockUserId, sessionId: mockSessionId }));
+    const { result } = renderHook(() => useReflection({ user: mockUser, sessionId: mockSessionId }));
 
     await act(async () => {
       await result.current.checkForReflection();
@@ -137,7 +142,9 @@ describe("useReflection", () => {
       json: async () => ({ shouldReflect: true, prompt: mockPrompt }),
     });
 
-    const { result } = renderHook(() => useReflection({ userId: mockUserId, sessionId: mockSessionId }));
+    const { result } = renderHook(() =>
+      useReflection({ user: mockUser, sessionId: mockSessionId })
+    );
 
     await act(async () => {
       await result.current.checkForReflection();
@@ -155,7 +162,10 @@ describe("useReflection", () => {
       }))
     );
 
-    const submitPromiseRef = result.current.submitReflection("Test reflection");
+    let submitPromiseRef: Promise<any>;
+    act(() => {
+      submitPromiseRef = result.current.submitReflection("Test reflection");
+    });
 
     await waitFor(() => {
       expect(result.current.submitting).toBe(true);
@@ -177,7 +187,9 @@ describe("useReflection", () => {
       json: async () => ({ shouldReflect: true, prompt: mockPrompt }),
     });
 
-    const { result } = renderHook(() => useReflection({ userId: mockUserId, sessionId: mockSessionId }));
+    const { result } = renderHook(() =>
+      useReflection({ user: mockUser, sessionId: mockSessionId })
+    );
 
     await act(async () => {
       await result.current.checkForReflection();
@@ -222,7 +234,9 @@ describe("useReflection", () => {
       json: async () => ({ reflections: mockHistory }),
     });
 
-    const { result } = renderHook(() => useReflection({ userId: mockUserId, sessionId: mockSessionId }));
+    const { result } = renderHook(() =>
+      useReflection({ user: mockUser, sessionId: mockSessionId })
+    );
 
     await act(async () => {
       await result.current.loadHistory();
@@ -239,7 +253,9 @@ describe("useReflection", () => {
       json: async () => ({ shouldReflect: true, prompt: mockPrompt }),
     });
 
-    const { result } = renderHook(() => useReflection({ userId: mockUserId, sessionId: mockSessionId }));
+    const { result } = renderHook(() =>
+      useReflection({ user: mockUser, sessionId: mockSessionId })
+    );
 
     await act(async () => {
       await result.current.checkForReflection();
@@ -263,7 +279,9 @@ describe("useReflection", () => {
       status: 500,
     });
 
-    const { result } = renderHook(() => useReflection({ userId: mockUserId, sessionId: mockSessionId }));
+    const { result } = renderHook(() =>
+      useReflection({ user: mockUser, sessionId: mockSessionId })
+    );
 
     await act(async () => {
       await result.current.checkForReflection();
