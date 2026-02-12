@@ -2,6 +2,7 @@
 
 > **Purpose:** Development roadmap with story sequencing, dependencies, and milestones
 > **Created:** Session continuation
+> **Updated:** February 11, 2026 — Story IDs unified to E-S format (see epics-and-stories.md)
 > **Cross-references:** epics-and-stories.md, traceability-matrix.md, technical-architecture.md
 
 ---
@@ -157,12 +158,12 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 | Story ID | Title | Points | Priority |
 |----------|-------|--------|----------|
-| STORY-101 | Welcome Screen Experience | 2 | P0 |
-| STORY-102 | Create Account Flow | 5 | P0 |
-| STORY-103 | Set Learning Goal | 3 | P0 |
-| STORY-104 | First Topic Selection | 3 | P0 |
-| STORY-105 | Select Initial Concepts | 3 | P0 |
-| STORY-601 | Returning User Dashboard | 3 | P1 |
+| E2-S1 | Welcome Screen Experience | 2 | P0 |
+| E1-S1 | Create Account Flow | 5 | P0 |
+| E2-S2 | Set Learning Goal | 3 | P0 |
+| E2-S4 | First Topic Selection | 3 | P0 |
+| E2-S5 | Select Initial Concepts | 3 | P0 |
+| E7-S1 | Returning User Dashboard | 3 | P1 |
 
 **Total: 19 points**
 
@@ -207,11 +208,11 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 ### Sprint 1 Dependencies
 
 ```
-STORY-101 → STORY-102 (Welcome leads to Auth)
-STORY-102 → STORY-103 (Auth enables Goal)
-STORY-103 → STORY-104 (Goal enables Topic)
-STORY-104 → STORY-105 (Topic enables Concepts)
-STORY-102 → STORY-601 (Auth enables Dashboard)
+E2-S1 → E1-S1 (Welcome leads to Auth)
+E1-S1 → E2-S2 (Auth enables Goal)
+E2-S2 → E2-S4 (Goal enables Topic)
+E2-S4 → E2-S5 (Topic enables Concepts)
+E1-S1 → E7-S1 (Auth enables Dashboard)
 ```
 
 ### Sprint 1 Deliverables
@@ -244,14 +245,16 @@ STORY-102 → STORY-601 (Auth enables Dashboard)
 
 | Story ID | Title | Points | Priority |
 |----------|-------|--------|----------|
-| STORY-106 | Start First Conversation | 3 | P0 |
-| STORY-201 | Send Learning Message | 3 | P0 |
-| STORY-202 | View Streaming Response | 5 | P0 |
-| STORY-203 | Tag Concepts in Chat | 5 | P1 |
-| STORY-204 | Quick Actions During Chat | 3 | P1 |
-| STORY-205 | View Session Summary | 3 | P1 |
+| E5-S1 | Start First Conversation | 3 | P0 |
+| E5-S2a | Send Learning Message | 3 | P0 |
+| E5-S2b | View Streaming Response | 5 | P0 |
+| E5-S3a | Tag Concepts in Chat | 5 | P1 |
+| E5-S3b | Quick Actions During Chat | 3 | P1 |
+| E5-S5 | View Session Summary | 3 | P1 |
 
 **Total: 22 points**
+
+> **Note:** E5-S2 (Send & Receive Messages) and E5-S3 (Context-Aware Suggestions) each map to two implementation tasks from the original sprint plan — labeled here as a/b for scheduling clarity. They roll up to a single story for acceptance-criteria purposes.
 
 ### Week 1 Breakdown
 
@@ -295,12 +298,12 @@ STORY-102 → STORY-601 (Auth enables Dashboard)
 ### Sprint 2 Dependencies
 
 ```
-Sprint 1 Complete → STORY-106 (needs auth + profile)
-STORY-106 → STORY-201 (session needed for messages)
-STORY-201 → STORY-202 (message sending enables responses)
-STORY-202 → STORY-203 (AI response enables concept tagging)
-STORY-201 → STORY-204 (messages enable quick actions)
-STORY-201 → STORY-205 (conversation enables summary)
+Sprint 1 Complete → E5-S1 (needs auth + profile)
+E5-S1 → E5-S2a (session needed for messages)
+E5-S2a → E5-S2b (message sending enables responses)
+E5-S2b → E5-S3a (AI response enables concept tagging)
+E5-S2a → E5-S3b (messages enable quick actions)
+E5-S2a → E5-S5 (conversation enables summary)
 ```
 
 ### Sprint 2 Deliverables
@@ -356,14 +359,16 @@ export async function POST(req: Request) {
 
 | Story ID | Title | Points | Priority |
 |----------|-------|--------|----------|
-| STORY-301 | View Recommended Path | 5 | P0 |
-| STORY-302 | Accept Path Recommendation | 2 | P0 |
-| STORY-303 | View Path Progress | 3 | P0 |
-| STORY-206 | Continue Previous Session | 3 | P1 |
-| STORY-207 | Branch Conversation Topic | 3 | P1 |
-| STORY-304 | Navigate Path Milestones | 3 | P1 |
+| E3-S1 | View Recommended Path | 5 | P0 |
+| E3-S2 | Accept Path Recommendation | 2 | P0 |
+| E3-S3 | View Path Progress | 3 | P0 |
+| E5-S4a | Continue Previous Session | 3 | P1 |
+| E5-S4b | Branch Conversation Topic | 3 | P1 |
+| E3-S4 | Navigate Path Milestones | 3 | P1 |
 
 **Total: 19 points**
+
+> **Note:** E5-S4 (Chat Session Management) covers both "Continue Previous Session" and "Branch Conversation Topic" — labeled here as a/b for scheduling clarity.
 
 ### Week 1 Breakdown
 
@@ -407,12 +412,12 @@ export async function POST(req: Request) {
 ### Sprint 3 Dependencies
 
 ```
-Sprint 2 Complete → STORY-206 (needs sessions)
-Sprint 2 Complete → STORY-207 (needs chat)
-STORY-203 → STORY-301 (concept tags enable path)
-STORY-301 → STORY-302 (path view enables acceptance)
-STORY-302 → STORY-303 (acceptance enables tracking)
-STORY-303 → STORY-304 (progress enables navigation)
+Sprint 2 Complete → E5-S4a (needs sessions)
+Sprint 2 Complete → E5-S4b (needs chat)
+E5-S3a → E3-S1 (concept tags enable path)
+E3-S1 → E3-S2 (path view enables acceptance)
+E3-S2 → E3-S3 (acceptance enables tracking)
+E3-S3 → E3-S4 (progress enables navigation)
 ```
 
 ### Sprint 3 Deliverables
@@ -455,12 +460,12 @@ Return as JSON: { milestones: [...] }`;
 
 | Story ID | Title | Points | Priority |
 |----------|-------|--------|----------|
-| STORY-401 | View Concept Graph | 5 | P0 |
-| STORY-402 | Explore Concept Details | 3 | P0 |
-| STORY-403 | See Concept Connections | 3 | P1 |
-| STORY-501 | Triggered Reflection | 5 | P0 |
-| STORY-502 | Rate Understanding | 2 | P0 |
-| STORY-503 | Explain Back Prompt | 3 | P1 |
+| E6-S1 | View Concept Graph | 5 | P0 |
+| E6-S3 | Explore Concept Details | 3 | P0 |
+| E6-S5 | See Concept Connections | 3 | P1 |
+| E4-S1 | Triggered Reflection | 5 | P0 |
+| E4-S2 | Rate Understanding | 2 | P0 |
+| E4-S3 | Explain Back Prompt | 3 | P1 |
 
 **Total: 21 points**
 
@@ -507,12 +512,12 @@ Return as JSON: { milestones: [...] }`;
 ### Sprint 4 Dependencies
 
 ```
-Sprint 3 Complete → STORY-401 (needs concept data)
-STORY-401 → STORY-402 (graph enables detail)
-STORY-401 → STORY-403 (graph enables connections)
-Sprint 2 Complete → STORY-501 (needs chat context)
-STORY-501 → STORY-502 (reflection enables rating)
-STORY-502 → STORY-503 (rating leads to explanation)
+Sprint 3 Complete → E6-S1 (needs concept data)
+E6-S1 → E6-S3 (graph enables detail)
+E6-S1 → E6-S5 (graph enables connections)
+Sprint 2 Complete → E4-S1 (needs chat context)
+E4-S1 → E4-S2 (reflection enables rating)
+E4-S2 → E4-S3 (rating leads to explanation)
 ```
 
 ### Sprint 4 Deliverables
@@ -565,14 +570,16 @@ function shouldTriggerReflection(session: Session): boolean {
 
 | Story ID | Title | Points | Priority |
 |----------|-------|--------|----------|
-| STORY-603 | Edit Profile Settings | 3 | P1 |
-| STORY-701 | Browse Session History | 3 | P1 |
-| STORY-602 | View Learning Stats | 3 | P2 |
+| E8-S1 | Edit Profile Settings | 3 | P1 |
+| E5-S4c | Browse Session History | 3 | P1 |
+| E7-S2 | View Learning Stats | 3 | P2 |
 | TECH-01 | Error handling & logging | 3 | P0 |
 | TECH-02 | Loading states & skeletons | 2 | P0 |
 | TECH-03 | Mobile responsiveness | 3 | P0 |
 
 **Total: 17 points**
+
+> **Note:** E5-S4c (Browse Session History) is the session history browsing aspect of E5-S4 (Chat Session Management), scheduled here in Sprint 5 as polish work after core session functionality was implemented in Sprint 3.
 
 ### Pre-Sprint 5 Status Check
 
@@ -691,7 +698,7 @@ export function SkeletonText({ lines = 3 }: { lines?: number }) {
 
 ---
 
-#### Day 3: Profile & Session History (STORY-603, STORY-701)
+#### Day 3: Profile & Session History (E8-S1, E5-S4c)
 
 **Status:** Session API exists; Settings page is display-only
 
@@ -739,7 +746,7 @@ interface ProfileUpdateData {
 
 ---
 
-#### Day 4: Stats Dashboard & Mobile (STORY-602, TECH-03)
+#### Day 4: Stats Dashboard & Mobile (E7-S2, TECH-03)
 
 **Status:** Stats APIs exist; no UI; mobile untested
 
@@ -830,11 +837,11 @@ interface LearningStats {
 3. TECH-03: Mobile responsive (Day 4) - untested
 
 **Phase 2 (P1 - Should Have):**
-4. STORY-603: Profile editing (Day 3) - shell exists
-5. STORY-701: Session history (Day 3) - API exists
+4. E8-S1: Profile editing (Day 3) - shell exists
+5. E5-S4c: Session history (Day 3) - API exists
 
 **Phase 3 (P2 - Nice to Have):**
-6. STORY-602: Stats dashboard (Day 4) - APIs exist, no UI
+6. E7-S2: Stats dashboard (Day 4) - APIs exist, no UI
 
 ---
 
@@ -871,9 +878,9 @@ TECH-02 ─────┤
              │
 TECH-03 ─────┘
              
-STORY-603 ──► STORY-602 (profile enables viewing stats)
+E8-S1 ──► E7-S2 (profile enables viewing stats)
              
-STORY-701 (independent, can parallelize with STORY-603)
+E5-S4c (independent, can parallelize with E8-S1)
 ```
 
 ### Sprint 5 Deliverables
@@ -909,58 +916,58 @@ Pre-Sprint 0
      ▼
 Sprint 1: Foundation
 ┌────────────────────────────────────────────┐
-│  STORY-101 → STORY-102 → STORY-103        │
-│                    │           │           │
-│                    ▼           ▼           │
-│              STORY-601   STORY-104        │
-│                              │            │
-│                              ▼            │
-│                         STORY-105        │
+│  E2-S1 → E1-S1 → E2-S2                   │
+│                    │        │              │
+│                    ▼        ▼              │
+│                 E7-S1    E2-S4             │
+│                             │              │
+│                             ▼              │
+│                          E2-S5             │
 └────────────────────────────────────────────┘
                     │
                     ▼
 Sprint 2: Core Chat
 ┌────────────────────────────────────────────┐
-│  STORY-106 → STORY-201 → STORY-202        │
-│                    │           │           │
-│                    ▼           ▼           │
-│              STORY-204   STORY-203        │
-│                    │                       │
-│                    ▼                       │
-│              STORY-205                    │
+│  E5-S1 → E5-S2a → E5-S2b                  │
+│                │          │                │
+│                ▼          ▼                 │
+│             E5-S3b     E5-S3a              │
+│                │                           │
+│                ▼                           │
+│             E5-S5                          │
 └────────────────────────────────────────────┘
                     │
                     ▼
 Sprint 3: Learning Intelligence
 ┌────────────────────────────────────────────┐
-│  STORY-206         STORY-203              │
-│       │                 │                  │
-│       ▼                 ▼                  │
-│  STORY-207   STORY-301 → STORY-302        │
-│                              │             │
-│                              ▼             │
-│                         STORY-303         │
-│                              │             │
-│                              ▼             │
-│                         STORY-304         │
+│  E5-S4a          E5-S3a                    │
+│       │               │                    │
+│       ▼               ▼                    │
+│  E5-S4b     E3-S1 → E3-S2                 │
+│                          │                 │
+│                          ▼                 │
+│                       E3-S3                │
+│                          │                 │
+│                          ▼                 │
+│                       E3-S4                │
 └────────────────────────────────────────────┘
                     │
                     ▼
 Sprint 4: Knowledge Visualization
 ┌────────────────────────────────────────────┐
-│  STORY-401 → STORY-402                    │
+│  E6-S1 → E6-S3                             │
 │       │                                    │
 │       ▼                                    │
-│  STORY-403                                │
+│  E6-S5                                     │
 │                                            │
-│  STORY-501 → STORY-502 → STORY-503        │
+│  E4-S1 → E4-S2 → E4-S3                    │
 └────────────────────────────────────────────┘
                     │
                     ▼
 Sprint 5: Polish
 ┌────────────────────────────────────────────┐
-│  STORY-603   STORY-701   STORY-602        │
-│  TECH-01     TECH-02     TECH-03          │
+│  E8-S1     E5-S4c     E7-S2               │
+│  TECH-01   TECH-02    TECH-03             │
 └────────────────────────────────────────────┘
 ```
 
@@ -969,10 +976,10 @@ Sprint 5: Polish
 The critical path (longest dependency chain) is:
 
 ```
-STORY-101 → STORY-102 → STORY-103 → STORY-104 → STORY-105 → 
-STORY-106 → STORY-201 → STORY-202 → STORY-203 → 
-STORY-301 → STORY-302 → STORY-303 → 
-STORY-401 → STORY-501
+E2-S1 → E1-S1 → E2-S2 → E2-S4 → E2-S5 → 
+E5-S1 → E5-S2a → E5-S2b → E5-S3a → 
+E3-S1 → E3-S2 → E3-S3 → 
+E6-S1 → E4-S1
 ```
 
 **Risk:** Any delay in the critical path delays the entire project.
@@ -1002,16 +1009,16 @@ STORY-401 → STORY-501
 ### Contingency Plans
 
 **If Sprint 2 runs over:**
-- Cut STORY-204 (Quick Actions) to Sprint 3
+- Cut E5-S3b (Quick Actions) to Sprint 3
 - Simplify concept tagging (basic only)
 
 **If Sprint 3 runs over:**
 - Simplify path generation (fixed templates)
-- Cut STORY-207 (Branching) to post-MVP
+- Cut E5-S4b (Branching) to post-MVP
 
 **If Sprint 4 runs over:**
 - Simplify graph (list view fallback)
-- Cut STORY-503 (Explain Back) to post-MVP
+- Cut E4-S3 (Explain Back) to post-MVP
 
 ---
 
@@ -1084,7 +1091,7 @@ The MVP is DONE when:
 
 | ID | Title | Points | Assignee | Status |
 |----|-------|--------|----------|--------|
-| STORY-XXX | | | | Not Started |
+| E{N}-S{N} | | | | Not Started |
 
 **Daily Standup Notes:**
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { useGraph } from "@/lib/hooks/useGraph";
 import { useAuth } from "@/lib/auth/AuthContext";
 import {
@@ -14,7 +15,9 @@ import {
 
 export default function GraphPage() {
   const { user } = useAuth();
+  const router = useRouter();
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [showSidebar, setShowSidebar] = useState(false);
   const graphRef = useRef<any>(null);
 
   const { graphData, filters, setFilters, availableDomains, loading, error, stats } =
@@ -57,22 +60,55 @@ export default function GraphPage() {
     }
   }, []);
 
+  const handleAskAbout = useCallback(
+    (conceptName: string, conceptId: string) => {
+      router.push(
+        `/dashboard/chat?concept=${encodeURIComponent(conceptName)}&conceptId=${encodeURIComponent(conceptId)}`
+      );
+    },
+    [router]
+  );
+
   return (
-    <div className="h-screen flex flex-col">
+    <div className="h-full flex flex-col -m-4 lg:-m-6">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <h1 className="text-2xl font-bold text-gray-900">Knowledge Graph</h1>
-        {stats && (
-          <p className="text-sm text-gray-600 mt-1">
-            {stats.totalConcepts} concepts · {stats.totalRelations} connections
-          </p>
-        )}
+      <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 flex items-center justify-between">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Knowledge Graph</h1>
+          {stats && (
+            <p className="text-sm text-gray-600 mt-1">
+              {stats.totalConcepts} concepts · {stats.totalRelations} connections
+            </p>
+          )}
+        </div>
+        <button
+          onClick={() => setShowSidebar(!showSidebar)}
+          className="lg:hidden p-2 rounded-lg border border-gray-300 hover:bg-gray-100 transition-colors"
+          aria-label={showSidebar ? "Hide filters" : "Show filters"}
+        >
+          <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 010 2H4a1 1 0 01-1-1zm4 4a1 1 0 011-1h8a1 1 0 010 2H8a1 1 0 01-1-1zm2 4a1 1 0 011-1h4a1 1 0 010 2h-4a1 1 0 01-1-1z" />
+          </svg>
+        </button>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
-        <div className="w-80 bg-gray-50 border-r border-gray-200 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 flex overflow-hidden relative">
+        {/* Sidebar — hidden on mobile, shown via toggle */}
+        {showSidebar && (
+          <div
+            className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+            onClick={() => setShowSidebar(false)}
+          />
+        )}
+        <div
+          className={`
+            fixed top-0 left-0 z-40 h-full w-72 sm:w-80 bg-gray-50 border-r border-gray-200 overflow-y-auto p-4 space-y-4
+            transform transition-transform duration-200 ease-in-out
+            lg:static lg:translate-x-0 lg:z-auto
+            ${showSidebar ? "translate-x-0" : "-translate-x-full"}
+          `}
+        >
           <GraphFilters
             filters={filters}
             availableDomains={availableDomains}
@@ -148,8 +184,8 @@ export default function GraphPage() {
                 selectedNodeId={selectedNodeId || undefined}
                 onNodeClick={handleNodeClick}
                 onBackgroundClick={handleBackgroundClick}
-                width={typeof window !== "undefined" ? window.innerWidth - 320 : 800}
-                height={typeof window !== "undefined" ? window.innerHeight - 80 : 600}
+                width={typeof window !== "undefined" ? (window.innerWidth >= 1024 ? window.innerWidth - 320 : window.innerWidth) : 800}
+                height={typeof window !== "undefined" ? window.innerHeight - 140 : 600}
               />
               <GraphControls
                 onZoomIn={handleZoomIn}
@@ -168,6 +204,7 @@ export default function GraphPage() {
           conceptId={selectedNodeId}
           userId={user?.uid || ""}
           onClose={handleCloseDetail}
+          onAskAbout={handleAskAbout}
         />
       )}
     </div>

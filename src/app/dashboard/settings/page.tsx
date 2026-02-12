@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { authFetch } from "@/lib/api/authFetch";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button, Input } from "@/components/ui";
 import { Spinner } from "@/components/ui/Spinner";
-import { SettingsIcon, UserIcon, LogOutIcon } from "@/components/icons";
+import { SettingsIcon, UserIcon, LogOutIcon, DownloadIcon, TrashIcon, ShieldIcon, AlertTriangleIcon } from "@/components/icons";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -16,9 +17,14 @@ interface ProfileData {
 }
 
 export default function SettingsPage() {
+  const router = useRouter();
   const { user, signOut } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [formData, setFormData] = useState<ProfileData>({
     displayName: "",
     learningGoal: "",
@@ -90,6 +96,47 @@ export default function SettingsPage() {
       await signOut();
     } catch (error) {
       console.error("Failed to sign out:", error);
+    }
+  };
+
+  const handleExportData = async () => {
+    if (!user) return;
+    setIsExporting(true);
+    try {
+      const response = await authFetch(user, `/api/users/export?userId=${user.uid}`);
+      if (!response.ok) throw new Error("Export failed");
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `learningos-export-${new Date().toISOString().split("T")[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Failed to export data:", error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!user || deleteConfirmText !== "DELETE") return;
+    setIsDeleting(true);
+    try {
+      const response = await authFetch(user, `/api/users/delete?userId=${user.uid}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) throw new Error("Delete failed");
+
+      // Sign out and redirect — auth state will clear automatically
+      router.push("/login");
+    } catch (error) {
+      console.error("Failed to delete account:", error);
+      setIsDeleting(false);
     }
   };
 
@@ -263,6 +310,131 @@ export default function SettingsPage() {
           <Button variant="danger" onClick={handleSignOut}>
             Sign Out
           </Button>
+        </CardContent>
+      </Card>
+
+      {/* Data Export (GDPR) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ShieldIcon className="w-6 h-6" />
+            Your Data
+          </CardTitle>
+          <CardDescription>
+            Download or manage your personal data
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <DownloadIcon className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h4 className="font-medium text-gray-900 dark:text-white">
+                  Export All Data
+                </h4>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                  Download a complete copy of your profile, sessions, messages,
+                  concepts, reflections, and learning paths as JSON.
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportData}
+                  isLoading={isExporting}
+                  leftIcon={<DownloadIcon className="w-4 h-4" />}
+                >
+                  Download My Data
+                </Button>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Account Deletion */}
+      <Card variant="outlined" className="border-red-300 dark:border-red-900">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-red-600 dark:text-red-400">
+            <AlertTriangleIcon className="w-6 h-6" />
+            Danger Zone
+          </CardTitle>
+          <CardDescription>
+            Irreversible actions that affect your account
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {!showDeleteConfirm ? (
+            <div className="flex items-start gap-3 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+              <TrashIcon className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h4 className="font-medium text-gray-900 dark:text-white">
+                  Delete Account
+                </h4>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                  Permanently delete your account and all associated data. This
+                  action cannot be undone.
+                </p>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  leftIcon={<TrashIcon className="w-4 h-4" />}
+                >
+                  Delete My Account
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg space-y-4">
+              <div className="flex items-start gap-2">
+                <AlertTriangleIcon className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="font-semibold text-red-800 dark:text-red-300">
+                    Are you absolutely sure?
+                  </h4>
+                  <p className="text-sm text-red-700 dark:text-red-400 mt-1">
+                    This will permanently delete your account and all data including
+                    sessions, messages, concepts, reflections, and learning paths.
+                    This action is <strong>irreversible</strong>.
+                  </p>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-red-800 dark:text-red-300 mb-1">
+                  Type <strong>DELETE</strong> to confirm
+                </label>
+                <Input
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="DELETE"
+                  disabled={isDeleting}
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={handleDeleteAccount}
+                  disabled={deleteConfirmText !== "DELETE" || isDeleting}
+                  isLoading={isDeleting}
+                  leftIcon={<TrashIcon className="w-4 h-4" />}
+                >
+                  Permanently Delete
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setShowDeleteConfirm(false);
+                    setDeleteConfirmText("");
+                  }}
+                  disabled={isDeleting}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

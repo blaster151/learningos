@@ -966,7 +966,40 @@ User types:
 "flagged_uncertainties": ["associativity in non-code contexts"],
 "summarized_reflections": [
 "I realized chaining `.reduce()` is associative.",
-"Redux has always been using this pattern—I just didn’t know the name."
+"Redux has always been using this pattern—I just didn't know the name."
 ]
 
 }
+
+---
+
+# 📝 Retrospective: Where Epic Planning Refined the Vision
+
+*Added February 11, 2026 — notes from translating this brainstorming doc into epics and stories.*
+
+When converting the vision into implementable stories, a few things got *sharper* in ways worth recording back here:
+
+### 1. Persona ≠ Tone (now orthogonal systems)
+
+This doc blends "choose your guide" (Gödel/Escher/Bach) with "tone preference" (playful/formal/Socratic). In the epics, these became two independent systems:
+
+- **Persona** (E9) = *what voice* speaks — the character, metaphor palette, worldview
+- **Tone Matrix** (E10) = *how it speaks* — formality, energy, humour, technicality
+
+This means you can have "Bach, but calm and technical" or "Gödel, but playful." The original doc's "lighthearted but deep ≠ playful" observation actually demanded this split — a single dropdown couldn't express it.
+
+### 2. Achievement opt-out (respecting different learner types)
+
+This doc is all enthusiasm about badges, stickers, and "Better Than Khan" moments. The epics added an explicit opt-out (E12-S4: Achievement Preferences). Some learners find gamification distracting or patronising — especially the "calm & precise" crowd. Celebrating progress matters, but so does respecting the learner who just wants to *learn*.
+
+### 3. Backward compatibility for evolving preferences
+
+When tone goes from a single value ("conversational") to a 4-axis matrix, what happens to existing profiles? The epics include a migration story (E10-S2) that maps old values to the nearest matrix equivalent. The brainstorming doc (understandably) doesn't think about users who already exist — but any live system has to.
+
+### 4. CategoryBot 3000 got real
+
+"Communicates entirely through commuting diagrams. No words. No apologies." This was a joke-that-wasn't-a-joke in the brainstorming doc. It's now a real unlockable mentor (E9-S5) with actual acceptance criteria — including "the system respects the bit" (responses are primarily Mermaid/ASCII diagrams with minimal text). The unlock criteria ties it to the achievement system: connect 25+ concepts in your graph. If you've built a graph that dense, you've earned the right to learn from pure diagrams.
+
+### 5. Cheat Sheet Summarizer was always implied, never explicit
+
+The `CheatSheetSummarizer` prompt template (#6 in the Prompt Framework section below) was fully designed, but no user story existed for it anywhere — not in MVP, not in Phase 2. It fell through the cracks between "prompt design" and "feature planning." Now it's E3-S10, tied to path completion.

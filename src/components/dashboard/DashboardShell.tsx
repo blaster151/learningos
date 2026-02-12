@@ -9,6 +9,7 @@ import {
   HomeIcon,
   BookIcon,
   MessageCircleIcon,
+  GraphIcon,
   SettingsIcon,
   LogOutIcon,
   MenuIcon,
@@ -25,6 +26,7 @@ const navItems = [
   { href: "/dashboard", label: "Home", icon: HomeIcon },
   { href: "/dashboard/learn", label: "Learn", icon: BookIcon },
   { href: "/dashboard/chat", label: "Chat", icon: MessageCircleIcon },
+  { href: "/dashboard/graph", label: "Graph", icon: GraphIcon },
   { href: "/dashboard/settings", label: "Settings", icon: SettingsIcon },
 ];
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { ChatInterface, ChatMessage, SessionSummary } from "@/components/chat";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button, Skeleton, SkeletonText } from "@/components/ui";
 import { MessageCircleIcon, PlusIcon, HistoryIcon } from "@/components/icons";
@@ -17,6 +18,7 @@ interface Session {
 
 export default function ChatPage() {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [initialMessages, setInitialMessages] = useState<ChatMessage[]>([]);
@@ -24,6 +26,7 @@ export default function ChatPage() {
   const [showHistory, setShowHistory] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [completedSessionId, setCompletedSessionId] = useState<string | null>(null);
+  const [conceptHandled, setConceptHandled] = useState(false);
 
   // Load user's sessions
   const loadSessions = useCallback(async () => {
@@ -65,6 +68,49 @@ export default function ChatPage() {
   useEffect(() => {
     loadSessions();
   }, [loadSessions]);
+
+  // Handle "Chat from Context" — auto-create session when navigated from concept graph
+  useEffect(() => {
+    if (conceptHandled || isLoading || !user) return;
+    const conceptName = searchParams.get("concept");
+    if (!conceptName) return;
+
+    setConceptHandled(true);
+    const conceptId = searchParams.get("conceptId");
+    const topic = `Learning about: ${conceptName}`;
+    
+    // Create a session with concept context
+    const startConceptSession = async () => {
+      try {
+        const response = await authFetch(user, "/api/sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: user.uid,
+            topic,
+            goal: `Deep dive into the concept: ${conceptName}`,
+            ...(conceptId && { conceptId }),
+          }),
+        });
+
+        if (response.ok) {
+          const newSession = await response.json();
+          setActiveSessionId(newSession.sessionId);
+          setInitialMessages([]);
+          setSessions((prev) => [newSession, ...prev]);
+          setShowHistory(false);
+          setShowSummary(false);
+
+          // Clean up URL params without triggering a navigation
+          window.history.replaceState({}, "", "/dashboard/chat");
+        }
+      } catch (error) {
+        console.error("Failed to create concept session:", error);
+      }
+    };
+
+    startConceptSession();
+  }, [conceptHandled, isLoading, user, searchParams]);
 
   useEffect(() => {
     if (activeSessionId) {

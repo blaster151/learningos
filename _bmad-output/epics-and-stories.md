@@ -37,13 +37,23 @@ Each story follows the standard format:
 |------|-------|---------|--------------|
 | E1 | Authentication & Account | 6 | 23 |
 | E2 | Onboarding & Profile | 7 | 34 |
-| E3 | Learning Paths | 9 | 55 |
+| E3 | Learning Paths | 10 | 60 |
 | E4 | Reflect Mode | 5 | 34 |
 | E5 | Chat Mode | 5 | 29 |
 | E6 | Concept Graph | 6 | 42 |
 | E7 | Dashboard & Navigation | 5 | 18 |
 | E8 | Settings & Data Export | 4 | 13 |
-| **Total** | | **47** | **248** |
+| | | | |
+| **MVP Total** | | **48** | **253** |
+| | | | |
+| *Phase 2* | | | |
+| E9 | Mentor Personas (GEB) | 5 | 24 |
+| E10 | Tone Matrix | 3 | 11 |
+| E11 | "My Book" Export | 4 | 21 |
+| E12 | Achievement System | 4 | 17 |
+| E13 | Dynamic Glossary | 4 | 18 |
+| **Phase 2 Total** | | **20** | **91** |
+| **Grand Total** | | **70** | **344** |
 
 ---
 
@@ -491,6 +501,28 @@ Each story follows the standard format:
 - [ ] Given I complete a path, when I see suggestions, then they relate to what I just learned
 - [ ] Given I am on dashboard, when I see suggestions, then they connect to my concept graph
 - [ ] Given I click a suggestion, when it loads, then that topic is pre-filled for path generation
+
+**Story Points:** 5  
+**Priority:** P2-Medium  
+**Dependencies:** E3-S7  
+**UX Reference:** Section 4 - Dashboard  
+**API Reference:** GET /paths/:pathId/suggestions
+
+---
+
+### E3-S10: Cheat Sheet Summarizer
+
+**As a** learner  
+**I want to** get a personalised cheat sheet after completing a path  
+**So that** I have a concise reference that uses my own metaphors and breakthroughs
+
+**Acceptance Criteria:**
+- [ ] Given I complete a path, when I see the completion screen, then I see a "Generate Cheat Sheet" button
+- [ ] Given I click generate, when the cheat sheet is ready, then it shows 4-5 bullets summarising the concept using metaphors and analogies I used during the path
+- [ ] Given the cheat sheet references my reflections, when I read it, then it highlights what I got right and where I had breakthroughs ("When you realised X, that was Y")
+- [ ] Given I see the cheat sheet, when I click "Save", then it is stored and accessible from my concept graph and glossary
+- [ ] Given I have saved cheat sheets, when I visit a concept in my graph, then I can view the cheat sheet for that concept
+- [ ] Given I want to share, when I click "Copy", then the cheat sheet is copied as Markdown
 
 **Story Points:** 5  
 **Priority:** P2-Medium  
@@ -993,23 +1025,483 @@ Each story follows the standard format:
 
 ---
 
-### E8-S4: "My Book" Export
+### ~~E8-S4: "My Book" Export~~ → Moved to E11
 
-**As a** learner  
-**I want to** export my learning journey as a document  
-**So that** I have a tangible record of what I learned
+*This story has been expanded into Epic 11 (Phase 2) with 4 stories. See E11-S1 through E11-S4.*
+
+---
+
+---
+
+# Phase 2 Epics
+
+The following epics extend MVP functionality. They depend on MVP epics being complete and are scoped for Phase 2 delivery.
+
+---
+
+## Epic 9: Mentor Personas (GEB)
+
+**Phase:** 2  
+**Vision Reference:** Gap Analysis §13 — Mentor Persona Selection  
+**Depends on:** E2 (Onboarding & Profile), E3 (Learning Paths), E5 (Chat Mode)
+
+> "Choose Your Guide... Gödel (The Analyst), Escher (Visual Thinker), Bach (Harmonizer)"
+
+Three persistent teaching voices that color all AI interactions. Implemented as system prompt modifiers — no model fine-tuning required.
+
+---
+
+### E9-S1: Persona Selection During Onboarding
+
+**As a** new user  
+**I want to** choose a mentor persona during onboarding  
+**So that** my learning experience has a consistent voice from the start
 
 **Acceptance Criteria:**
-- [ ] Given I am in data settings, when I see "Export My Book", then I can select format (Markdown/PDF)
-- [ ] Given I select options, when I click export, then generation begins
-- [ ] Given generation completes, when ready, then I can download the file
-- [ ] Given I open the file, when I read it, then I see my definitions, reflections, and concept map
+- [ ] Given I am on onboarding step 3 (preferences), when I see mentor options, then I see Gödel, Escher, and Bach with descriptions and sample phrases
+- [ ] Given I hover/tap a persona card, when I see the preview, then I read 2-3 example phrases in that voice
+- [ ] Given I select a persona, when I continue, then it is saved to my profile as `mentorPersona`
+- [ ] Given I don't select one, when I continue, then no persona is applied (neutral AI voice)
 
-**Story Points:** 8 (Phase 2, but specced for MVP if time)
+**Story Points:** 3  
+**Priority:** P2-Medium  
+**Dependencies:** E2-S3  
+**UX Reference:** Section 3c - Learning Preferences (extended)  
+**API Reference:** PATCH /profile
+
+---
+
+### E9-S2: Persona System Prompt Injection
+
+**As a** system  
+**I want to** inject the selected persona's voice into all AI prompts  
+**So that** path content, reflections, and chat all speak in the chosen voice
+
+**Acceptance Criteria:**
+- [ ] Given user has persona "godel", when any AI prompt is constructed, then Gödel's system prompt addition is prepended
+- [ ] Given user has persona "escher", when generating a path, then explanations favour spatial metaphors and diagrams
+- [ ] Given user has persona "bach", when providing reflection feedback, then it uses musical/compositional metaphors
+- [ ] Given user has no persona, when AI prompts are constructed, then no persona modifier is added
+- [ ] Given persona prompt is injected, when response is generated, then tone preference (E2-S3) is also respected — persona and tone coexist
+
+**Story Points:** 5  
+**Priority:** P2-Medium  
+**Dependencies:** E9-S1, E3-S1, E5-S2  
+**UX Reference:** N/A (backend)  
+**API Reference:** All AI endpoints (internal change)
+
+---
+
+### E9-S3: Persona Switching from Settings
+
+**As a** learner  
+**I want to** change my mentor persona after onboarding  
+**So that** I can try a different voice if my preference changes
+
+**Acceptance Criteria:**
+- [ ] Given I am in profile settings, when I see the Persona section, then I see all three personas with my current selection highlighted
+- [ ] Given I select a different persona, when I save, then future AI responses use the new voice
+- [ ] Given I switch persona, when I return to an active path, then remaining steps use the new voice (already-completed steps are not regenerated)
+- [ ] Given I want no persona, when I select "Neutral", then the persona modifier is removed
+
+**Story Points:** 3  
+**Priority:** P2-Medium  
+**Dependencies:** E9-S2, E2-S7  
+**UX Reference:** Section 9 - Profile Settings  
+**API Reference:** PATCH /profile
+
+---
+
+### E9-S4: Persona Consistency Validation
+
+**As a** learner  
+**I want to** receive responses that consistently match my chosen persona  
+**So that** the experience doesn't feel inconsistent or generic
+
+**Acceptance Criteria:**
+- [ ] Given persona is "godel", when I read a path step, then language is precise, logical, and builds from first principles
+- [ ] Given persona is "escher", when I read a path step, then it includes visual/spatial framing and suggests diagrams where relevant
+- [ ] Given persona is "bach", when I read a path step, then it uses compositional metaphors (themes, variations, harmony)
+- [ ] Given any persona, when AI drifts to generic tone, then a post-generation check flags it and the response is regenerated (up to 1 retry)
+
+**Story Points:** 5  
 **Priority:** P3-Low  
-**Dependencies:** E8-S1  
+**Dependencies:** E9-S2  
+**UX Reference:** N/A  
+**API Reference:** N/A (internal quality gate)
+
+---
+
+### E9-S5: Secret & Unlockable Mentors
+
+**As a** learner  
+**I want to** discover and unlock hidden mentor personas  
+**So that** my learning journey has delightful surprises that reward exploration
+
+**Acceptance Criteria:**
+- [ ] Given I have not unlocked any secret mentors, when I view the persona picker, then I see 3 locked slots with mystery silhouettes and playful hints
+- [ ] Given I meet Ada's unlock criteria (complete 5 paths involving code), when the achievement triggers, then Ada is revealed with a toast: "Ada Lovelace has entered the chat"
+- [ ] Given I select Ada, when AI generates content, then it speaks in vision, creativity, and exacting prose — the first code poet
+- [ ] Given I meet Turing's unlock criteria (reach Mastery quadrant on any concept), when unlocked, then Turing is available — cares deeply about what is computable and why
+- [ ] Given I meet CategoryBot 3000's unlock criteria (connect 25+ concepts in my graph), when unlocked, then CategoryBot is available — communicates entirely through commuting diagrams; no words, no apologies
+- [ ] Given CategoryBot is selected, when AI generates content, then responses are primarily Mermaid/ASCII diagrams with minimal text — the system respects the bit
+- [ ] Given I have unlocked a secret mentor, when I view persona picker in settings, then the unlocked mentor appears alongside GEB with an "Unlocked" badge
+
+**Story Points:** 8  
+**Priority:** P2-Medium  
+**Dependencies:** E9-S2, E12-S2  
+**UX Reference:** Section 3c - Learning Preferences (extended)  
+**API Reference:** GET /achievements, PATCH /profile
+
+---
+
+## Epic 10: Tone Matrix
+
+**Phase:** 2  
+**Vision Reference:** Gap Analysis §11 — Tone Preference Details  
+**Depends on:** E2 (Onboarding & Profile)
+
+> "Lighthearted but deep" ≠ "playful." System needs multi-dimensional tone control.
+
+Extends the MVP's single tone preference (casual/formal/playful/socratic) into a 4-axis matrix: formality, energy, humour, technicality.
+
+---
+
+### E10-S1: Tone Matrix UI in Onboarding
+
+**As a** new user  
+**I want to** fine-tune my preferred tone across multiple dimensions  
+**So that** the AI voice matches how I actually like to communicate
+
+**Acceptance Criteria:**
+- [ ] Given I am on onboarding step 3, when I see tone options, then I see 4 sliders or toggle groups: Formality (casual → formal), Energy (calm → enthusiastic), Humour (none → playful), Technicality (accessible → technical)
+- [ ] Given I move a slider, when I see the live preview, then a sample sentence updates to demonstrate the combined tone
+- [ ] Given I don't interact with sliders, when I continue, then sensible defaults are used (casual, moderate, light, balanced)
+- [ ] Given I set all four dimensions, when I continue, then the full `ToneProfile` object is saved to my profile
+
+**Story Points:** 5  
+**Priority:** P2-Medium  
+**Dependencies:** E2-S3  
+**UX Reference:** Section 3c - Learning Preferences (extended)  
+**API Reference:** PATCH /profile
+
+---
+
+### E10-S2: Tone Matrix Prompt Construction
+
+**As a** system  
+**I want to** translate the 4-axis tone profile into a system prompt modifier  
+**So that** AI responses match the learner's multi-dimensional preference
+
+**Acceptance Criteria:**
+- [ ] Given profile has `ToneProfile { formality: "casual", energy: "calm", humor: "light", technicality: "technical" }`, when system prompt is built, then it instructs the LLM: "Use casual language, keep energy calm and measured, include light humour where natural, and maintain technical precision"
+- [ ] Given any combination of the 4 axes, when prompt is built, then the instruction is coherent (no contradictions)
+- [ ] Given tone matrix and persona are both set, when prompt is built, then both are included — persona shapes *what* is said, tone shapes *how* it's said
+- [ ] Given the old single-tone preference exists on a profile, when the system reads it, then it maps to the nearest tone matrix equivalent for backward compatibility
+
+**Story Points:** 3  
+**Priority:** P2-Medium  
+**Dependencies:** E10-S1  
+**UX Reference:** N/A (backend)  
+**API Reference:** All AI endpoints (internal change)
+
+---
+
+### E10-S3: Tone Adjustment from Settings
+
+**As a** learner  
+**I want to** adjust my tone matrix from settings  
+**So that** I can refine my preference over time
+
+**Acceptance Criteria:**
+- [ ] Given I am in profile settings, when I see the Tone section, then I see the same 4-axis control from onboarding with my current values
+- [ ] Given I adjust a slider, when I see the live preview, then the sample sentence updates
+- [ ] Given I save changes, when future AI responses are generated, then they reflect the updated tone
+- [ ] Given I want to reset, when I click "Reset to defaults", then sliders return to defaults
+
+**Story Points:** 3  
+**Priority:** P2-Medium  
+**Dependencies:** E10-S2, E2-S7  
+**UX Reference:** Section 9 - Profile Settings  
+**API Reference:** PATCH /profile
+
+---
+
+## Epic 11: "My Book" Export
+
+**Phase:** 2  
+**Vision Reference:** Gap Analysis §15 — Exportable Learning Journey  
+**Depends on:** E4 (Reflect Mode), E6 (Concept Graph), E8-S1 (Settings)  
+**Replaces:** E8-S4 (which was a placeholder stub)
+
+> "A generated, exportable representation of your learning journey — definitions in your own words, diagrams, reflections, and 'what I used to think' vs 'what I now understand'."
+
+---
+
+### E11-S1: Book Generation Engine
+
+**As a** system  
+**I want to** compile a learner's journey into a structured document  
+**So that** the export contains meaningful, personalised content
+
+**Acceptance Criteria:**
+- [ ] Given a user requests export, when generation starts, then the system collects: profile, concept graph, all completed paths, all reflections, and glossary entries
+- [ ] Given data is collected, when the book is assembled, then it includes: table of contents, per-concept sections (current definition, evolution of understanding, related concepts, reflections), a Mermaid concept map, and learning stats
+- [ ] Given a concept has multiple reflection entries, when displayed, then they appear as a timeline showing understanding evolution
+- [ ] Given generation completes, when the output is ready, then it is valid Markdown
+
+**Story Points:** 8  
+**Priority:** P2-Medium  
+**Dependencies:** E4-S3, E6-S1  
+**UX Reference:** Section 9 - Profile Settings (Data)  
+**API Reference:** POST /export/my-book
+
+---
+
+### E11-S2: Export Format Options
+
+**As a** learner  
+**I want to** choose the export format  
+**So that** I can use my book in the way that suits me
+
+**Acceptance Criteria:**
+- [ ] Given I click "Export My Book", when I see options, then I can select Markdown or JSON
+- [ ] Given I select Markdown, when export completes, then I download a `.md` file with proper formatting
+- [ ] Given I select JSON, when export completes, then I download a `.json` file with structured data (portable)
+- [ ] Given the export is large (100+ concepts), when generating, then I see a progress indicator
+
+**Story Points:** 3  
+**Priority:** P2-Medium  
+**Dependencies:** E11-S1  
 **UX Reference:** Section 9 - Profile Settings (Data)  
 **API Reference:** POST /export/my-book, GET /export/:id
+
+---
+
+### E11-S3: Export Preview
+
+**As a** learner  
+**I want to** preview my book before downloading  
+**So that** I know what I'm getting
+
+**Acceptance Criteria:**
+- [ ] Given I click "Preview My Book", when preview loads, then I see a rendered Markdown view of the first 3 concept sections
+- [ ] Given I see the preview, when I scroll, then I can read through the full document
+- [ ] Given I like what I see, when I click "Download", then export begins with my chosen format
+- [ ] Given I want changes, when I click "Back", then I return to settings without downloading
+
+**Story Points:** 5  
+**Priority:** P3-Low  
+**Dependencies:** E11-S1  
+**UX Reference:** Section 9 - Profile Settings (Data)  
+**API Reference:** POST /export/my-book (preview mode)
+
+---
+
+### E11-S4: PDF Export
+
+**As a** learner  
+**I want to** download my book as a PDF  
+**So that** I have a printable, shareable record
+
+**Acceptance Criteria:**
+- [ ] Given I select PDF format, when export completes, then I download a styled `.pdf` file
+- [ ] Given the PDF is generated, when I open it, then it has proper typography, headers, and page breaks
+- [ ] Given my book includes a concept map, when I see it in the PDF, then the Mermaid diagram is rendered as an image
+
+**Story Points:** 5  
+**Priority:** P3-Low  
+**Dependencies:** E11-S2  
+**UX Reference:** Section 9 - Profile Settings (Data)  
+**API Reference:** POST /export/my-book (format=pdf)
+
+---
+
+## Epic 12: Achievement System
+
+**Phase:** 2  
+**Vision Reference:** Gap Analysis §20 — Badges, Achievements  
+**Depends on:** E4 (Reflect Mode), E6 (Concept Graph), E7 (Dashboard)
+
+> "Celebrate progress, not competition. Intrinsic motivation over extrinsic. No leaderboards."
+
+Criteria-based personal milestones. Optional — users can disable achievement notifications.
+
+---
+
+### E12-S1: Achievement Data Model & Seed Definitions
+
+**As a** system  
+**I want to** have a defined set of achievements with clear criteria  
+**So that** they can be checked automatically
+
+**Acceptance Criteria:**
+- [ ] Given the system starts, when achievements are loaded, then at least 10 achievements are defined covering: first reflection, first path, concept count milestones (5, 10, 25, 50), connection milestones, mastery quadrant reached, streak (3 days, 7 days), and first emergent abstraction
+- [ ] Given each achievement, when inspected, then it has: id, name, description, icon/emoji, and a machine-evaluable criteria object
+- [ ] Given criteria definitions, when user stats change, then the system can evaluate whether any new achievement is earned
+- [ ] Given an achievement is earned, when recorded, then `earnedAt` timestamp is set and it cannot be un-earned
+
+**Story Points:** 5  
+**Priority:** P2-Medium  
+**Dependencies:** None  
+**UX Reference:** N/A (data model)  
+**API Reference:** GET /achievements
+
+---
+
+### E12-S2: Achievement Evaluation Engine
+
+**As a** system  
+**I want to** check for newly earned achievements after each learning action  
+**So that** users are recognised in real time
+
+**Acceptance Criteria:**
+- [ ] Given a user completes a reflection, when the action completes, then achievements are evaluated
+- [ ] Given a user's concept graph updates, when new concepts or connections are added, then achievements are evaluated
+- [ ] Given a user logs in on consecutive days, when the session starts, then streak achievements are evaluated
+- [ ] Given evaluation finds a new achievement, when it is detected, then it is persisted and a notification event is emitted
+- [ ] Given evaluation finds no new achievements, when it completes, then no notification is emitted and no writes occur
+
+**Story Points:** 5  
+**Priority:** P2-Medium  
+**Dependencies:** E12-S1, E4-S3, E6-S5  
+**UX Reference:** N/A (backend)  
+**API Reference:** Internal (triggered by other endpoints)
+
+---
+
+### E12-S3: Achievement Toast & Dashboard Display
+
+**As a** learner  
+**I want to** see a celebration when I earn an achievement  
+**So that** my progress is recognised and I feel motivated
+
+**Acceptance Criteria:**
+- [ ] Given I earn an achievement, when the toast appears, then I see the icon, name, and description with a brief animation
+- [ ] Given I see the toast, when I click it, then I navigate to my achievements page
+- [ ] Given I dismiss the toast, when it closes, then the achievement is still recorded
+- [ ] Given I visit my dashboard, when I look at the achievements section, then I see all earned achievements with dates and all unearned achievements greyed out
+- [ ] Given I have no achievements yet, when I see the section, then I see "Start learning to earn your first achievement!"
+
+**Story Points:** 5  
+**Priority:** P2-Medium  
+**Dependencies:** E12-S2, E7-S5  
+**UX Reference:** Section 8 - Dashboard (extended)  
+**API Reference:** GET /achievements
+
+---
+
+### E12-S4: Achievement Preferences
+
+**As a** learner  
+**I want to** control whether I see achievement notifications  
+**So that** they don't distract me if I find them unhelpful
+
+**Acceptance Criteria:**
+- [ ] Given I am in settings, when I see "Achievements", then I see a toggle for notifications (default: on)
+- [ ] Given I turn off notifications, when I earn an achievement, then no toast appears but the achievement is still recorded
+- [ ] Given I turn off notifications, when I visit dashboard, then I still see my earned achievements
+- [ ] Given I turn notifications back on, when I next earn an achievement, then toasts resume
+
+**Story Points:** 2  
+**Priority:** P3-Low  
+**Dependencies:** E12-S3, E8-S1  
+**UX Reference:** Section 9 - Profile Settings  
+**API Reference:** PATCH /profile
+
+---
+
+## Epic 13: Dynamic Glossary
+
+**Phase:** 2  
+**Vision Reference:** Gap Analysis §14 — Dynamic, Personal Glossary; Brainstorming doc "Glossary-as-Experience"  
+**Depends on:** E4 (Reflect Mode), E6 (Concept Graph)
+
+> "It's not just a dictionary. It's the history of your understanding."
+
+A living glossary that speaks in the learner's language, grows with their journey, and stores the evolution of what each term means to them — from first encounter to mastery.
+
+---
+
+### E13-S1: Glossary Data Model & Auto-Population
+
+**As a** system  
+**I want to** automatically create and update glossary entries as the learner progresses  
+**So that** the glossary grows organically without manual effort
+
+**Acceptance Criteria:**
+- [ ] Given a learner completes a reflection, when the analysis extracts concept definitions, then a glossary entry is created or updated with the learner's own phrasing
+- [ ] Given a glossary entry already exists for a concept, when a new definition is extracted, then it is added to the entry's `definitionHistory` — the old definition is preserved, not overwritten
+- [ ] Given each definition in the history, when stored, then it includes: text, source (reflection/path/chat/user-edited), timestamp, and confidence score at time of writing
+- [ ] Given a learner's first encounter with a concept, when the entry is created, then it records `learnedFrom` (which path/session) and initial confidence
+- [ ] Given the LLM extracts a definition, when parsing fails or is ambiguous, then no entry is created (prefer silence over noise)
+
+**Story Points:** 5  
+**Priority:** P2-Medium  
+**Dependencies:** E4-S3, E6-S1  
+**UX Reference:** N/A (data model)  
+**API Reference:** GET /glossary, GET /glossary/:conceptId
+
+---
+
+### E13-S2: Glossary Page & Search
+
+**As a** learner  
+**I want to** browse and search my personal glossary  
+**So that** I can look up concepts in my own words
+
+**Acceptance Criteria:**
+- [ ] Given I navigate to Glossary, when the page loads, then I see an alphabetised list of all my glossary entries with current definitions
+- [ ] Given I type in the search bar, when I search, then entries are filtered by concept name and definition text
+- [ ] Given I click an entry, when the detail view opens, then I see: current definition, confidence badge, source path, and related concepts
+- [ ] Given I have no glossary entries yet, when I visit the page, then I see "Your glossary will grow as you learn. Complete your first path to get started."
+- [ ] Given I want to edit a definition, when I click "Edit", then I can rewrite it in my own words and save (source = "user-edited")
+
+**Story Points:** 5  
+**Priority:** P2-Medium  
+**Dependencies:** E13-S1  
+**UX Reference:** Section 4 - Dashboard (extended)  
+**API Reference:** GET /glossary, PATCH /glossary/:conceptId
+
+---
+
+### E13-S3: Definition Evolution Timeline
+
+**As a** learner  
+**I want to** see how my understanding of a concept evolved over time  
+**So that** I can appreciate my growth and spot patterns in how I learn
+
+**Acceptance Criteria:**
+- [ ] Given a glossary entry has 2+ definitions, when I view it, then I see a timeline showing each definition with its date and confidence badge
+- [ ] Given the timeline, when I read entries chronologically, then I see my understanding progressing (e.g. "A monad is... a wrapper?" → "A design pattern for sequential composition with context")
+- [ ] Given each timeline entry, when I see the badge, then it shows a learning stage label (🌱 Beginner, 💡 Getting It, 🌟 Mastery) based on the confidence at that time
+- [ ] Given I want to revisit a concept, when I click "Teach this back", then Reflect Mode opens for that concept
+
+**Story Points:** 5  
+**Priority:** P2-Medium  
+**Dependencies:** E13-S2  
+**UX Reference:** Section 4 - Dashboard (extended)  
+**API Reference:** GET /glossary/:conceptId (includes definitionHistory)
+
+---
+
+### E13-S4: Glossary–Graph Integration
+
+**As a** learner  
+**I want to** access glossary entries from my concept graph and vice versa  
+**So that** the two views of my knowledge are connected
+
+**Acceptance Criteria:**
+- [ ] Given I click a node in my concept graph, when the detail panel opens, then I see my glossary definition (if one exists) alongside the graph data
+- [ ] Given I view a glossary entry, when I see "Related concepts", then they link to the concept graph view
+- [ ] Given I view a glossary entry, when I see "View in graph", then the concept graph opens centred on that node
+- [ ] Given I save a cheat sheet (E3-S10), when I view the glossary entry for that concept, then the cheat sheet is accessible from the entry
+
+**Story Points:** 3  
+**Priority:** P2-Medium  
+**Dependencies:** E13-S2, E6-S3  
+**UX Reference:** Section 5 - Concept Graph (extended)  
+**API Reference:** GET /glossary/:conceptId, GET /concepts/:conceptId
 
 ---
 
@@ -1070,28 +1562,54 @@ Each story follows the standard format:
 | E2-S6 | Skip/Resume Onboarding | 5 |
 | E3-S8 | Path History | 5 |
 | E3-S9 | Path Suggestions | 5 |
+| E3-S10 | Cheat Sheet Summarizer | 5 |
 | E4-S5 | Skip Reflection | 2 |
 | E5-S4 | Chat Session Management | 5 |
 | E6-S4 | Graph Filtering | 3 |
 | E6-S6 | Manual Concept Addition | 8 |
-| **Total P2** | | **40** |
+| **Total P2** | | **45** |
 
 ### P3 - Low (Phase 2)
 | ID | Title | Points |
 |----|-------|--------|
-| E8-S4 | "My Book" Export | 8 |
-| **Total P3** | | **8** |
+| E9-S4 | Persona Consistency Validation | 5 |
+| E11-S3 | Export Preview | 5 |
+| E11-S4 | PDF Export | 5 |
+| E12-S4 | Achievement Preferences | 2 |
+| **Total P3** | | **17** |
+
+### Phase 2 - P2 (New Epics)
+| ID | Title | Points |
+|----|-------|--------|
+| E9-S1 | Persona Selection During Onboarding | 3 |
+| E9-S2 | Persona System Prompt Injection | 5 |
+| E9-S3 | Persona Switching from Settings | 3 |
+| E9-S5 | Secret & Unlockable Mentors | 8 |
+| E10-S1 | Tone Matrix UI in Onboarding | 5 |
+| E10-S2 | Tone Matrix Prompt Construction | 3 |
+| E10-S3 | Tone Adjustment from Settings | 3 |
+| E11-S1 | Book Generation Engine | 8 |
+| E11-S2 | Export Format Options | 3 |
+| E12-S1 | Achievement Data Model & Seed Definitions | 5 |
+| E12-S2 | Achievement Evaluation Engine | 5 |
+| E12-S3 | Achievement Toast & Dashboard Display | 5 |
+| E13-S1 | Glossary Data Model & Auto-Population | 5 |
+| E13-S2 | Glossary Page & Search | 5 |
+| E13-S3 | Definition Evolution Timeline | 5 |
+| E13-S4 | Glossary–Graph Integration | 3 |
+| **Total Phase 2 P2** | | **74** |
 
 ---
 
-**Grand Total:** 228 story points
+**Grand Total (all phases):** 344 story points
 
 **MVP Target (P0 only):** 104 points  
-**Full MVP (P0 + P1):** 180 points
+**Full MVP (P0 + P1):** 180 points  
+**Phase 2 (P2 new epics + P3 deferred):** 91 points
 
 ---
 
 **Document Status:** Complete Epic/Story Breakdown  
 **Next:** Traceability Matrix  
 **Owner:** Blast  
-**Last Updated:** January 27, 2026
+**Last Updated:** February 11, 2026

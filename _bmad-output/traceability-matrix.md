@@ -2,6 +2,7 @@
 
 > **Purpose:** Bidirectional linking from vision → requirements → implementation
 > **Created:** Session continuation
+> **Updated:** February 11, 2026 — Story IDs unified to E-S format (see epics-and-stories.md)
 > **Cross-references:** product-brief.md, technical-architecture.md, ux-specifications.md, api-contracts.md, epics-and-stories.md
 
 ---
@@ -53,8 +54,8 @@
 
 | Layer | ID Format | Example |
 |-------|-----------|---------|
-| Epic | EPIC-XX | EPIC-01 |
-| Story | STORY-XXX | STORY-101 |
+| Epic | E{N} | E1 |
+| Story | E{N}-S{N} | E1-S1 |
 | Screen | SCR-XXX | SCR-ONB-01 |
 | Component | CMP-XXX | CMP-GOAL-CARD |
 | API Endpoint | API-XXX | API-PROFILE-01 |
@@ -64,80 +65,82 @@
 
 ## Epic → Story → Screen Mapping
 
-### EPIC-01: User Onboarding & Profile Setup
+### E1: Authentication & Account + E2: Onboarding & Profile
 
 | Story ID | Story Title | Primary Screen | Secondary Screens |
 |----------|-------------|----------------|-------------------|
-| STORY-101 | Welcome Screen Experience | SCR-ONB-01 | - |
-| STORY-102 | Create Account Flow | SCR-ONB-02 | - |
-| STORY-103 | Set Learning Goal | SCR-ONB-03 | - |
-| STORY-104 | First Topic Selection | SCR-ONB-04 | - |
-| STORY-105 | Select Initial Concepts | SCR-ONB-05 | - |
-| STORY-106 | Start First Conversation | SCR-CHAT-01 | SCR-ONB-05 |
+| E1-S1 | User Sign Up with Email | SCR-ONB-02 | - |
+| E1-S2 | User Sign Up with OAuth (Google) | SCR-ONB-02 | - |
+| E1-S4 | User Login | SCR-ONB-02 | - |
+| E2-S1 | Welcome Screen | SCR-ONB-01 | - |
+| E2-S2 | Conversational Intake | SCR-ONB-03 | - |
+| E2-S3 | Learning Preferences | SCR-ONB-03 | - |
+| E2-S4 | First Topic Selection | SCR-ONB-04 | - |
+| E2-S5 | Profile API Integration | SCR-ONB-05 | SCR-CHAT-01 |
 
-### EPIC-02: Core Conversation Experience
-
-| Story ID | Story Title | Primary Screen | Secondary Screens |
-|----------|-------------|----------------|-------------------|
-| STORY-201 | Send Learning Message | SCR-CHAT-01 | - |
-| STORY-202 | View Streaming Response | SCR-CHAT-01 | - |
-| STORY-203 | Tag Concepts in Chat | SCR-CHAT-01 | SCR-CONCEPT-01 |
-| STORY-204 | Quick Actions During Chat | SCR-CHAT-01 | - |
-| STORY-205 | View Session Summary | SCR-CHAT-02 | - |
-| STORY-206 | Continue Previous Session | SCR-SESS-01 | SCR-CHAT-01 |
-| STORY-207 | Branch Conversation Topic | SCR-CHAT-01 | - |
-
-### EPIC-03: Learning Path Management
+### E5: Chat Mode
 
 | Story ID | Story Title | Primary Screen | Secondary Screens |
 |----------|-------------|----------------|-------------------|
-| STORY-301 | View Recommended Path | SCR-PATH-01 | - |
-| STORY-302 | Accept Path Recommendation | SCR-PATH-01 | SCR-CHAT-01 |
-| STORY-303 | View Path Progress | SCR-PATH-01 | - |
-| STORY-304 | Navigate Path Milestones | SCR-PATH-01 | SCR-CONCEPT-02 |
-| STORY-305 | Complete Path Checkpoint | SCR-PATH-01 | SCR-REFLECT-01 |
-| STORY-306 | Generate Alternative Paths | SCR-PATH-01 | - |
+| E5-S1 | Chat Interface | SCR-CHAT-01 | - |
+| E5-S2 | Send & Receive Messages | SCR-CHAT-01 | - |
+| E5-S3 | Context-Aware Suggestions | SCR-CHAT-01 | SCR-CONCEPT-01 |
+| E5-S4 | Chat Session Management | SCR-CHAT-01 | SCR-SESS-01 |
+| E5-S5 | Chat from Context | SCR-CHAT-01 | SCR-CHAT-02 |
 
-### EPIC-04: Concept Graph & Knowledge Mapping
-
-| Story ID | Story Title | Primary Screen | Secondary Screens |
-|----------|-------------|----------------|-------------------|
-| STORY-401 | View Concept Graph | SCR-GRAPH-01 | - |
-| STORY-402 | Explore Concept Details | SCR-CONCEPT-02 | SCR-GRAPH-01 |
-| STORY-403 | See Concept Connections | SCR-GRAPH-01 | - |
-| STORY-404 | Filter Graph by Status | SCR-GRAPH-01 | - |
-| STORY-405 | Search Concepts | SCR-GRAPH-01 | SCR-CONCEPT-01 |
-| STORY-406 | View Learning Journey | SCR-GRAPH-01 | - |
-
-### EPIC-05: Reflection & Understanding Assessment
+### E3: Learning Paths
 
 | Story ID | Story Title | Primary Screen | Secondary Screens |
 |----------|-------------|----------------|-------------------|
-| STORY-501 | Triggered Reflection | SCR-REFLECT-01 | SCR-CHAT-01 |
-| STORY-502 | Rate Understanding | SCR-REFLECT-01 | - |
-| STORY-503 | Explain Back Prompt | SCR-REFLECT-01 | - |
-| STORY-504 | View Reflection History | SCR-REFLECT-02 | - |
-| STORY-505 | Track Confidence vs Understanding | SCR-PROFILE-02 | SCR-REFLECT-02 |
+| E3-S1 | Path Generation | SCR-PATH-01 | - |
+| E3-S2 | Path Content Display | SCR-PATH-01 | SCR-CHAT-01 |
+| E3-S3 | Path Navigation | SCR-PATH-01 | - |
+| E3-S4 | Step Checkpoints | SCR-PATH-01 | SCR-CONCEPT-02 |
+| E3-S5 | Progress Persistence | SCR-PATH-01 | SCR-REFLECT-01 |
+| E3-S6 | Struggle Button & Help | SCR-PATH-01 | - |
+| E3-S7 | Path Completion | SCR-PATH-01 | SCR-REFLECT-01 |
+| E3-S8 | Path History | SCR-PATH-01 | - |
+| E3-S9 | Path Suggestions | SCR-PATH-01 | - |
+| E3-S10 | Cheat Sheet Summarizer | SCR-PATH-01 | SCR-GRAPH-01 |
 
-### EPIC-06: User Dashboard & Profile
-
-| Story ID | Story Title | Primary Screen | Secondary Screens |
-|----------|-------------|----------------|-------------------|
-| STORY-601 | Returning User Dashboard | SCR-DASH-01 | - |
-| STORY-602 | View Learning Stats | SCR-PROFILE-02 | - |
-| STORY-603 | Edit Profile Settings | SCR-PROFILE-01 | - |
-| STORY-604 | Change Learning Goal | SCR-PROFILE-01 | SCR-ONB-03 |
-| STORY-605 | View Learning Insights | SCR-PROFILE-02 | - |
-
-### EPIC-07: Session Management & History
+### E6: Concept Graph & Knowledge Mapping
 
 | Story ID | Story Title | Primary Screen | Secondary Screens |
 |----------|-------------|----------------|-------------------|
-| STORY-701 | Browse Session History | SCR-SESS-01 | - |
-| STORY-702 | Search Past Sessions | SCR-SESS-01 | - |
-| STORY-703 | View Session Details | SCR-SESS-02 | - |
-| STORY-704 | Export Session Content | SCR-SESS-02 | - |
-| STORY-705 | Delete Session | SCR-SESS-01 | - |
+| E6-S1 | Graph Visualization | SCR-GRAPH-01 | - |
+| E6-S2 | Graph Pan/Zoom | SCR-GRAPH-01 | - |
+| E6-S3 | Concept Detail Panel | SCR-CONCEPT-02 | SCR-GRAPH-01 |
+| E6-S4 | Graph Filtering | SCR-GRAPH-01 | - |
+| E6-S5 | Graph Auto-Update | SCR-GRAPH-01 | - |
+| E6-S6 | Manual Concept Addition | SCR-GRAPH-01 | - |
+
+### E4: Reflect Mode
+
+| Story ID | Story Title | Primary Screen | Secondary Screens |
+|----------|-------------|----------------|-------------------|
+| E4-S1 | Reflection Prompt Display | SCR-REFLECT-01 | - |
+| E4-S2 | Reflection Submission | SCR-REFLECT-01 | - |
+| E4-S3 | Reflection Analysis Display | SCR-REFLECT-01 | - |
+| E4-S4 | Learner State Update | SCR-REFLECT-02 | SCR-PROFILE-02 |
+| E4-S5 | Skip Reflection | SCR-REFLECT-01 | - |
+
+### E7: Dashboard & Navigation
+
+| Story ID | Story Title | Primary Screen | Secondary Screens |
+|----------|-------------|----------------|-------------------|
+| E7-S1 | Dashboard Home | SCR-DASH-01 | - |
+| E7-S2 | Quadrant Display | SCR-PROFILE-02 | SCR-DASH-01 |
+| E7-S3 | Header Navigation | - | All screens |
+| E7-S4 | Mobile Navigation | - | All screens |
+| E7-S5 | Toast Notifications | - | All screens |
+
+### E8: Settings & Data Export
+
+| Story ID | Story Title | Primary Screen | Secondary Screens |
+|----------|-------------|----------------|-------------------|
+| E8-S1 | Settings Page | SCR-PROFILE-01 | - |
+| E8-S2 | Account Deletion | SCR-PROFILE-01 | - |
+| E8-S3 | Data Export (GDPR) | SCR-PROFILE-01 | - |
 
 ---
 
@@ -407,7 +410,7 @@
 
 ## End-to-End Traceability
 
-### User Story: STORY-201 "Send Learning Message"
+### User Story: E5-S2 "Send & Receive Messages"
 
 ```
 Vision Layer:
@@ -415,12 +418,12 @@ Vision Layer:
        └─ Success Metric: "Time to first meaningful insight < 5 minutes"
 
 Requirements Layer:
-  └─ EPIC-02: Core Conversation Experience
-       └─ STORY-201: Send Learning Message
-            ├─ AC-1: Type message in input field
-            ├─ AC-2: Submit via button or Enter key
-            ├─ AC-3: See message appear in chat
-            └─ AC-4: Receive AI response
+  └─ E5: Chat Mode
+       └─ E5-S2: Send & Receive Messages
+            ├─ AC-1: Type message and press Enter or click Send
+            ├─ AC-2: Message appears in chat
+            ├─ AC-3: AI response streams in word by word
+            └─ AC-4: Code blocks are syntax highlighted
 
 UX Layer:
   └─ SCR-CHAT-01: Main Chat Interface
@@ -443,7 +446,7 @@ Data Layer:
        └─ Updates: session.lastActivity, session.messageCount
 ```
 
-### User Story: STORY-401 "View Concept Graph"
+### User Story: E6-S1 "Graph Visualization"
 
 ```
 Vision Layer:
@@ -451,8 +454,8 @@ Vision Layer:
        └─ Success Metric: "Users who view graph have 40% higher retention"
 
 Requirements Layer:
-  └─ EPIC-04: Concept Graph & Knowledge Mapping
-       └─ STORY-401: View Concept Graph
+  └─ E6: Concept Graph
+       └─ E6-S1: Graph Visualization
             ├─ AC-1: See visual network of learned concepts
             ├─ AC-2: Concepts colored by mastery level
             ├─ AC-3: Lines show relationships
@@ -480,7 +483,7 @@ Data Layer:
        └─ Fields: sourceId, targetId, relationType, strength
 ```
 
-### User Story: STORY-501 "Triggered Reflection"
+### User Story: E4-S1 "Reflection Prompt Display"
 
 ```
 Vision Layer:
@@ -488,12 +491,12 @@ Vision Layer:
        └─ Success Metric: "Reflection completion rate > 60%"
 
 Requirements Layer:
-  └─ EPIC-05: Reflection & Understanding Assessment
-       └─ STORY-501: Triggered Reflection
-            ├─ AC-1: Prompt appears after concept discussion
-            ├─ AC-2: Can rate confidence level
-            ├─ AC-3: Can explain understanding
-            └─ AC-4: Get feedback on explanation
+  └─ E4: Reflect Mode
+       └─ E4-S1: Reflection Prompt Display
+            ├─ AC-1: Prompt appears after completing a path
+            ├─ AC-2: Asks learner to explain in own words
+            ├─ AC-3: Shows hints for concepts to cover
+            └─ AC-4: Word count guidance visible
 
 UX Layer:
   └─ SCR-REFLECT-01: Reflection Modal
@@ -526,26 +529,27 @@ Data Layer:
 
 | Epic | Stories | Screens | APIs | Data Models | Status |
 |------|---------|---------|------|-------------|--------|
-| EPIC-01: Onboarding | 6 | 5 | 4 | 2 | ✅ Complete |
-| EPIC-02: Conversation | 7 | 2 | 4 | 3 | ✅ Complete |
-| EPIC-03: Learning Path | 6 | 1 | 5 | 1 | ✅ Complete |
-| EPIC-04: Concept Graph | 6 | 2 | 5 | 2 | ✅ Complete |
-| EPIC-05: Reflection | 5 | 2 | 3 | 2 | ✅ Complete |
-| EPIC-06: Dashboard | 5 | 2 | 2 | 1 | ✅ Complete |
-| EPIC-07: Session Mgmt | 5 | 2 | 3 | 2 | ✅ Complete |
+| E1: Authentication | 6 | 1 | 4 | 1 | ✅ Complete |
+| E2: Onboarding | 7 | 4 | 2 | 1 | ✅ Complete |
+| E3: Learning Paths | 10 | 1 | 5 | 1 | ✅ Complete |
+| E4: Reflect Mode | 5 | 2 | 3 | 2 | ✅ Complete |
+| E5: Chat Mode | 5 | 2 | 4 | 3 | ✅ Complete |
+| E6: Concept Graph | 6 | 2 | 5 | 2 | ✅ Complete |
+| E7: Dashboard & Nav | 5 | 2 | 2 | 1 | ✅ Complete |
+| E8: Settings & Export | 4 | 1 | 3 | 1 | ✅ Complete |
 
 ### API Coverage Check
 
 | API Category | Endpoints | Stories Served | Screens Served |
 |--------------|-----------|----------------|----------------|
-| Auth | 4 | 3 | 2 |
-| Profile | 3 | 5 | 3 |
-| Sessions | 5 | 8 | 4 |
-| Messages | 2 | 4 | 2 |
-| Paths | 5 | 6 | 1 |
-| Concepts | 5 | 7 | 3 |
-| Reflect | 3 | 5 | 2 |
-| Export | 3 | 2 | 1 |
+| Auth | 4 | E1-S1/S2/S4 | 1 |
+| Profile | 3 | E2-S3/S5/S7, E7-S1/S2, E8-S1 | 3 |
+| Sessions | 5 | E5-S1/S2/S4, E7-S1 | 4 |
+| Messages | 2 | E5-S2/S3 | 2 |
+| Paths | 5 | E3-S1/S2/S3/S5/S7 | 1 |
+| Concepts | 5 | E6-S1/S3/S4/S5, E2-S4 | 3 |
+| Reflect | 3 | E4-S1/S2/S3/S4 | 2 |
+| Export | 3 | E8-S3 | 1 |
 
 ### Data Model Coverage Check
 
@@ -567,45 +571,45 @@ Data Layer:
 
 | Screen | Stories | Key Components | APIs |
 |--------|---------|----------------|------|
-| SCR-ONB-01 | 101 | WELCOME-HERO, VALUE-PROPS, CTA-PRIMARY | - |
-| SCR-ONB-02 | 102 | AUTH-TABS, EMAIL-INPUT, GOOGLE-OAUTH | AUTH-01/02/03 |
-| SCR-ONB-03 | 103 | GOAL-CARD, GOAL-GRID, CUSTOM-GOAL-INPUT | PROFILE-02 |
-| SCR-ONB-04 | 104 | TOPIC-SEARCH, TOPIC-CARD, SELECTED-TOPICS | CONCEPT-01, PROFILE-02 |
-| SCR-ONB-05 | 105, 106 | CONCEPT-CHIP, CONFIDENCE-SLIDER, START-BUTTON | SESSION-01 |
-| SCR-CHAT-01 | 201-207 | MESSAGE-LIST, MESSAGE-INPUT, SEND-BUTTON, QUICK-ACTIONS | SESSION-02, MESSAGE-01 |
-| SCR-CHAT-02 | 205 | SESSION-STATS, CONCEPTS-COVERED, REFLECTION-PROMPT | SESSION-02, REFLECT-02 |
-| SCR-PATH-01 | 301-306 | PATH-VISUALIZATION, MILESTONE-NODE, PATH-PROGRESS | PATH-01/03/04, SESSION-01 |
-| SCR-GRAPH-01 | 401-406 | GRAPH-CANVAS, GRAPH-NODE, FILTER-PANEL, SEARCH-OVERLAY | CONCEPT-01/03 |
-| SCR-CONCEPT-02 | 402 | CONCEPT-HEADER, DEFINITION-CARD, RELATED-CONCEPTS | CONCEPT-02/03/04, SESSION-01 |
-| SCR-REFLECT-01 | 501-503 | RATING-SELECTOR, EXPLAIN-PROMPT, FEEDBACK-DISPLAY | REFLECT-01 |
-| SCR-REFLECT-02 | 504 | HISTORY-LIST, REFLECTION-CARD, TREND-CHART | REFLECT-02/03 |
-| SCR-SESS-01 | 701-702, 705 | SESSION-LIST, SEARCH-BAR, FILTER-DROPDOWN | SESSION-03 |
-| SCR-SESS-02 | 703-704 | MESSAGE-TIMELINE, EXPORT-BUTTON, DELETE-BUTTON | SESSION-02, EXPORT-01, SESSION-05 |
-| SCR-DASH-01 | 601 | WELCOME-BACK, CONTINUE-CARD, PROGRESS-SUMMARY | PROFILE-01, SESSION-03, PATH-01, CONCEPT-03 |
-| SCR-PROFILE-01 | 603-604 | PROFILE-FORM, GOAL-SELECTOR, PREFERENCES | PROFILE-01/02, AUTH-04 |
-| SCR-PROFILE-02 | 602, 605 | STATS-HEADER, CONCEPT-PROGRESS, QUADRANT-DISPLAY | PROFILE-01, CONCEPT-03 |
+| SCR-ONB-01 | E2-S1 | WELCOME-HERO, VALUE-PROPS, CTA-PRIMARY | - |
+| SCR-ONB-02 | E1-S1, E1-S2, E1-S4 | AUTH-TABS, EMAIL-INPUT, GOOGLE-OAUTH | AUTH-01/02/03 |
+| SCR-ONB-03 | E2-S2, E2-S3 | GOAL-CARD, GOAL-GRID, CUSTOM-GOAL-INPUT | PROFILE-02 |
+| SCR-ONB-04 | E2-S4 | TOPIC-SEARCH, TOPIC-CARD, SELECTED-TOPICS | CONCEPT-01, PROFILE-02 |
+| SCR-ONB-05 | E2-S5 | CONCEPT-CHIP, CONFIDENCE-SLIDER, START-BUTTON | SESSION-01 |
+| SCR-CHAT-01 | E5-S1/S2/S3/S4/S5 | MESSAGE-LIST, MESSAGE-INPUT, SEND-BUTTON, QUICK-ACTIONS | SESSION-02, MESSAGE-01 |
+| SCR-CHAT-02 | E5-S5 | SESSION-STATS, CONCEPTS-COVERED, REFLECTION-PROMPT | SESSION-02, REFLECT-02 |
+| SCR-PATH-01 | E3-S1/S2/S3/S4/S5/S6/S7 | PATH-VISUALIZATION, MILESTONE-NODE, PATH-PROGRESS | PATH-01/03/04, SESSION-01 |
+| SCR-GRAPH-01 | E6-S1/S2/S4/S5/S6 | GRAPH-CANVAS, GRAPH-NODE, FILTER-PANEL, SEARCH-OVERLAY | CONCEPT-01/03 |
+| SCR-CONCEPT-02 | E6-S3 | CONCEPT-HEADER, DEFINITION-CARD, RELATED-CONCEPTS | CONCEPT-02/03/04, SESSION-01 |
+| SCR-REFLECT-01 | E4-S1/S2/S3/S5 | RATING-SELECTOR, EXPLAIN-PROMPT, FEEDBACK-DISPLAY | REFLECT-01 |
+| SCR-REFLECT-02 | E4-S4 | HISTORY-LIST, REFLECTION-CARD, TREND-CHART | REFLECT-02/03 |
+| SCR-SESS-01 | E5-S4 | SESSION-LIST, SEARCH-BAR, FILTER-DROPDOWN | SESSION-03 |
+| SCR-SESS-02 | E5-S4 | MESSAGE-TIMELINE, EXPORT-BUTTON, DELETE-BUTTON | SESSION-02, EXPORT-01, SESSION-05 |
+| SCR-DASH-01 | E7-S1 | WELCOME-BACK, CONTINUE-CARD, PROGRESS-SUMMARY | PROFILE-01, SESSION-03, PATH-01, CONCEPT-03 |
+| SCR-PROFILE-01 | E8-S1/S2, E2-S7 | PROFILE-FORM, GOAL-SELECTOR, PREFERENCES | PROFILE-01/02, AUTH-04 |
+| SCR-PROFILE-02 | E7-S2 | STATS-HEADER, CONCEPT-PROGRESS, QUADRANT-DISPLAY | PROFILE-01, CONCEPT-03 |
 
 ### By API (Find: Screens, Stories, Data)
 
 | API | Screens Using | Stories Served | Data Models |
 |-----|---------------|----------------|-------------|
-| API-AUTH-01 | SCR-ONB-02 | 102 | DM-USER-PROFILE |
-| API-AUTH-02 | SCR-ONB-02 | 102 | DM-USER-PROFILE |
-| API-AUTH-03 | SCR-ONB-02 | 102 | DM-USER-PROFILE |
-| API-AUTH-04 | SCR-PROFILE-01 | 603 | DM-USER-PROFILE |
-| API-PROFILE-01 | SCR-DASH-01, SCR-PROFILE-01/02 | 601-605 | DM-USER-PROFILE |
-| API-PROFILE-02 | SCR-ONB-03/04, SCR-PROFILE-01 | 103, 104, 603, 604 | DM-USER-PROFILE |
-| API-SESSION-01 | SCR-ONB-05, SCR-CHAT-02, SCR-PATH-01, SCR-CONCEPT-02, SCR-SESS-02 | 106, 205, 302, 402 | DM-LEARNING-SESSION |
-| API-SESSION-02 | SCR-CHAT-01/02, SCR-SESS-02 | 201-206, 703 | DM-LEARNING-SESSION, DM-MESSAGE |
-| API-SESSION-03 | SCR-SESS-01, SCR-DASH-01 | 601, 701, 702 | DM-LEARNING-SESSION |
-| API-MESSAGE-01 | SCR-CHAT-01 | 201, 202 | DM-MESSAGE, DM-LEARNING-SESSION |
-| API-PATH-01 | SCR-PATH-01, SCR-DASH-01 | 301, 303, 601 | DM-LEARNING-PATH |
-| API-CONCEPT-01 | SCR-ONB-04, SCR-GRAPH-01 | 104, 405 | DM-CONCEPT-NODE |
-| API-CONCEPT-02 | SCR-CHAT-01, SCR-CONCEPT-02 | 203, 402 | DM-CONCEPT-NODE, DM-CONCEPT-RELATION |
-| API-CONCEPT-03 | SCR-GRAPH-01, SCR-DASH-01, SCR-PROFILE-02 | 401, 403, 601, 602 | DM-CONCEPT-NODE, DM-CONCEPT-RELATION |
-| API-REFLECT-01 | SCR-REFLECT-01 | 501, 502, 503 | DM-REFLECTION-EVENT, DM-CONCEPT-NODE |
-| API-REFLECT-02 | SCR-CHAT-02, SCR-REFLECT-02 | 205, 504 | DM-REFLECTION-EVENT |
-| API-EXPORT-01 | SCR-SESS-02 | 704 | DM-LEARNING-SESSION, DM-MESSAGE |
+| API-AUTH-01 | SCR-ONB-02 | E1-S1 | DM-USER-PROFILE |
+| API-AUTH-02 | SCR-ONB-02 | E1-S2 | DM-USER-PROFILE |
+| API-AUTH-03 | SCR-ONB-02 | E1-S4 | DM-USER-PROFILE |
+| API-AUTH-04 | SCR-PROFILE-01 | E8-S1 | DM-USER-PROFILE |
+| API-PROFILE-01 | SCR-DASH-01, SCR-PROFILE-01/02 | E7-S1, E7-S2, E2-S7, E8-S1 | DM-USER-PROFILE |
+| API-PROFILE-02 | SCR-ONB-03/04, SCR-PROFILE-01 | E2-S2, E2-S3, E2-S4, E2-S7 | DM-USER-PROFILE |
+| API-SESSION-01 | SCR-ONB-05, SCR-CHAT-02, SCR-PATH-01, SCR-CONCEPT-02, SCR-SESS-02 | E2-S5, E5-S1, E3-S2 | DM-LEARNING-SESSION |
+| API-SESSION-02 | SCR-CHAT-01/02, SCR-SESS-02 | E5-S1/S2/S4 | DM-LEARNING-SESSION, DM-MESSAGE |
+| API-SESSION-03 | SCR-SESS-01, SCR-DASH-01 | E7-S1, E5-S4 | DM-LEARNING-SESSION |
+| API-MESSAGE-01 | SCR-CHAT-01 | E5-S2 | DM-MESSAGE, DM-LEARNING-SESSION |
+| API-PATH-01 | SCR-PATH-01, SCR-DASH-01 | E3-S1, E3-S3, E7-S1 | DM-LEARNING-PATH |
+| API-CONCEPT-01 | SCR-ONB-04, SCR-GRAPH-01 | E2-S4, E6-S4 | DM-CONCEPT-NODE |
+| API-CONCEPT-02 | SCR-CHAT-01, SCR-CONCEPT-02 | E5-S3, E6-S3 | DM-CONCEPT-NODE, DM-CONCEPT-RELATION |
+| API-CONCEPT-03 | SCR-GRAPH-01, SCR-DASH-01, SCR-PROFILE-02 | E6-S1, E6-S5, E7-S1, E7-S2 | DM-CONCEPT-NODE, DM-CONCEPT-RELATION |
+| API-REFLECT-01 | SCR-REFLECT-01 | E4-S1, E4-S2, E4-S3 | DM-REFLECTION-EVENT, DM-CONCEPT-NODE |
+| API-REFLECT-02 | SCR-CHAT-02, SCR-REFLECT-02 | E4-S4, E5-S5 | DM-REFLECTION-EVENT |
+| API-EXPORT-01 | SCR-SESS-02 | E8-S3 | DM-LEARNING-SESSION, DM-MESSAGE |
 
 ### By Data Model (Find: APIs, Screens affected)
 
@@ -626,64 +630,66 @@ Data Layer:
 ### Story → Required APIs
 
 ```
-STORY-101 → (none)
-STORY-102 → API-AUTH-01/02/03
-STORY-103 → API-PROFILE-02
-STORY-104 → API-CONCEPT-01, API-PROFILE-02
-STORY-105 → (none, client-side)
-STORY-106 → API-SESSION-01
-STORY-201 → API-MESSAGE-01
-STORY-202 → API-MESSAGE-01 (streaming)
-STORY-203 → API-CONCEPT-02
-STORY-204 → (various by action)
-STORY-205 → API-SESSION-02, API-REFLECT-02
-STORY-206 → API-SESSION-03, API-SESSION-01
-STORY-207 → API-MESSAGE-01 (with context switch)
-STORY-301 → API-PATH-01
-STORY-302 → API-PATH-05, API-SESSION-01
-STORY-303 → API-PATH-01
-STORY-304 → API-PATH-03
-STORY-305 → API-PATH-05, API-REFLECT-01
-STORY-306 → API-PATH-04
-STORY-401 → API-CONCEPT-03
-STORY-402 → API-CONCEPT-02
-STORY-403 → API-CONCEPT-03
-STORY-404 → API-CONCEPT-03 (with filters)
-STORY-405 → API-CONCEPT-01
-STORY-406 → API-CONCEPT-03 (with timeline)
-STORY-501 → API-REFLECT-01
-STORY-502 → API-REFLECT-01
-STORY-503 → API-REFLECT-01
-STORY-504 → API-REFLECT-02
-STORY-505 → API-PROFILE-01, API-REFLECT-02
-STORY-601 → API-PROFILE-01, API-SESSION-03
-STORY-602 → API-PROFILE-01
-STORY-603 → API-PROFILE-01, API-PROFILE-02
-STORY-604 → API-PROFILE-02
-STORY-605 → API-PROFILE-01
-STORY-701 → API-SESSION-03
-STORY-702 → API-SESSION-03
-STORY-703 → API-SESSION-02
-STORY-704 → API-EXPORT-01
-STORY-705 → API-SESSION-05
+E1-S1  → API-AUTH-01
+E1-S2  → API-AUTH-02
+E1-S4  → API-AUTH-03
+E2-S1  → (none)
+E2-S2  → API-PROFILE-02
+E2-S3  → API-PROFILE-02
+E2-S4  → API-CONCEPT-01, API-PROFILE-02
+E2-S5  → (none, client-side)
+E3-S1  → API-PATH-02
+E3-S2  → API-PATH-01, API-SESSION-01
+E3-S3  → API-PATH-01
+E3-S4  → API-PATH-03
+E3-S5  → API-PATH-05
+E3-S6  → API-PATH-04
+E3-S7  → API-PATH-05, API-REFLECT-01
+E3-S8  → API-PATH-01
+E3-S9  → API-PATH-01
+E3-S10 → API-PATH-01 (cheat sheet generation, internal)
+E4-S1  → API-REFLECT-01
+E4-S2  → API-REFLECT-01
+E4-S3  → API-REFLECT-01
+E4-S4  → API-PROFILE-01, API-REFLECT-02
+E4-S5  → API-REFLECT-01 (with skip flag)
+E5-S1  → API-SESSION-01, API-SESSION-02
+E5-S2  → API-MESSAGE-01 (streaming)
+E5-S3  → API-CONCEPT-02
+E5-S4  → API-SESSION-03, API-SESSION-01
+E5-S5  → API-MESSAGE-01 (with context)
+E6-S1  → API-CONCEPT-03
+E6-S2  → (client-side)
+E6-S3  → API-CONCEPT-02
+E6-S4  → API-CONCEPT-03 (with filters)
+E6-S5  → API-CONCEPT-03
+E6-S6  → API-CONCEPT-05
+E7-S1  → API-PROFILE-01, API-SESSION-03
+E7-S2  → API-PROFILE-01
+E7-S3  → (client-side routing)
+E7-S4  → (client-side)
+E7-S5  → (client-side)
+E8-S1  → API-PROFILE-01, API-PROFILE-02
+E8-S2  → API-PROFILE-03
+E8-S3  → API-EXPORT-03
 ```
 
 ### API → Implementation Priority (based on story count)
 
 | Priority | API | Story Count | Screens | Notes |
 |----------|-----|-------------|---------|-------|
-| P0 | API-MESSAGE-01 | 4 | 1 | Core chat functionality |
-| P0 | API-SESSION-01 | 5 | 5 | Session creation |
+| P0 | API-MESSAGE-01 | 2 | 1 | Core chat functionality |
+| P0 | API-SESSION-01 | 4 | 5 | Session creation |
 | P0 | API-SESSION-02 | 3 | 3 | Session retrieval |
 | P0 | API-AUTH-01/02/03 | 1 (each) | 1 | Authentication |
-| P1 | API-CONCEPT-03 | 5 | 4 | Graph data |
-| P1 | API-PROFILE-01 | 5 | 4 | Profile data |
+| P1 | API-CONCEPT-03 | 4 | 4 | Graph data |
+| P1 | API-PROFILE-01 | 4 | 4 | Profile data |
 | P1 | API-PROFILE-02 | 4 | 4 | Profile updates |
-| P1 | API-REFLECT-01 | 4 | 1 | Reflection submission |
-| P1 | API-PATH-01 | 3 | 2 | Path retrieval |
+| P1 | API-REFLECT-01 | 3 | 1 | Reflection submission |
+| P1 | API-PATH-01 | 4 | 2 | Path retrieval |
 | P2 | API-CONCEPT-02 | 2 | 2 | Concept detail |
-| P2 | API-SESSION-03 | 4 | 3 | Session history |
-| P2 | API-REFLECT-02 | 3 | 2 | Reflection history |
+| P2 | API-SESSION-03 | 3 | 3 | Session history |
+| P2 | API-REFLECT-02 | 2 | 2 | Reflection history |
 | P3 | API-PATH-02/04/05 | 1-2 each | 1 | Path management |
 | P3 | API-CONCEPT-01/04/05 | 1-2 each | 2 | Concept search/update |
 | P3 | API-EXPORT-* | 1 each | 1 | Export features |

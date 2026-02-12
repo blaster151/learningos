@@ -150,8 +150,8 @@ export default function LearnPage() {
       {activePath && (
         <div className="mb-8">
           <h2 className="text-2xl font-semibold text-gray-900 mb-4">Current Path</h2>
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border-2 border-blue-200">
-            <div className="flex items-start gap-6">
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 sm:p-6 border-2 border-blue-200">
+            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6">
               <ProgressRing
                 progress={Math.round((activePath.progress || 0) * 100)}
                 size={140}
@@ -170,11 +170,11 @@ export default function LearnPage() {
       )}
 
       {/* Generate New Path */}
-      <div className="mb-8 bg-white rounded-lg border border-gray-200 p-6">
+      <div className="mb-8 bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">
           Generate New Learning Path
         </h2>
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-3">
           <input
             type="text"
             value={goalInput}
@@ -186,7 +186,7 @@ export default function LearnPage() {
           <button
             onClick={handleGeneratePath}
             disabled={generating || !goalInput.trim() || !!activePath}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors sm:w-auto w-full"
           >
             {generating ? "Generating..." : "Generate Path"}
           </button>

@@ -10,6 +10,7 @@ interface ConceptDetailPanelProps {
   userId: string;
   onClose: () => void;
   onStartPath?: (conceptId: string) => void;
+  onAskAbout?: (conceptName: string, conceptId: string) => void;
 }
 
 interface ConceptDetail {
@@ -37,6 +38,7 @@ export default function ConceptDetailPanel({
   userId,
   onClose,
   onStartPath,
+  onAskAbout,
 }: ConceptDetailPanelProps) {
   const { user } = useAuth();
   const [detail, setDetail] = useState<ConceptDetail | null>(null);
@@ -219,6 +221,17 @@ export default function ConceptDetailPanel({
 
               {/* Actions */}
               <div className="space-y-2 pt-4 border-t border-gray-200">
+                {onAskAbout && detail.concept.name && (
+                  <button
+                    onClick={() => onAskAbout(detail.concept.name, conceptId)}
+                    className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z" />
+                    </svg>
+                    Ask about this concept
+                  </button>
+                )}
                 {onStartPath && (
                   <button
                     onClick={() => onStartPath(conceptId)}
