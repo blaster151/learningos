@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { completeOnboarding } from "@/lib/api/userProfile";
@@ -124,6 +124,7 @@ export default function OnboardingPage() {
   const { user } = useAuth();
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [restored, setRestored] = useState(false);
 
   const [data, setData] = useState<OnboardingData>({
     learningGoal: "",
@@ -133,6 +134,37 @@ export default function OnboardingPage() {
   });
 
   const totalSteps = 4;
+
+  // Restore saved onboarding progress from localStorage
+  useEffect(() => {
+    if (restored) return;
+    try {
+      const saved = localStorage.getItem("onboarding_progress");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.data) setData(parsed.data);
+        if (parsed.step && parsed.step >= 1 && parsed.step <= totalSteps) {
+          setStep(parsed.step);
+        }
+      }
+    } catch {
+      // ignore parse errors
+    }
+    setRestored(true);
+  }, [restored]);
+
+  // Save progress to localStorage whenever step or data changes
+  useEffect(() => {
+    if (!restored) return;
+    try {
+      localStorage.setItem(
+        "onboarding_progress",
+        JSON.stringify({ step, data })
+      );
+    } catch {
+      // ignore storage errors
+    }
+  }, [step, data, restored]);
 
   // Handle topic selection
   const toggleTopic = (topicId: string) => {
@@ -171,6 +203,8 @@ export default function OnboardingPage() {
         if (user) {
           await completeOnboarding(user, data);
         }
+        // Clear saved progress on successful completion
+        localStorage.removeItem("onboarding_progress");
         router.push("/dashboard");
       } catch (error) {
         console.error("Failed to save onboarding data:", error);
@@ -207,7 +241,21 @@ export default function OnboardingPage() {
         <div className="mb-8">
           <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-2">
             <span>Step {step} of {totalSteps}</span>
-            <span>{Math.round((step / totalSteps) * 100)}% complete</span>
+            <div className="flex items-center gap-3">
+              <span>{Math.round((step / totalSteps) * 100)}% complete</span>
+              {step > 1 && (
+                <button
+                  onClick={() => {
+                    setStep(1);
+                    setData({ learningGoal: "", experienceLevel: "", selectedTopics: [], preferredPace: "" });
+                    localStorage.removeItem("onboarding_progress");
+                  }}
+                  className="text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  Start over
+                </button>
+              )}
+            </div>
           </div>
           <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
             <div

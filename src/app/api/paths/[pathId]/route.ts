@@ -71,9 +71,76 @@ export async function PATCH(
         await pathsService.abandonPath(userId, pathId);
         break;
 
+      case "start_milestone": {
+        const { milestoneId } = body;
+        if (!milestoneId) {
+          return NextResponse.json(
+            { error: "milestoneId is required for start_milestone" },
+            { status: 400 }
+          );
+        }
+        await pathsService.updateMilestone(userId, pathId, milestoneId, {
+          status: "in_progress",
+        });
+        // Also update currentMilestoneIndex
+        const pathForStart = await pathsService.getPath(userId, pathId);
+        if (pathForStart) {
+          const idx = pathForStart.milestones.findIndex(
+            (m) => m.milestoneId === milestoneId
+          );
+          if (idx !== -1) {
+            await pathsService.updatePathProgress(userId, pathId, {
+              currentMilestoneIndex: idx,
+            });
+          }
+        }
+        break;
+      }
+
+      case "complete_milestone": {
+        const { milestoneId: completeMilestoneId } = body;
+        if (!completeMilestoneId) {
+          return NextResponse.json(
+            { error: "milestoneId is required for complete_milestone" },
+            { status: 400 }
+          );
+        }
+        await pathsService.completeMilestone(userId, pathId, completeMilestoneId);
+
+        // Auto-unlock and advance to next milestone
+        const pathAfterComplete = await pathsService.getPath(userId, pathId);
+        if (pathAfterComplete && pathAfterComplete.status !== "completed") {
+          const completedIdx = pathAfterComplete.milestones.findIndex(
+            (m) => m.milestoneId === completeMilestoneId
+          );
+          const nextIdx = completedIdx + 1;
+          if (nextIdx < pathAfterComplete.milestones.length) {
+            const nextMilestone = pathAfterComplete.milestones[nextIdx];
+            if (
+              nextMilestone.status === "locked" ||
+              nextMilestone.status === "not_started"
+            ) {
+              await pathsService.updateMilestone(
+                userId,
+                pathId,
+                nextMilestone.milestoneId,
+                { status: "available" }
+              );
+            }
+            await pathsService.updatePathProgress(userId, pathId, {
+              currentMilestoneIndex: nextIdx,
+            });
+          }
+        }
+        break;
+      }
+
       default:
         return NextResponse.json(
-          { error: "Invalid action. Must be: accept or abandon" },
+          {
+            error:
+              "Invalid action. Must be: accept, abandon, start_milestone, or complete_milestone",
+          },
           { status: 400 }
         );
     }

@@ -172,6 +172,84 @@ function QuickActions({ onAction }: QuickActionsProps) {
 }
 
 // ===================================
+// Context-Aware Suggestions Component
+// ===================================
+
+interface FollowUpSuggestionsProps {
+  suggestions: string[];
+  onSelect: (suggestion: string) => void;
+}
+
+function FollowUpSuggestions({ suggestions, onSelect }: FollowUpSuggestionsProps) {
+  if (suggestions.length === 0) return null;
+
+  return (
+    <div className="mt-2 ml-9 sm:ml-12 space-y-1.5" role="group" aria-label="Follow-up suggestions">
+      <p className="text-xs text-gray-500 dark:text-gray-400">Follow up:</p>
+      <div className="flex flex-wrap gap-1.5 sm:gap-2">
+        {suggestions.map((suggestion, i) => (
+          <button
+            key={i}
+            onClick={() => onSelect(suggestion)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-full hover:bg-blue-100 dark:hover:bg-blue-900/40 border border-blue-200 dark:border-blue-800 transition-all"
+          >
+            <span aria-hidden="true">→</span>
+            {suggestion}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Generate contextual follow-up suggestions from an AI response. */
+function generateFollowUps(content: string): string[] {
+  const suggestions: string[] = [];
+  const lower = content.toLowerCase();
+
+  // Detect key concepts mentioned and generate targeted follow-ups
+  const conceptPatterns = [
+    { match: /function|method|procedure/i, q: "How do I choose between functions and methods?" },
+    { match: /array|list|collection/i, q: "What are common operations on arrays?" },
+    { match: /loop|iteration|recursive/i, q: "When should I use recursion vs loops?" },
+    { match: /class|object|instance/i, q: "Can you show me an OOP example?" },
+    { match: /api|endpoint|request/i, q: "What are REST API best practices?" },
+    { match: /database|sql|query/i, q: "How do I design a good database schema?" },
+    { match: /component|render|state/i, q: "What are common React patterns?" },
+    { match: /test|testing|assertion/i, q: "What's the best approach to writing tests?" },
+    { match: /security|auth|token/i, q: "What security best practices should I follow?" },
+    { match: /performance|optimize|cache/i, q: "How can I measure performance improvements?" },
+  ];
+
+  for (const pattern of conceptPatterns) {
+    if (pattern.match.test(content) && suggestions.length < 3) {
+      suggestions.push(pattern.q);
+    }
+  }
+
+  // Generic follow-ups based on response characteristics
+  if (suggestions.length < 2) {
+    if (lower.includes("example") || lower.includes("for instance")) {
+      suggestions.push("Can you show me a more complex example?");
+    }
+    if (lower.includes("important") || lower.includes("key concept")) {
+      suggestions.push("What mistakes do beginners commonly make here?");
+    }
+    if (content.length > 500) {
+      suggestions.push("Can you summarize the key takeaways?");
+    }
+  }
+
+  // Always offer at least one option if we found nothing specific
+  if (suggestions.length === 0) {
+    suggestions.push("Tell me more about this topic");
+    suggestions.push("How does this relate to other concepts?");
+  }
+
+  return suggestions.slice(0, 3);
+}
+
+// ===================================
 // Chat Interface Component
 // ===================================
 
@@ -265,6 +343,15 @@ export function ChatInterface({
         sendBtn?.click();
       }, 100);
     }
+  };
+
+  // Handle clicking a follow-up suggestion
+  const handleFollowUpSelect = (suggestion: string) => {
+    setInput(suggestion);
+    setTimeout(() => {
+      const sendBtn = document.querySelector('[aria-label="Send message"]') as HTMLButtonElement;
+      sendBtn?.click();
+    }, 100);
   };
 
   // Handle sending a message
@@ -452,7 +539,13 @@ export function ChatInterface({
                  !message.isStreaming && 
                  index === messages.length - 1 && 
                  !isLoading && (
-                  <QuickActions onAction={handleQuickAction} />
+                  <>
+                    <QuickActions onAction={handleQuickAction} />
+                    <FollowUpSuggestions
+                      suggestions={generateFollowUps(message.content)}
+                      onSelect={handleFollowUpSelect}
+                    />
+                  </>
                 )}
               </div>
             ))}

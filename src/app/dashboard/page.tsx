@@ -12,6 +12,65 @@ interface DashboardStats {
   concepts: number;
   messages: number;
   streak: number;
+  avgMastery: number;
+  mastered: number;
+  learning: number;
+  newConcepts: number;
+}
+
+// Compute learning quadrant from stats
+function getLearningState(stats: DashboardStats): {
+  label: string;
+  emoji: string;
+  description: string;
+  color: string;
+  bgColor: string;
+} {
+  const { sessions, concepts, avgMastery } = stats;
+
+  if (sessions === 0 || concepts === 0) {
+    return {
+      label: "Getting Started",
+      emoji: "🚀",
+      description: "Begin your first conversation to start learning!",
+      color: "text-gray-700 dark:text-gray-300",
+      bgColor: "bg-gray-100 dark:bg-gray-800",
+    };
+  }
+  if (avgMastery >= 70 && concepts >= 10) {
+    return {
+      label: "You've got this!",
+      emoji: "🌟",
+      description: "Strong mastery across many concepts — keep pushing boundaries!",
+      color: "text-amber-700 dark:text-amber-300",
+      bgColor: "bg-amber-50 dark:bg-amber-900/20",
+    };
+  }
+  if (avgMastery >= 50) {
+    return {
+      label: "Building Momentum",
+      emoji: "⚡",
+      description: "Solid progress — concepts are clicking into place.",
+      color: "text-blue-700 dark:text-blue-300",
+      bgColor: "bg-blue-50 dark:bg-blue-900/20",
+    };
+  }
+  if (concepts >= 5) {
+    return {
+      label: "Exploring",
+      emoji: "🔍",
+      description: "You're discovering lots of new concepts — keep going!",
+      color: "text-purple-700 dark:text-purple-300",
+      bgColor: "bg-purple-50 dark:bg-purple-900/20",
+    };
+  }
+  return {
+    label: "Building Up",
+    emoji: "🌱",
+    description: "Every expert was once a beginner — you're on your way!",
+    color: "text-green-700 dark:text-green-300",
+    bgColor: "bg-green-50 dark:bg-green-900/20",
+  };
 }
 
 export default function DashboardPage() {
@@ -21,6 +80,10 @@ export default function DashboardPage() {
     concepts: 0,
     messages: 0,
     streak: 0,
+    avgMastery: 0,
+    mastered: 0,
+    learning: 0,
+    newConcepts: 0,
   });
   const [hasStartedChat, setHasStartedChat] = useState(false);
 
@@ -45,13 +108,17 @@ export default function DashboardPage() {
         setHasStartedChat(sessionsList.length > 0);
       }
 
-      // Fetch concepts count
-      const conceptsRes = await authFetch(user, `/api/concepts?userId=${user.uid}&limit=1`);
+      // Fetch concepts count and mastery stats
+      const conceptsRes = await authFetch(user, `/api/concepts?userId=${user.uid}`);
       if (conceptsRes.ok) {
         const conceptsData = await conceptsRes.json();
         setStats((prev) => ({
           ...prev,
           concepts: conceptsData.stats?.total || 0,
+          avgMastery: conceptsData.stats?.avgMastery || 0,
+          mastered: conceptsData.stats?.mastered || 0,
+          learning: conceptsData.stats?.learning || 0,
+          newConcepts: conceptsData.stats?.new || 0,
         }));
       }
     } catch (error) {
@@ -72,17 +139,30 @@ export default function DashboardPage() {
   };
 
   const firstName = user?.displayName?.split(" ")[0] || "there";
+  const learningState = getLearningState(stats);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Welcome Section */}
       <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 text-white">
-        <h1 className="text-2xl font-bold mb-2">
-          {getGreeting()}, {firstName}! 👋
-        </h1>
-        <p className="text-blue-100">
-          Ready to continue your learning journey? Pick up where you left off or start something new.
-        </p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold mb-2">
+              {getGreeting()}, {firstName}! 👋
+            </h1>
+            <p className="text-blue-100">
+              Ready to continue your learning journey? Pick up where you left off or start something new.
+            </p>
+          </div>
+          {/* Learning State Badge */}
+          <div className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl ${learningState.bgColor} self-start sm:self-center shrink-0`}>
+            <span className="text-xl" aria-hidden="true">{learningState.emoji}</span>
+            <div>
+              <p className={`text-sm font-semibold ${learningState.color}`}>{learningState.label}</p>
+              <p className="text-xs text-gray-600 dark:text-gray-400 max-w-[160px]">{learningState.description}</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Quick Actions */}
