@@ -300,7 +300,7 @@ function ChatPageInner() {
   }
 
   // Show history panel
-  if (showHistory) {
+  if (showHistory && !activeSessionId) {
     return (
       <div className="h-full flex flex-col max-w-4xl mx-auto">
         <Card className="flex-1 flex flex-col">
@@ -314,9 +314,6 @@ function ChatPageInner() {
                 Select a previous conversation to continue
               </CardDescription>
             </div>
-            <Button variant="outline" onClick={() => setShowHistory(false)}>
-              Back to Chat
-            </Button>
           </CardHeader>
           <CardContent className="flex-1 overflow-y-auto">
             {sessions.length === 0 ? (
@@ -407,11 +404,72 @@ function ChatPageInner() {
     );
   }
 
-  // Active chat session
+  // Active chat session — history is shown as an overlay to preserve ChatInterface state
   const currentSession = sessions.find((s) => s.sessionId === activeSessionId);
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col relative">
+      {/* History Overlay — rendered on top of chat so ChatInterface stays mounted */}
+      {showHistory && (
+        <div className="absolute inset-0 z-10 bg-white dark:bg-gray-900 flex flex-col max-w-4xl mx-auto">
+          <Card className="flex-1 flex flex-col">
+            <CardHeader className="flex-shrink-0 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <HistoryIcon className="w-5 h-5" />
+                  Chat History
+                </CardTitle>
+                <CardDescription>
+                  Select a previous conversation to continue
+                </CardDescription>
+              </div>
+              <Button variant="outline" onClick={() => setShowHistory(false)}>
+                Back to Chat
+              </Button>
+            </CardHeader>
+            <CardContent className="flex-1 overflow-y-auto">
+              {sessions.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  No previous conversations found
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {sessions.map((session) => (
+                    <button
+                      key={session.sessionId}
+                      onClick={() => selectSession(session.sessionId)}
+                      className={`w-full text-left p-4 rounded-lg border transition-colors ${
+                        session.sessionId === activeSessionId
+                          ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                          : "border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-gray-900 dark:text-white">
+                          {session.topic}
+                        </span>
+                        <span className={`text-xs px-2 py-1 rounded-full ${
+                          session.status === "active"
+                            ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                            : session.status === "completed"
+                            ? "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                            : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                        }`}>
+                          {session.status}
+                        </span>
+                      </div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                        {session.messageCount} messages • {new Date(session.createdAt).toLocaleDateString()}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Session Header */}
       <div className="flex-shrink-0 flex items-center justify-between mb-4 px-1">
         <div>
@@ -437,9 +495,10 @@ function ChatPageInner() {
         </div>
       </div>
 
-      {/* Chat Interface */}
+      {/* Chat Interface — always mounted while session is active */}
       <div className="flex-1 min-h-0">
         <ChatInterface
+          key={activeSessionId}
           sessionId={activeSessionId}
           initialMessages={initialMessages}
           onSessionEnd={endSession}

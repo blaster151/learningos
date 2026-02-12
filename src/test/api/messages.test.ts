@@ -53,37 +53,30 @@ vi.mock('@/lib/firebase/admin', () => ({
             })),
           })),
           where: vi.fn(() => ({
-            orderBy: vi.fn(() => ({
-              limit: vi.fn(() => ({
-                startAfter: vi.fn(() => ({
-                  get: vi.fn(() => Promise.resolve({
-                    docs: [],
-                  })),
-                })),
-                get: vi.fn(() => Promise.resolve({
-                  docs: [
-                    {
-                      id: 'msg-1',
-                      data: () => ({
-                        sessionId: 'session-123',
-                        role: 'user',
-                        content: 'What is a closure?',
-                        timestamp: { toDate: () => new Date() },
-                        conceptIds: [],
-                      }),
-                    },
-                    {
-                      id: 'msg-2',
-                      data: () => ({
-                        sessionId: 'session-123',
-                        role: 'assistant',
-                        content: 'A closure is a function that...',
-                        timestamp: { toDate: () => new Date() },
-                        conceptIds: ['concept-closures'],
-                      }),
-                    },
-                  ],
-                })),
+            limit: vi.fn(() => ({
+              get: vi.fn(() => Promise.resolve({
+                docs: [
+                  {
+                    id: 'msg-1',
+                    data: () => ({
+                      sessionId: 'session-123',
+                      role: 'user',
+                      content: 'What is a closure?',
+                      timestamp: { toDate: () => new Date('2026-01-01T10:00:00Z') },
+                      conceptIds: [],
+                    }),
+                  },
+                  {
+                    id: 'msg-2',
+                    data: () => ({
+                      sessionId: 'session-123',
+                      role: 'assistant',
+                      content: 'A closure is a function that...',
+                      timestamp: { toDate: () => new Date('2026-01-01T10:01:00Z') },
+                      conceptIds: ['concept-closures'],
+                    }),
+                  },
+                ],
               })),
             })),
           })),

@@ -55,8 +55,9 @@ Each story follows the standard format:
 | E14 | Prerequisite Intelligence | 5 | 29 |
 | E15 | Adaptive Difficulty & Learner Level | 4 | 21 |
 | E16 | User Highlights & Annotations | 3 | 15 |
-| **Phase 2 Total** | | **29** | **141** |
-| **Grand Total** | | **79** | **394** |
+| E17 | Cross-Session Relation Discovery | 3 | 13 |
+| **Phase 2 Total** | | **32** | **154** |
+| **Grand Total** | | **82** | **407** |
 
 ---
 
@@ -1882,11 +1883,89 @@ A living glossary that speaks in the learner's language, grows with their journe
 
 ---
 
-**Grand Total (all phases):** 409 story points
+## E17: Cross-Session Relation Discovery
+
+**Epic ID:** E17  
+**Priority:** P2  
+**Total Points:** 13  
+**Phase:** 2  
+**Description:** Automatically infer and create relations between existing concepts that are discussed together across different chat sessions, even when they weren't linked at creation time. Strengthens the knowledge graph over time as the learner revisits and connects ideas.
+
+| Story | Title | Points |
+|-------|-------|--------|
+| E17-S1 | Co-Occurrence Relation Inference | 5 |
+| E17-S2 | Periodic Graph Enrichment Job | 5 |
+| E17-S3 | User Relation Confirmation & Editing | 3 |
+
+---
+
+### E17-S1: Co-Occurrence Relation Inference
+
+**ID:** E17-S1  
+**Title:** Co-Occurrence Relation Inference  
+**As a** learner  
+**I want** concepts I discuss together to be automatically linked in my knowledge graph  
+**So that** my graph reflects real connections I'm making, even across sessions  
+
+**Acceptance Criteria:**
+- [ ] After each chat exchange, identify pairs of existing concepts mentioned in the same message or conversation turn
+- [ ] Use AI to classify the relation type (builds_on, similar_to, applies_to, etc.) based on conversational context
+- [ ] Only create relations with confidence above threshold (e.g., 0.7)
+- [ ] Avoid duplicate relations between the same concept pair
+- [ ] New relations appear in the knowledge graph on next load
+
+**Story Points:** 5  
+**Priority:** P2  
+**Dependencies:** E3 (Concept Graph)  
+
+---
+
+### E17-S2: Periodic Graph Enrichment Job
+
+**ID:** E17-S2  
+**Title:** Periodic Graph Enrichment Job  
+**As a** learner  
+**I want** my knowledge graph to improve over time as I learn more  
+**So that** connections I missed initially are surfaced later  
+
+**Acceptance Criteria:**
+- [ ] Background process analyzes all user concepts for potential unlinked relations
+- [ ] Uses embedding similarity or AI inference to propose relations
+- [ ] Runs on a schedule (e.g., after N new concepts added, or daily)
+- [ ] Proposed relations stored with "suggested" status for optional user review
+- [ ] Doesn't re-analyze pairs already evaluated
+
+**Story Points:** 5  
+**Priority:** P2  
+**Dependencies:** E17-S1  
+
+---
+
+### E17-S3: User Relation Confirmation & Editing
+
+**ID:** E17-S3  
+**Title:** User Relation Confirmation & Editing  
+**As a** learner  
+**I want to** review and confirm or dismiss suggested concept relations  
+**So that** my knowledge graph accurately reflects my understanding  
+
+**Acceptance Criteria:**
+- [ ] UI shows suggested relations (e.g., badge on graph page or notification)
+- [ ] User can confirm, dismiss, or re-type a suggested relation
+- [ ] Confirmed relations become permanent; dismissed ones are hidden
+- [ ] User can manually create relations between any two concepts
+
+**Story Points:** 3  
+**Priority:** P3  
+**Dependencies:** E17-S2  
+
+---
+
+**Grand Total (all phases):** 422 story points
 
 **MVP Target (P0 only):** 104 points  
 **Full MVP (P0 + P1):** 180 points  
-**Phase 2 (P2 new epics + P3 deferred):** 106 points
+**Phase 2 (P2 new epics + P3 deferred):** 119 points
 
 ---
 

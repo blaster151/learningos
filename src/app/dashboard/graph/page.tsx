@@ -12,13 +12,14 @@ import {
   ConceptDetailPanel,
   SkeletonGraph,
 } from "@/components/graph";
+import type { ConceptGraphHandle } from "@/components/graph/ConceptGraph";
 
 export default function GraphPage() {
   const { user } = useAuth();
   const router = useRouter();
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [showSidebar, setShowSidebar] = useState(false);
-  const graphRef = useRef<any>(null);
+  const graphRef = useRef<ConceptGraphHandle>(null);
 
   const { graphData, filters, setFilters, availableDomains, loading, error, stats } =
     useGraph({ user });
@@ -105,8 +106,8 @@ export default function GraphPage() {
           className={`
             fixed top-0 left-0 z-40 h-full w-72 sm:w-80 bg-gray-50 border-r border-gray-200 overflow-y-auto p-4 space-y-4
             transform transition-transform duration-200 ease-in-out
-            lg:static lg:translate-x-0 lg:z-auto
-            ${showSidebar ? "translate-x-0" : "-translate-x-full"}
+            lg:static lg:translate-x-0 lg:z-auto lg:w-80 lg:min-w-[320px] lg:flex-shrink-0
+            ${showSidebar ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
           `}
         >
           <GraphFilters
@@ -122,7 +123,7 @@ export default function GraphPage() {
                 Mastery Distribution
               </h3>
               <div className="space-y-2">
-                {Object.entries(stats.masteryDistribution).map(([level, count]) => (
+                {Object.entries(stats.masteryDistribution || {}).map(([level, count]) => (
                   <div key={level} className="flex items-center justify-between">
                     <span className="text-sm text-gray-600 capitalize">{level}</span>
                     <span className="text-sm font-medium text-gray-900">{count}</span>
@@ -180,6 +181,7 @@ export default function GraphPage() {
           {!loading && !error && graphData && graphData.nodes.length > 0 && (
             <>
               <ConceptGraph
+                ref={graphRef}
                 data={graphData}
                 selectedNodeId={selectedNodeId || undefined}
                 onNodeClick={handleNodeClick}

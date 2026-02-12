@@ -215,8 +215,10 @@ export function transformGraphData(
     
     return {
       id: concept.conceptId,
-      name: concept.name,
-      displayName: concept.name.charAt(0).toUpperCase() + concept.name.slice(1),
+      name: concept.name || concept.conceptId,
+      displayName: concept.name
+        ? concept.name.charAt(0).toUpperCase() + concept.name.slice(1)
+        : concept.conceptId,
       mastery: concept.masteryLevel,
       domain: concept.domain,
       size: calculateNodeSize(exposureCount),

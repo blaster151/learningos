@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useCallback, useEffect } from "react";
+import { useRef, useCallback, useEffect, forwardRef, useImperativeHandle } from "react";
 import dynamic from "next/dynamic";
 import type { GraphData, GraphNode, GraphLink } from "@/types";
 
@@ -18,15 +18,37 @@ interface ConceptGraphProps {
   height?: number;
 }
 
-export default function ConceptGraph({
-  data,
-  selectedNodeId,
-  onNodeClick,
-  onBackgroundClick,
-  width = 800,
-  height = 600,
-}: ConceptGraphProps) {
+export interface ConceptGraphHandle {
+  zoom: (factor: number, duration?: number) => void;
+  zoomToFit: (duration?: number, padding?: number) => void;
+  centerAt: (x: number, y: number, duration?: number) => void;
+}
+
+const ConceptGraph = forwardRef<ConceptGraphHandle, ConceptGraphProps>(function ConceptGraph(
+  {
+    data,
+    selectedNodeId,
+    onNodeClick,
+    onBackgroundClick,
+    width = 800,
+    height = 600,
+  },
+  ref
+) {
   const graphRef = useRef<any>(null);
+
+  // Expose graph control methods to parent via ref
+  useImperativeHandle(ref, () => ({
+    zoom: (factor: number, duration?: number) => {
+      graphRef.current?.zoom(factor, duration);
+    },
+    zoomToFit: (duration?: number, padding?: number) => {
+      graphRef.current?.zoomToFit(duration, padding);
+    },
+    centerAt: (x: number, y: number, duration?: number) => {
+      graphRef.current?.centerAt(x, y, duration);
+    },
+  }));
 
   const handleNodeClick = useCallback(
     (node: GraphNode) => {
@@ -61,12 +83,14 @@ export default function ConceptGraph({
       }
 
       // Draw label (only if zoomed in enough)
-      if (globalScale > 1.5) {
-        ctx.font = `${10 / globalScale}px Sans-Serif`;
+      if (globalScale > 0.8) {
+        const label = node.displayName || node.name || node.id;
+        const fontSize = Math.max(10 / globalScale, 3);
+        ctx.font = `${fontSize}px Sans-Serif`;
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
         ctx.fillStyle = "#374151";
-        ctx.fillText(node.displayName, node.x, node.y + nodeSize + 2);
+        ctx.fillText(label, node.x, node.y + nodeSize + 2);
       }
     },
     [selectedNodeId]
@@ -90,6 +114,25 @@ export default function ConceptGraph({
     }
   }, [data.nodes.length]);
 
+  const RELATION_LABELS: Record<string, string> = {
+    prerequisite: "is prerequisite for",
+    builds_on: "builds on",
+    similar_to: "is similar to",
+    contrasts_with: "contrasts with",
+    abstracts_to: "abstracts to",
+    applies_to: "applies to",
+    example_of: "is example of",
+  };
+
+  const formatLinkLabel = useCallback((link: any) => {
+    const sourceNode = typeof link.source === "object" ? link.source : null;
+    const targetNode = typeof link.target === "object" ? link.target : null;
+    const sourceName = sourceNode?.displayName || sourceNode?.name || link.source;
+    const targetName = targetNode?.displayName || targetNode?.name || link.target;
+    const verb = RELATION_LABELS[link.type] || link.type?.replace(/_/g, " ") || "relates to";
+    return `${sourceName} ${verb} ${targetName}`;
+  }, []);
+
   return (
     <div className="relative w-full h-full bg-gray-50 rounded-lg overflow-hidden">
       {/* @ts-ignore - react-force-graph-2d has type mismatches with custom node types */}
@@ -98,10 +141,16 @@ export default function ConceptGraph({
         graphData={data}
         nodeCanvasObject={nodeCanvasObject}
         nodePointerAreaPaint={nodePointerAreaPaint}
+        nodeLabel={(node: any) => node.displayName || node.name || node.id}
         onNodeClick={handleNodeClick}
         onBackgroundClick={onBackgroundClick}
+        linkLabel={formatLinkLabel}
         linkColor={(link: any) => (link as GraphLink).color || "#CBD5E1"}
-        linkWidth={2}
+        linkWidth={(link: any) => link.__hover ? 4 : 2}
+        onLinkHover={(link: any, prevLink: any) => {
+          if (prevLink) prevLink.__hover = false;
+          if (link) link.__hover = true;
+        }}
         linkDirectionalParticles={2}
         linkDirectionalParticleWidth={2}
         width={width}
@@ -115,4 +164,6 @@ export default function ConceptGraph({
       />
     </div>
   );
-}
+});
+
+export default ConceptGraph;

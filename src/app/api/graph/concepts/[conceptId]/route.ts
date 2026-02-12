@@ -108,22 +108,42 @@ export async function GET(
       ...(conceptData as Omit<ConceptNode, "conceptId">),
     };
 
-    // Fetch related concepts via relations
-    const relatedConcepts = await fetchRelatedConcepts(db, userId, conceptId);
+    // Fetch related concepts via relations (resilient to missing indexes)
+    let relatedConcepts: RelatedConceptInfo[] = [];
+    try {
+      relatedConcepts = await fetchRelatedConcepts(db, userId, conceptId);
+    } catch (err) {
+      console.warn("Failed to fetch related concepts:", err);
+    }
 
     // Fetch recent sessions where this concept was discussed
-    const recentSessions = await fetchRecentSessions(db, userId, conceptId);
+    let recentSessions: SessionReference[] = [];
+    try {
+      recentSessions = await fetchRecentSessions(db, userId, conceptId);
+    } catch (err) {
+      console.warn("Failed to fetch recent sessions (may need index):", err);
+    }
 
     // Fetch mastery history
-    const masteryHistory = await fetchMasteryHistory(db, userId, conceptId);
+    let masteryHistory: MasteryHistoryPoint[] = [];
+    try {
+      masteryHistory = await fetchMasteryHistory(db, userId, conceptId);
+    } catch (err) {
+      console.warn("Failed to fetch mastery history (may need index):", err);
+    }
 
     // Calculate statistics
-    const statistics = await calculateStatistics(
-      db,
-      userId,
-      conceptId,
-      concept
-    );
+    let statistics: ConceptDetailResponse["statistics"] = {
+      totalSessions: 0,
+      totalReflections: 0,
+      daysSinceLastReview: 0,
+      averageSessionTime: 15,
+    };
+    try {
+      statistics = await calculateStatistics(db, userId, conceptId, concept);
+    } catch (err) {
+      console.warn("Failed to calculate statistics:", err);
+    }
 
     const response: ConceptDetailResponse = {
       concept,
@@ -229,14 +249,20 @@ async function fetchRecentSessions(
     .collection("session_concepts")
     .where("userId", "==", userId)
     .where("conceptId", "==", conceptId)
-    .orderBy("timestamp", "desc")
-    .limit(10)
+    .limit(20)
     .get();
 
   const sessions: SessionReference[] = [];
   const seenSessionIds = new Set<string>();
 
-  for (const doc of sessionConceptsSnapshot.docs) {
+  // Sort by timestamp descending in JS
+  const sortedDocs = sessionConceptsSnapshot.docs.sort((a, b) => {
+    const aTime = a.data().timestamp?.toDate?.()?.getTime() || 0;
+    const bTime = b.data().timestamp?.toDate?.()?.getTime() || 0;
+    return bTime - aTime;
+  });
+
+  for (const doc of sortedDocs.slice(0, 10)) {
     const data = doc.data();
     const sessionId = data.sessionId;
 
@@ -269,19 +295,21 @@ async function fetchMasteryHistory(
     .collection("mastery_history")
     .where("userId", "==", userId)
     .where("conceptId", "==", conceptId)
-    .orderBy("timestamp", "desc")
-    .limit(20)
+    .limit(30)
     .get();
 
-  return historySnapshot.docs.map((doc) => {
-    const data = doc.data();
-    return {
-      level: data.level || "exploring",
-      confidence: data.confidence || 0,
-      timestamp: data.timestamp?.toDate?.()?.toISOString() || new Date().toISOString(),
-      source: data.source || "session",
-    };
-  });
+  return historySnapshot.docs
+    .map((doc) => {
+      const data = doc.data();
+      return {
+        level: data.level || "exploring",
+        confidence: data.confidence || 0,
+        timestamp: data.timestamp?.toDate?.()?.toISOString() || new Date().toISOString(),
+        source: data.source || "session",
+      };
+    })
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+    .slice(0, 20);
 }
 
 async function calculateStatistics(

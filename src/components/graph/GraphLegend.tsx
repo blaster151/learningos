@@ -65,8 +65,8 @@ export default function GraphLegend() {
       <div>
         <h4 className="text-sm font-medium text-gray-700 mb-2">Node Size</h4>
         <p className="text-xs text-gray-500">
-          Size indicates how frequently the concept has been encountered in your
-          learning sessions.
+          Larger nodes indicate concepts encountered across more learning
+          sessions. Hover over a connection line to see its relationship type.
         </p>
       </div>
     </div>

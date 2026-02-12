@@ -12,7 +12,6 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const sessionId = searchParams.get("sessionId");
     const limit = parseInt(searchParams.get("limit") || "50");
-    const before = searchParams.get("before"); // For pagination
 
     if (!sessionId) {
       return NextResponse.json(
@@ -32,23 +31,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
     
-    let query = db
+    const query = db
       .collection("messages")
       .where("sessionId", "==", sessionId)
-      .orderBy("timestamp", "desc")
       .limit(limit);
-
-    // Add pagination if "before" cursor provided
-    if (before) {
-      const beforeDoc = await db.collection("messages").doc(before).get();
-      if (beforeDoc.exists) {
-        query = query.startAfter(beforeDoc);
-      }
-    }
 
     const messagesSnapshot = await query.get();
 
-    // Reverse to get chronological order
+    // Sort in JS to avoid needing a Firestore composite index
     const messages = messagesSnapshot.docs
       .map((doc) => {
         const data = doc.data();
@@ -56,11 +46,14 @@ export async function GET(request: NextRequest) {
           id: doc.id,
           role: data.role,
           content: data.content,
-          timestamp: data.timestamp?.toDate?.()?.toISOString(),
+          timestamp: data.timestamp?.toDate?.()?.toISOString() || null,
           conceptIds: data.conceptIds || [],
         };
       })
-      .reverse();
+      .sort((a, b) => {
+        if (!a.timestamp || !b.timestamp) return 0;
+        return new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+      });
 
     return NextResponse.json({
       messages,

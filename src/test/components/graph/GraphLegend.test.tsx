@@ -56,7 +56,7 @@ describe("GraphLegend", () => {
     render(<GraphLegend />);
     
     expect(screen.getByText("Node Size")).toBeInTheDocument();
-    expect(screen.getByText(/size indicates/i)).toBeInTheDocument();
+    expect(screen.getByText(/larger nodes indicate/i)).toBeInTheDocument();
   });
 
   it("renders with proper styling", () => {
