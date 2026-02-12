@@ -2,6 +2,7 @@
 // Uses OpenAI to generate summaries of learning sessions
 
 import { openai, AI_CONFIG } from "@/lib/ai/config";
+import { trackTokenUsage } from "@/lib/ai/tokenTracker";
 
 // ===================================
 // Types
@@ -86,6 +87,10 @@ export async function generateSessionSummary(
     });
 
     const content = response.choices[0]?.message?.content;
+
+    // Track token usage (fire-and-forget) — no userId available here
+    // Token tracking for session summaries is handled at the API route level
+
     if (!content) {
       throw new Error("No response from AI");
     }

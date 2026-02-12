@@ -1,0 +1,43 @@
+# =================================================================
+# Multi-stage Dockerfile for LearningOS (Next.js)
+# =================================================================
+
+# ---- Base ----
+FROM node:20-alpine AS base
+WORKDIR /app
+
+# ---- Dependencies ----
+FROM base AS deps
+COPY package.json package-lock.json* ./
+RUN npm ci --ignore-scripts
+
+# ---- Build ----
+FROM base AS builder
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+# Set build-time env vars (non-secret, overridden at runtime)
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production
+
+RUN npm run build
+
+# ---- Production ----
+FROM base AS production
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV PORT=8080
+
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+# Copy necessary files from builder
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+
+USER nextjs
+
+EXPOSE 8080
+
+CMD ["node", "server.js"]

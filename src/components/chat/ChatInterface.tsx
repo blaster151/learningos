@@ -68,6 +68,10 @@ interface MessageBubbleProps {
   message: ChatMessage;
   userPhotoURL?: string | null;
   onTermClick?: (term: string) => void;
+  isSimplifying?: boolean;
+  isFading?: boolean;
+  isSimplified?: boolean;
+  onUndoSimplify?: () => void;
 }
 
 /**
@@ -110,7 +114,7 @@ function renderMessageContent(
   );
 }
 
-function MessageBubble({ message, userPhotoURL, onTermClick }: MessageBubbleProps) {
+function MessageBubble({ message, userPhotoURL, onTermClick, isSimplifying, isFading, isSimplified, onUndoSimplify }: MessageBubbleProps) {
   const isUser = message.role === "user";
 
   return (
@@ -146,18 +150,43 @@ function MessageBubble({ message, userPhotoURL, onTermClick }: MessageBubbleProp
       {/* Message Content */}
       <div className={`max-w-[85%] sm:max-w-[80%] ${isUser ? "text-right" : "text-left"}`}>
         <div
-          className={`inline-block rounded-2xl px-3 py-2 sm:px-4 sm:py-3 text-sm sm:text-base ${
+          className={`inline-block rounded-2xl px-3 py-2 sm:px-4 sm:py-3 text-sm sm:text-base relative ${
             isUser
               ? "bg-blue-600 text-white rounded-br-md"
               : "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-bl-md shadow-sm border border-gray-200 dark:border-gray-700"
           }`}
         >
-          {renderMessageContent(message.content, isUser, onTermClick)}
+          {/* Simplifying spinner overlay */}
+          {isSimplifying && (
+            <div className="absolute inset-0 flex items-center justify-center bg-white/60 dark:bg-gray-800/60 rounded-2xl z-10">
+              <span className="animate-spin text-lg" aria-label="Simplifying">🎯</span>
+            </div>
+          )}
+          {/* Content with crossfade transition */}
+          <div
+            className={`transition-opacity ease-in-out ${isFading ? "opacity-0" : "opacity-100"}`}
+            style={{ transitionDuration: isFading ? "750ms" : "750ms" }}
+          >
+            {renderMessageContent(message.content, isUser, onTermClick)}
+          </div>
           {message.isStreaming && (
             <span className="inline-block w-1.5 h-3.5 ml-1 bg-current animate-pulse rounded-sm" aria-label="Typing" />
           )}
         </div>
         
+        {/* Simplified indicator with undo */}
+        {isSimplified && !isUser && onUndoSimplify && (
+          <div className="mt-1 ml-1">
+            <button
+              onClick={onUndoSimplify}
+              className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              aria-label="Show original version"
+            >
+              🎯 Simplified · <span className="underline">show original</span>
+            </button>
+          </div>
+        )}
+
         {/* Concept Tags - only show for assistant messages with concepts */}
         {!isUser && !message.isStreaming && message.concepts && message.concepts.length > 0 && (
           <ConceptTagsList concepts={message.concepts} />
@@ -194,14 +223,15 @@ function TypingIndicator() {
 
 interface QuickActionsProps {
   onAction: (action: string) => void;
+  simplifying?: boolean;
 }
 
-function QuickActions({ onAction }: QuickActionsProps) {
+function QuickActions({ onAction, simplifying }: QuickActionsProps) {
   const actions = [
     { id: "explain", label: "Explain more", icon: "💡" },
     { id: "example", label: "Give me an example", icon: "📝" },
     { id: "quiz", label: "Quiz me", icon: "❓" },
-    { id: "simplify", label: "Simplify this", icon: "🎯" },
+    { id: "simplify", label: simplifying ? "Simplifying…" : "Simplify this", icon: simplifying ? "⏳" : "🎯" },
   ];
 
   return (
@@ -210,7 +240,10 @@ function QuickActions({ onAction }: QuickActionsProps) {
         <button
           key={action.id}
           onClick={() => onAction(action.id)}
-          className="inline-flex items-center gap-1 sm:gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 text-xs sm:text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 transition-all shadow-sm hover:shadow"
+          disabled={action.id === "simplify" && simplifying}
+          className={`inline-flex items-center gap-1 sm:gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 text-xs sm:text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 transition-all shadow-sm hover:shadow ${
+            action.id === "simplify" && simplifying ? "opacity-50 cursor-not-allowed" : ""
+          }`}
           aria-label={action.label}
         >
           <span aria-hidden="true">{action.icon}</span>
@@ -299,6 +332,10 @@ export function ChatInterface({
     new Set(initialCompletedObjectives || [])
   );
   const [assessmentNotice, setAssessmentNotice] = useState<string | null>(null);
+  // Simplify-in-place state
+  const [simplifyingMessageId, setSimplifyingMessageId] = useState<string | null>(null);
+  const [originalContents, setOriginalContents] = useState<Record<string, string>>({});
+  const [fadingMessageId, setFadingMessageId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -555,6 +592,12 @@ export function ChatInterface({
 
   // Handle quick action buttons
   const handleQuickAction = (action: string) => {
+    // Simplify gets special handling — silent crossfade
+    if (action === "simplify") {
+      handleSimplify();
+      return;
+    }
+
     const lastAssistantMessage = [...messages].reverse().find(m => m.role === "assistant");
     if (!lastAssistantMessage) return;
 
@@ -562,7 +605,6 @@ export function ChatInterface({
       explain: "Can you explain that in more detail?",
       example: "Can you give me a practical example of this?",
       quiz: "Quiz me on what we just discussed to check my understanding.",
-      simplify: "Can you explain that in simpler terms?",
     };
 
     const prompt = prompts[action];
@@ -574,6 +616,110 @@ export function ChatInterface({
         sendBtn?.click();
       }, 100);
     }
+  };
+
+  // Silently fetch a simplified version and crossfade it in
+  const handleSimplify = async () => {
+    const lastAssistantMessage = [...messages].reverse().find(m => m.role === "assistant" && !m.isStreaming);
+    if (!lastAssistantMessage || !user || simplifyingMessageId) return;
+
+    const targetId = lastAssistantMessage.id;
+
+    // Save original content for undo
+    setOriginalContents((prev) => ({
+      ...prev,
+      [targetId]: lastAssistantMessage.content,
+    }));
+    setSimplifyingMessageId(targetId);
+
+    try {
+      const response = await authFetch(user, "/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: `Please rewrite the following explanation in simpler, more accessible terms. Keep the same key ideas but use shorter sentences, simpler words, and more analogies. Do NOT add any preamble like "Sure!" or "Here's a simpler version" — just give the simplified explanation directly:\n\n${lastAssistantMessage.content}`,
+          sessionId,
+          history: messages.slice(-10),
+        }),
+      });
+
+      if (!response.ok) throw new Error("Simplify request failed");
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (!reader) throw new Error("No response body");
+
+      // Collect the full simplified response first
+      let simplifiedContent = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        simplifiedContent += chunk;
+      }
+
+      // Phase 1: Fade out old content (750ms)
+      setFadingMessageId(targetId);
+
+      await new Promise((resolve) => setTimeout(resolve, 750));
+
+      // Swap in the new content while invisible
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === targetId
+            ? { ...msg, content: simplifiedContent }
+            : msg
+        )
+      );
+
+      // Phase 2: Fade in new content (750ms)
+      // Small delay to ensure React renders the new content at opacity 0
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      setFadingMessageId(null);
+
+    } catch (error) {
+      console.error("Failed to simplify:", error);
+      // Revert on error
+      setFadingMessageId(null);
+      setOriginalContents((prev) => {
+        const updated = { ...prev };
+        delete updated[targetId];
+        return updated;
+      });
+    } finally {
+      setSimplifyingMessageId(null);
+    }
+  };
+
+  // Undo simplification — restore original content with crossfade
+  const handleUndoSimplify = async (messageId: string) => {
+    const original = originalContents[messageId];
+    if (!original) return;
+
+    // Fade out
+    setFadingMessageId(messageId);
+    await new Promise((resolve) => setTimeout(resolve, 750));
+
+    // Swap back
+    setMessages((prev) =>
+      prev.map((msg) =>
+        msg.id === messageId
+          ? { ...msg, content: original }
+          : msg
+      )
+    );
+
+    // Remove from originals
+    setOriginalContents((prev) => {
+      const updated = { ...prev };
+      delete updated[messageId];
+      return updated;
+    });
+
+    // Fade in
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    setFadingMessageId(null);
   };
 
   // Handle clicking a follow-up suggestion
@@ -807,6 +953,10 @@ export function ChatInterface({
                   message={message}
                   userPhotoURL={user?.photoURL}
                   onTermClick={handleTermClick}
+                  isSimplifying={simplifyingMessageId === message.id}
+                  isFading={fadingMessageId === message.id}
+                  isSimplified={!!originalContents[message.id]}
+                  onUndoSimplify={() => handleUndoSimplify(message.id)}
                 />
                 {/* Quick Actions after AI response */}
                 {message.role === "assistant" && 
@@ -814,7 +964,7 @@ export function ChatInterface({
                  index === messages.length - 1 && 
                  !isLoading && (
                   <>
-                    <QuickActions onAction={handleQuickAction} />
+                    <QuickActions onAction={handleQuickAction} simplifying={!!simplifyingMessageId} />
                     <FollowUpSuggestions
                       suggestions={followUpSuggestions}
                       onSelect={handleFollowUpSelect}

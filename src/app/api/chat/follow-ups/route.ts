@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { openai, AI_CONFIG } from "@/lib/ai/config";
+import { trackTokenUsage } from "@/lib/ai/tokenTracker";
 import { requireAuthUser, authErrorResponse } from "@/lib/auth/serverAuth";
 
 // ===================================
@@ -8,7 +9,7 @@ import { requireAuthUser, authErrorResponse } from "@/lib/auth/serverAuth";
 
 export async function POST(request: NextRequest) {
   try {
-    await requireAuthUser(request);
+    const authed = await requireAuthUser(request);
 
     const body = await request.json();
     const {
@@ -59,6 +60,10 @@ Generate 3 follow-up questions:`,
       max_tokens: 200,
       temperature: 0.7,
     });
+
+    // Track token usage (fire-and-forget)
+    trackTokenUsage(authed.uid, "follow-ups", AI_CONFIG.FALLBACK_MODEL, response.usage)
+      .catch((err) => console.error("Token tracking failed:", err));
 
     const raw = response.choices[0]?.message?.content?.trim() || "[]";
 

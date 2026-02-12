@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { openai, AI_CONFIG } from "@/lib/ai/config";
+import { trackTokenUsage } from "@/lib/ai/tokenTracker";
 import { requireAuthUser, authErrorResponse } from "@/lib/auth/serverAuth";
 
 // ===================================
@@ -8,7 +9,7 @@ import { requireAuthUser, authErrorResponse } from "@/lib/auth/serverAuth";
 
 export async function POST(request: NextRequest) {
   try {
-    await requireAuthUser(request);
+    const authed = await requireAuthUser(request);
 
     const body = await request.json();
     const {
@@ -74,6 +75,10 @@ Which objectives has the LEARNER demonstrated mastery of?`,
     });
 
     const raw = response.choices[0]?.message?.content?.trim() || "{}";
+
+    // Track token usage (fire-and-forget)
+    trackTokenUsage(authed.uid, "assess-objectives", AI_CONFIG.FALLBACK_MODEL, response.usage)
+      .catch((err) => console.error("Token tracking failed:", err));
 
     let result: { mastered: number[]; reasoning: Record<string, string> };
     try {

@@ -2,6 +2,7 @@
 // Extracts concepts with domain, relations, and richer metadata
 
 import { openai, AI_CONFIG } from "@/lib/ai/config";
+import { trackTokenUsage } from "@/lib/ai/tokenTracker";
 import type { RelationType } from "@/types";
 
 // ===================================

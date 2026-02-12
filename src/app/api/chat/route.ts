@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { openai, AI_CONFIG } from "@/lib/ai/config";
+import { trackStreamingUsage } from "@/lib/ai/tokenTracker";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { Timestamp } from "firebase-admin/firestore";
 import { extractConcepts } from "@/lib/ai/conceptExtraction";
@@ -114,6 +115,10 @@ export async function POST(request: NextRequest) {
               controller.enqueue(encoder.encode(content));
             }
           }
+
+          // Track estimated token usage (fire-and-forget)
+          trackStreamingUsage(userId, "chat", AI_CONFIG.PRIMARY_MODEL, messages, fullResponse)
+            .catch((err) => console.error("Token tracking failed:", err));
 
           // Save messages to Firestore after streaming completes
           if (sessionId) {

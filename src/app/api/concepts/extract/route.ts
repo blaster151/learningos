@@ -86,13 +86,12 @@ export async function POST(request: NextRequest) {
               masteryLevel: Math.min(100, (data.masteryLevel || 0) + 3),
             };
           } else {
-            // Create new concept
-            const newConceptData = {
+            // Create new concept (filter out undefined values for Firestore)
+            const newConceptData: Record<string, unknown> = {
               userId,
               name: concept.name.toLowerCase(),
               displayName: concept.name,
-              description: concept.description,
-              category: concept.category,
+              description: concept.description || "",
               masteryLevel: Math.round(concept.confidence * 20),
               exposureCount: 1,
               sessionIds: sessionId ? [sessionId] : [],
@@ -101,15 +100,19 @@ export async function POST(request: NextRequest) {
               updatedAt: now,
             };
 
+            if (concept.category) {
+              newConceptData.category = concept.category;
+            }
+
             const docRef = await db.collection("concepts").add(newConceptData);
 
             return {
               id: docRef.id,
-              name: newConceptData.name,
-              displayName: newConceptData.displayName,
-              description: newConceptData.description,
-              category: newConceptData.category,
-              masteryLevel: newConceptData.masteryLevel,
+              name: newConceptData.name as string,
+              displayName: newConceptData.displayName as string,
+              description: newConceptData.description as string,
+              category: (newConceptData.category as string) || concept.category || "other",
+              masteryLevel: newConceptData.masteryLevel as number,
             };
           }
         } catch (err) {

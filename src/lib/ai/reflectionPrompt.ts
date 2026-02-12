@@ -4,6 +4,7 @@
  */
 
 import { openai, AI_CONFIG } from "@/lib/ai/config";
+import { trackTokenUsage } from "@/lib/ai/tokenTracker";
 import type { ConceptNode } from "@/types";
 import type { Timestamp } from "firebase/firestore";
 
@@ -137,6 +138,10 @@ Generate a reflection prompt that will help this learner consolidate their under
     });
 
     const responseContent = completion.choices[0]?.message?.content;
+
+    // Track token usage (fire-and-forget)
+    trackTokenUsage(userId, "reflection-prompt", AI_CONFIG.PRIMARY_MODEL, completion.usage)
+      .catch((err) => console.error("Token tracking failed:", err));
 
     if (!responseContent) {
       return {

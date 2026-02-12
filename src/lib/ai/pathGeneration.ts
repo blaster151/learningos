@@ -2,6 +2,7 @@
 // Uses GPT-4 to create personalized learning paths based on user goals and existing knowledge
 
 import { openai, AI_CONFIG } from "@/lib/ai/config";
+import { trackTokenUsage } from "@/lib/ai/tokenTracker";
 import type { 
   ConceptNode, 
   PathGenerationInput, 
@@ -86,6 +87,11 @@ export async function generateLearningPath(
     });
 
     const content = response.choices[0]?.message?.content;
+
+    // Track token usage (fire-and-forget)
+    trackTokenUsage(input.userId, "path-generation", AI_CONFIG.PRIMARY_MODEL, response.usage)
+      .catch((err) => console.error("Token tracking failed:", err));
+
     if (!content) {
       return { success: false, error: "No response from AI" };
     }
@@ -308,6 +314,11 @@ export async function regeneratePath(
     });
 
     const content = response.choices[0]?.message?.content;
+
+    // Track token usage (fire-and-forget)
+    trackTokenUsage(input.userId, "path-regeneration", AI_CONFIG.PRIMARY_MODEL, response.usage)
+      .catch((err) => console.error("Token tracking failed:", err));
+
     if (!content) {
       return { success: false, error: "No response from AI" };
     }

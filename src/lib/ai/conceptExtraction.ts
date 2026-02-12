@@ -2,6 +2,7 @@
 // Uses OpenAI to identify learning concepts from conversations
 
 import { openai, AI_CONFIG } from "@/lib/ai/config";
+import { trackTokenUsage } from "@/lib/ai/tokenTracker";
 
 // ===================================
 // Types
@@ -51,7 +52,8 @@ If no clear learning concepts were discussed, return an empty concepts array.`;
 // ===================================
 
 export async function extractConcepts(
-  messages: Array<{ role: string; content: string }>
+  messages: Array<{ role: string; content: string }>,
+  userId?: string
 ): Promise<ConceptExtractionResult> {
   try {
     // Only process if there are meaningful messages
@@ -80,6 +82,12 @@ export async function extractConcepts(
     const content = response.choices[0]?.message?.content;
     if (!content) {
       return { concepts: [] };
+    }
+
+    // Track token usage
+    if (userId) {
+      trackTokenUsage(userId, "concept-extraction", AI_CONFIG.FALLBACK_MODEL, response.usage)
+        .catch((err) => console.error("Token tracking failed:", err));
     }
 
     const result = JSON.parse(content) as ConceptExtractionResult;

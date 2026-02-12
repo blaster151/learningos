@@ -4,6 +4,12 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+// Mock token tracker (avoid Firebase admin initialization in tests)
+vi.mock('@/lib/ai/tokenTracker', () => ({
+  trackTokenUsage: vi.fn(() => Promise.resolve()),
+  trackStreamingUsage: vi.fn(() => Promise.resolve()),
+}));
+
 // Mock OpenAI
 vi.mock('@/lib/ai/config', () => ({
   openai: {

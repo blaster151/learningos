@@ -229,11 +229,10 @@ async function createNewConcept(
 ): Promise<string> {
   const now = Timestamp.now();
   
-  const conceptData: Omit<ConceptNode, "conceptId"> = {
+  const conceptData: Record<string, unknown> = {
     name: concept.name.toLowerCase(),
     definition: concept.definition,
     domain: concept.domain,
-    category: concept.category,
     userId,
     confidence: concept.confidence * 0.5, // Start conservative
     understanding: messageRole === "assistant" ? 0.3 : 0.2, // AI explanations give slight boost
@@ -250,6 +249,11 @@ async function createNewConcept(
     isEmergent: messageRole === "user", // User-mentioned concepts are emergent
     discoveredBy: messageRole === "user" ? "user" : "system",
   };
+
+  // Only include category if defined (Firestore rejects undefined values)
+  if (concept.category) {
+    conceptData.category = concept.category;
+  }
 
   const ref = await db.collection("concepts").add(conceptData);
   return ref.id;
