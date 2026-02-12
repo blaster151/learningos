@@ -96,7 +96,7 @@ describe('PathCard', () => {
     const onAbandon = vi.fn();
     render(<PathCard path={mockActivePath} onAbandon={onAbandon} />);
 
-    const abandonButton = screen.getByText('Abandon Path');
+    const abandonButton = screen.getByText('Abandon');
     fireEvent.click(abandonButton);
 
     expect(onAbandon).toHaveBeenCalledWith('path-2');

@@ -42,52 +42,60 @@ vi.mock('@/lib/firebase/admin', () => ({
       if (collectionName === 'concepts') {
         return {
           add: vi.fn(() => Promise.resolve({ id: 'new-concept-123' })),
-          where: vi.fn(() => ({
-            where: vi.fn(() => ({
+          where: vi.fn(() => {
+            const mockDocs = [
+              {
+                id: 'concept-1',
+                data: () => ({
+                  userId: 'test-user-123',
+                  name: 'closures',
+                  displayName: 'Closures',
+                  description: 'Functions that capture variables',
+                  category: 'programming',
+                  masteryLevel: 45,
+                  exposureCount: 3,
+                  lastPracticed: { toDate: () => new Date() },
+                  createdAt: { toDate: () => new Date() },
+                }),
+              },
+              {
+                id: 'concept-2',
+                data: () => ({
+                  userId: 'test-user-123',
+                  name: 'promises',
+                  displayName: 'Promises',
+                  description: 'Async handling in JS',
+                  category: 'programming',
+                  masteryLevel: 80,
+                  exposureCount: 8,
+                  lastPracticed: { toDate: () => new Date() },
+                  createdAt: { toDate: () => new Date() },
+                }),
+              },
+            ];
+            const chainEnd = {
               limit: vi.fn(() => ({
-                get: vi.fn(() => Promise.resolve({
-                  empty: true,
-                  docs: [],
+                get: vi.fn(() => Promise.resolve({ docs: mockDocs })),
+              })),
+              orderBy: vi.fn(() => ({
+                limit: vi.fn(() => ({
+                  get: vi.fn(() => Promise.resolve({ docs: mockDocs })),
                 })),
               })),
-            })),
-            orderBy: vi.fn(() => ({
-              limit: vi.fn(() => ({
-                get: vi.fn(() => Promise.resolve({
-                  docs: [
-                    {
-                      id: 'concept-1',
-                      data: () => ({
-                        userId: 'test-user-123',
-                        name: 'closures',
-                        displayName: 'Closures',
-                        description: 'Functions that capture variables',
-                        category: 'programming',
-                        masteryLevel: 45,
-                        exposureCount: 3,
-                        lastPracticed: { toDate: () => new Date() },
-                        createdAt: { toDate: () => new Date() },
-                      }),
-                    },
-                    {
-                      id: 'concept-2',
-                      data: () => ({
-                        userId: 'test-user-123',
-                        name: 'promises',
-                        displayName: 'Promises',
-                        description: 'Async handling in JS',
-                        category: 'programming',
-                        masteryLevel: 80,
-                        exposureCount: 8,
-                        lastPracticed: { toDate: () => new Date() },
-                        createdAt: { toDate: () => new Date() },
-                      }),
-                    },
-                  ],
+              get: vi.fn(() => Promise.resolve({ docs: mockDocs })),
+            };
+            return {
+              where: vi.fn(() => ({
+                limit: vi.fn(() => ({
+                  get: vi.fn(() => Promise.resolve({
+                    empty: true,
+                    docs: [],
+                  })),
                 })),
               })),
-            })),
-          })),
+              ...chainEnd,
+            };
+          }),
         };
       }
       return {};

@@ -118,6 +118,8 @@
 | **Mentor Personas** | Choose guide voice (Gödel, Escher, Bach, Ada, Turing) | Phase 2 |
 | **Emergent Abstraction Tracker** | System detects patterns learner discovers | Phase 2 |
 | **"My Book" Export** | Full learning journey as searchable wiki | Phase 2 |
+| **Prerequisite Intelligence** | Auto-detect knowledge gaps, assess prereqs before path generation, dynamic gap detection during learning | Phase 2 |
+| **Adaptive Difficulty** | Level-aware AI explanations, completion depth tracking, implicit level detection from conversation quality | Phase 2 |
 | **Community Insights** | Anonymized pattern sharing across learners | Phase 3 |
 | **Spaced Repetition** | Intelligent review scheduling | Phase 3 |
 | **Visual Simulations** | Domain-specific interactive tools | Phase 3 |
@@ -500,6 +502,14 @@
 4. **Mentor personas: MVP or Phase 2?**
    - High value but requires extra prompt engineering
    - **Recommendation:** Phase 2, tease in MVP
+
+5. **Prerequisite handling: upfront assessment or dynamic detection?**
+   - Upfront = smoother path but slower to start; Dynamic = flexible but potentially disruptive mid-learning
+   - **Recommendation:** Both — brief upfront screening (E14-S1) plus dynamic gap detection during chat (E14-S3). Concept graph prereq relations (E14-S2) provide the structural backbone.
+
+6. **Adaptive difficulty: explicit level selection or implicit detection?**
+   - Explicit = user controls; Implicit = more magical but less transparent
+   - **Recommendation:** Start explicit (E15-S1 — quick win, feed `userLevel` into chat system prompt), add implicit detection later (E15-S3). Track `completionLevel` on path completion so the same path can be completed at different depths by different learners.
 
 ---
 

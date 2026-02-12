@@ -45,6 +45,7 @@ Guidelines:
 - If a user seems stuck, offer hints rather than full solutions
 - Ask follow-up questions to deepen understanding
 - Use markdown formatting for code blocks and lists when helpful
+- **Bold key terminology** using **double asterisks** when introducing or referencing important concepts, technical terms, or domain-specific vocabulary (e.g. **closure**, **polymorphism**, **event loop**). This helps learners identify and explore key terms interactively.
 
 Remember: Your goal is not just to answer questions, but to help users truly understand and retain knowledge.`;
 

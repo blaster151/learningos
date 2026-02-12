@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { ChatInterface, ChatMessage, SessionSummary } from "@/components/chat";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button, Skeleton, SkeletonText } from "@/components/ui";
@@ -17,6 +17,39 @@ interface Session {
 }
 
 export default function ChatPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-900">
+          <div className="p-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Skeleton className="w-10 h-10 rounded-full" />
+                <div className="space-y-2">
+                  <Skeleton className="w-32 h-4" />
+                  <Skeleton className="w-24 h-3" />
+                </div>
+              </div>
+              <Skeleton className="w-24 h-9 rounded-md" />
+            </div>
+          </div>
+          <div className="flex-1 p-4 space-y-4 overflow-hidden">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className={`flex gap-3 ${i % 2 === 0 ? "flex-row-reverse" : ""}`}>
+                <Skeleton className="w-8 h-8 rounded-full shrink-0" />
+                <Skeleton className={`h-16 rounded-2xl ${i % 2 === 0 ? "w-40" : "w-64"}`} />
+              </div>
+            ))}
+          </div>
+        </div>
+      }
+    >
+      <ChatPageInner />
+    </Suspense>
+  );
+}
+
+function ChatPageInner() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -27,6 +60,13 @@ export default function ChatPage() {
   const [showSummary, setShowSummary] = useState(false);
   const [completedSessionId, setCompletedSessionId] = useState<string | null>(null);
   const [conceptHandled, setConceptHandled] = useState(false);
+  // Milestone context for AI-driven objective assessment
+  const [milestoneContext, setMilestoneContext] = useState<{
+    pathId: string;
+    milestoneId: string;
+    objectives: string[];
+    completedObjectives?: number[];
+  } | null>(null);
 
   // Load user's sessions
   const loadSessions = useCallback(async () => {
@@ -77,8 +117,32 @@ export default function ChatPage() {
 
     setConceptHandled(true);
     const conceptId = searchParams.get("conceptId");
+    const urlPathId = searchParams.get("pathId");
+    const urlMilestoneId = searchParams.get("milestoneId");
     const topic = `Learning about: ${conceptName}`;
     
+    // If coming from a milestone, fetch the objectives
+    if (urlPathId && urlMilestoneId) {
+      authFetch(user, `/api/paths/${urlPathId}`)
+        .then((r) => r.ok ? r.json() : null)
+        .then((data) => {
+          if (data?.path?.milestones) {
+            const ms = data.path.milestones.find(
+              (m: { milestoneId: string }) => m.milestoneId === urlMilestoneId
+            );
+            if (ms?.objectives?.length) {
+              setMilestoneContext({
+                pathId: urlPathId,
+                milestoneId: urlMilestoneId,
+                objectives: ms.objectives,
+                completedObjectives: ms.completedObjectives || [],
+              });
+            }
+          }
+        })
+        .catch((err) => console.error("Failed to load milestone objectives:", err));
+    }
+
     // Create a session with concept context
     const startConceptSession = async () => {
       try {
@@ -379,6 +443,11 @@ export default function ChatPage() {
           sessionId={activeSessionId}
           initialMessages={initialMessages}
           onSessionEnd={endSession}
+          sessionTopic={currentSession?.topic}
+          milestoneObjectives={milestoneContext?.objectives}
+          pathId={milestoneContext?.pathId}
+          milestoneId={milestoneContext?.milestoneId}
+          initialCompletedObjectives={milestoneContext?.completedObjectives}
         />
       </div>
     </div>

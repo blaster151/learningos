@@ -52,8 +52,11 @@ Each story follows the standard format:
 | E11 | "My Book" Export | 4 | 21 |
 | E12 | Achievement System | 4 | 17 |
 | E13 | Dynamic Glossary | 4 | 18 |
-| **Phase 2 Total** | | **20** | **91** |
-| **Grand Total** | | **70** | **344** |
+| E14 | Prerequisite Intelligence | 5 | 29 |
+| E15 | Adaptive Difficulty & Learner Level | 4 | 21 |
+| E16 | User Highlights & Annotations | 3 | 15 |
+| **Phase 2 Total** | | **29** | **141** |
+| **Grand Total** | | **79** | **394** |
 
 ---
 
@@ -346,24 +349,28 @@ Each story follows the standard format:
 
 ---
 
-### E3-S2: Path Content Display
+### E3-S2: Milestone Learning Experience
 
 **As a** learner  
-**I want to** see beautifully formatted learning content  
-**So that** I can focus on understanding
+**I want to** have an interactive learning experience within each milestone  
+**So that** I can track my progress and engage with AI-powered learning
 
 **Acceptance Criteria:**
-- [ ] Given I am on a path step, when I see text content, then it renders as styled Markdown
-- [ ] Given I see code blocks, when displayed, then they have syntax highlighting
-- [ ] Given I see code blocks, when I hover, then I see a copy button
-- [ ] Given I click copy, when successful, then I see "Copied!" toast
-- [ ] Given content is long, when scrolling, then the step container scrolls independently
+- [x] Given I expand an in-progress milestone, when I see the objectives, then they render as interactive checkboxes I can check/uncheck
+- [x] Given I check/uncheck objectives, when viewing progress, then the progress bar updates to reflect checked objectives count
+- [x] Given objectives are checked, when I view the milestone header, then the stats row shows "N/M objectives" instead of just count
+- [x] Given I expand an in-progress milestone, when I see the CTA area, then I see a prominent "💬 Learn with AI" button
+- [x] Given I click "Learn with AI", when the chat opens, then it auto-creates a session with the milestone's concept names as topic
+- [x] Given I see concept pills, when I click one, then I navigate to an AI chat session about that specific concept
+- [x] Given I expand a not-started/available milestone, when I see actions, then "Learn with AI" appears as a secondary button
+- [x] Given a milestone is completed, when I see objectives, then they show check marks (non-interactive)
 
 **Story Points:** 5  
 **Priority:** P0-Critical  
 **Dependencies:** E3-S1  
 **UX Reference:** Section 5 - Learning Session  
-**API Reference:** GET /paths/:pathId
+**API Reference:** GET /paths/:pathId, PATCH /paths/:pathId  
+**Implementation Notes:** AI-first architecture — learning happens through chat rather than static content pages. Objective checkboxes are client-side self-assessment (persisted in local state for now).
 
 ---
 
@@ -1552,7 +1559,8 @@ A living glossary that speaks in the learner's language, grows with their journe
 | E8-S1 | Settings Page | 3 |
 | E8-S2 | Account Deletion | 3 |
 | E8-S3 | Data Export (GDPR) | 5 |
-| **Total P1** | | **76** |
+| E15-S1 | Level-Aware AI Chat | 5 |
+| **Total P1** | | **81** |
 
 ### P2 - Medium (Nice to Have)
 | ID | Title | Points |
@@ -1576,7 +1584,10 @@ A living glossary that speaks in the learner's language, grows with their journe
 | E11-S3 | Export Preview | 5 |
 | E11-S4 | PDF Export | 5 |
 | E12-S4 | Achievement Preferences | 2 |
-| **Total P3** | | **17** |
+| E14-S4 | Prerequisite Visualization on Path Detail | 3 |
+| E15-S3 | Implicit Level Detection | 8 |
+| E15-S4 | Age-Appropriate Content Guardrails | 3 |
+| **Total P3** | | **31** |
 
 ### Phase 2 - P2 (New Epics)
 | ID | Title | Points |
@@ -1597,19 +1608,289 @@ A living glossary that speaks in the learner's language, grows with their journe
 | E13-S2 | Glossary Page & Search | 5 |
 | E13-S3 | Definition Evolution Timeline | 5 |
 | E13-S4 | Glossary–Graph Integration | 3 |
-| **Total Phase 2 P2** | | **74** |
+| E14-S1 | Prerequisite Assessment Chat | 8 |
+| E14-S2 | Concept Graph Prerequisite Walking | 5 |
+| E14-S3 | Dynamic Prerequisite Detection During Learning | 8 |
+| E14-S5 | Prerequisite Knowledge Report | 5 |
+| E15-S2 | Completion Level Tracking | 5 |
+| **Total Phase 2 P2** | | **124** |
 
 ---
 
-**Grand Total (all phases):** 344 story points
+## Epic 14: Prerequisite Intelligence
+
+> **Design Problem:** When a learner requests a path (e.g., "learn React"), how does the system handle prerequisite gaps (e.g., they don't know JavaScript)? What about hidden prerequisites they don't even know exist? What if they already know the prerequisites (e.g., a nurse learning cardio health already knows anatomy)?
+
+> **Approach:** Hybrid — brief upfront assessment during path generation, plus dynamic detection during learning. The concept graph's `prerequisite` relations provide the structural backbone, while AI conversation provides the nuanced assessment.
+
+### E14-S1: Prerequisite Assessment Chat
+
+**As a** learner  
+**I want to** have a brief "what do you already know?" conversation before my path is generated  
+**So that** the path skips concepts I've mastered and includes ones I'm missing
+
+**Acceptance Criteria:**
+- [ ] Given I request a new path, when the AI generates it, then it first asks 2-3 screening questions about prerequisite knowledge
+- [ ] Given I demonstrate prerequisite knowledge, when the path is generated, then those prerequisites are skipped
+- [ ] Given I reveal a knowledge gap, when the path is generated, then prerequisite milestones are prepended
+- [ ] Given the concept graph has `prerequisite` relations for the target concepts, when generating, then those relations inform the screening questions
+- [ ] Given I say "I don't know" to a screening question, when the path is generated, then prerequisite milestones include that topic
+
+**Story Points:** 8  
+**Priority:** P2-Medium  
+**Dependencies:** E3-S1, E6-S1  
+**Implementation Notes:** Extend the path generation prompt to include a prerequisite analysis phase. The AI should walk backward through concept graph prereqs and generate targeted questions.
+
+---
+
+### E14-S2: Concept Graph Prerequisite Walking
+
+**As a** system  
+**I want to** automatically identify prerequisite chains from the concept graph  
+**So that** path generation knows what foundational concepts are needed
+
+**Acceptance Criteria:**
+- [ ] Given a target concept with `prerequisite` relations, when walking the graph, then all transitive prerequisites are identified
+- [ ] Given a prerequisite has high mastery (≥80%), when building the prereq chain, then it is marked as "likely known"
+- [ ] Given a prerequisite has low mastery (<30%), when building the prereq chain, then it is flagged as "needs assessment"
+- [ ] Given a concept has no graph data yet, when building prereqs, then the AI infers likely prerequisites from domain knowledge
+- [ ] Given circular dependencies exist, when walking the graph, then cycles are detected and handled gracefully
+
+**Story Points:** 5  
+**Priority:** P2-Medium  
+**Dependencies:** E6-S1  
+**Implementation Notes:** New service function `getPrerequisiteChain(conceptId)` that performs BFS/DFS on `prerequisite` relations and returns an ordered list with mastery levels.
+
+---
+
+### E14-S3: Dynamic Prerequisite Detection During Learning
+
+**As a** learner  
+**I want to** be alerted if the AI detects I'm struggling due to a missing prerequisite  
+**So that** I can fill the gap before continuing
+
+**Acceptance Criteria:**
+- [ ] Given I'm chatting about a milestone concept, when the AI detects confusion stemming from a missing prerequisite, then it flags the gap
+- [ ] Given a prerequisite gap is flagged, when I see the suggestion, then I can choose "Add prerequisite milestone" or "I know this, continue"
+- [ ] Given I choose to add a prerequisite, when accepted, then a new milestone is inserted into my path before the current one
+- [ ] Given I choose "I know this," when continuing, then the system records that I self-assessed as knowing it
+- [ ] Given the AI flags a gap, when recording, then the concept graph is updated with a new `prerequisite` relation if one doesn't exist
+
+**Story Points:** 8  
+**Priority:** P2-Medium  
+**Dependencies:** E14-S1, E5-S2  
+**Implementation Notes:** Extend the chat system prompt to include prerequisite monitoring. Add a new PATCH action `insert_milestone` that adds a milestone at a specific position.
+
+---
+
+### E14-S4: Prerequisite Visualization on Path Detail
+
+**As a** learner  
+**I want to** see which milestones are prerequisites vs. core content  
+**So that** I understand why certain milestones were added
+
+**Acceptance Criteria:**
+- [ ] Given a milestone was added as a prerequisite, when viewing the path, then it shows a "Prerequisite" badge
+- [ ] Given a prerequisite milestone is completed, when viewing the path, then a visual connector shows which later milestone it unlocked
+- [ ] Given I already knew a prerequisite (self-assessed), when viewing the path, then the milestone shows as "Skipped — Already Known"
+
+**Story Points:** 3  
+**Priority:** P3-Low  
+**Dependencies:** E14-S3  
+
+---
+
+### E14-S5: Prerequisite Knowledge Report
+
+**As a** learner  
+**I want to** see a summary of my prerequisite knowledge gaps across all my paths  
+**So that** I can prioritize foundational learning
+
+**Acceptance Criteria:**
+- [ ] Given I have multiple paths, when viewing the report, then I see a list of common prerequisite gaps
+- [ ] Given a prerequisite appears in multiple paths, when viewing the report, then it is ranked higher
+- [ ] Given I click a prerequisite, when navigating, then I'm offered a focused mini-path for just that concept
+
+**Story Points:** 5  
+**Priority:** P3-Low  
+**Dependencies:** E14-S2, E14-S4  
+
+---
+
+## Epic 15: Adaptive Difficulty & Learner Level
+
+> **Design Problem:** A 12-year-old and a 50-year-old high school graduate both want to learn "cardio health." Can the system adapt explanations to their level? Can both "complete" the same path in good faith, with the system tracking what depth they achieved?
+
+> **Approach:** Start with explicit level selection (already captured as `userLevel` during path generation), feed it into AI system prompts, and record `completionLevel` on path completion. Later, add implicit level detection from conversation quality and vocabulary.
+
+### E15-S1: Level-Aware AI Chat
+
+**As a** learner  
+**I want to** receive explanations matched to my knowledge level  
+**So that** I can understand concepts without being overwhelmed or bored
+
+**Acceptance Criteria:**
+- [ ] Given my profile has a `userLevel` (beginner/intermediate/advanced), when chatting with AI, then explanations use appropriate vocabulary and complexity
+- [ ] Given I'm a beginner, when the AI explains a concept, then it uses simple analogies and avoids jargon
+- [ ] Given I'm advanced, when the AI explains a concept, then it includes deeper mechanisms, edge cases, and references
+- [ ] Given my path was generated with a specific level, when chatting about that path's concepts, then the level is passed to the AI system prompt
+- [ ] Given I ask to "explain it simpler" or "go deeper," when the AI responds, then it adjusts for that exchange
+
+**Story Points:** 5  
+**Priority:** P1-High  
+**Dependencies:** E5-S2  
+**Implementation Notes:** Inject `userLevel` from the path's `generatedFrom.userLevel` into the chat system prompt. Quick win — can be done with minimal code change.
+
+---
+
+### E15-S2: Completion Level Tracking
+
+**As a** learner  
+**I want to** see what depth I completed a learning path at  
+**So that** I can revisit it later for deeper understanding
+
+**Acceptance Criteria:**
+- [ ] Given I complete a path, when the completion is recorded, then a `completionLevel` is stored (foundational/intermediate/advanced)
+- [ ] Given the same path is completed by different users at different levels, when comparing, then each completion reflects the appropriate depth
+- [ ] Given I completed a path at foundational level, when viewing it later, then I see an option to "Deepen — study at intermediate level"
+- [ ] Given I choose to deepen, when a new path is generated, then it skips foundational content and adds advanced milestones
+
+**Story Points:** 5  
+**Priority:** P2-Medium  
+**Dependencies:** E15-S1, E3-S6  
+**Implementation Notes:** Add `completionLevel` and `assessmentDepth` fields to the LearningPath type. Derive from `generatedFrom.userLevel` initially, refine based on AI assessment of conversation quality.
+
+---
+
+### E15-S3: Implicit Level Detection
+
+**As a** system  
+**I want to** infer the learner's actual level from their conversation  
+**So that** I can adapt difficulty even without explicit selection
+
+**Acceptance Criteria:**
+- [ ] Given a learner chats about a concept, when analyzing their messages, then the system estimates vocabulary level and conceptual depth
+- [ ] Given the estimated level diverges from the explicit level, when detected, then the system asks "Should I adjust the difficulty?"
+- [ ] Given the learner confirms adjustment, when applied, then subsequent explanations match the detected level
+- [ ] Given level is implicitly detected, when stored, then the user profile records detected level alongside self-reported level
+
+**Story Points:** 8  
+**Priority:** P3-Low  
+**Dependencies:** E15-S1  
+**Implementation Notes:** Add a periodic level-assessment prompt to the AI conversation. Analyze message length, vocabulary complexity, question sophistication. Store as `detectedLevel` on the user profile.
+
+---
+
+### E15-S4: Age-Appropriate Content Guardrails
+
+**As a** parent or young learner  
+**I want to** ensure content is age-appropriate  
+**So that** a 12-year-old gets explanations suitable for their maturity level
+
+**Acceptance Criteria:**
+- [ ] Given a user's profile indicates age (or age range), when the AI generates content, then it avoids inappropriate complexity or examples
+- [ ] Given a health topic, when explaining to a young learner, then anatomical/medical details are simplified appropriately
+- [ ] Given age-appropriate mode is active, when the AI generates content, then a content safety check is applied to responses
+
+**Story Points:** 3  
+**Priority:** P3-Low  
+**Dependencies:** E15-S1  
+**Implementation Notes:** Add optional `ageRange` to user profile. Include age-appropriate instructions in the AI system prompt when set.
+
+---
+
+## Epic 16: User Highlights & Annotations
+
+**Goal:** Allow learners to highlight text in AI responses and their own notes, creating a personal glossary of important terms and passages that can be reviewed later.
+
+**Rationale:** While the system auto-bolds key terminology, learners should also be able to mark what *they* find important. User highlights serve as a study aid, create implicit signal about what the learner is focusing on, and provide data for the AI to personalize future responses.
+
+### Priority Table
+
+| Story ID | Title | Points |
+|----------|-------|--------|
+| E16-S1 | Text Selection & Highlight in Chat | 5 |
+| E16-S2 | Highlights Review Panel | 5 |
+| E16-S3 | AI-Aware Highlights (Personalization) | 5 |
+
+**Total: 3 stories, 15 points**
+
+---
+
+### E16-S1: Text Selection & Highlight in Chat
+
+**ID:** E16-S1  
+**Title:** Text Selection & Highlight in Chat  
+**As a** learner  
+**I want to** highlight text in AI responses by selecting it  
+**So that** I can mark key passages and terms for later review
+
+**Acceptance Criteria:**
+- [ ] Given an AI response is displayed, when the user selects text in a message bubble, then a "Highlight" tooltip/button appears
+- [ ] Given the user confirms a highlight, then the selected text is visually marked (e.g. yellow background) and persisted to Firestore
+- [ ] Given a message has existing highlights, when the message renders, then highlights are restored from persisted data
+- [ ] Given a highlighted term, when the user clicks it, then it behaves like a bold term (sends "Tell me about {X}")
+- [ ] Given a highlight exists, when the user clicks the highlight again, then they can remove it
+
+**Story Points:** 5  
+**Priority:** P2-Medium  
+**Dependencies:** E5-S2  
+**Implementation Notes:** Store highlights as `{messageId, sessionId, text, startOffset, endOffset, createdAt}` in a `highlights` Firestore collection. Use the Selection API for text selection detection. Render highlights by wrapping matched ranges in `<mark>` elements.
+
+---
+
+### E16-S2: Highlights Review Panel
+
+**ID:** E16-S2  
+**Title:** Highlights Review Panel  
+**As a** learner  
+**I want to** see all my highlights across sessions in one place  
+**So that** I can review key concepts and passages I've marked
+
+**Acceptance Criteria:**
+- [ ] Given the user navigates to the Highlights panel (accessible from dashboard or chat sidebar), then all highlights are displayed grouped by session/topic
+- [ ] Given a highlight is shown, then it includes the surrounding context (1-2 sentences around the highlighted text)
+- [ ] Given a highlight is clicked, when navigating, then the user is taken to that session at the relevant message
+- [ ] Given the user wants to clean up, when they delete a highlight from the panel, then it is removed from Firestore and the chat view
+- [ ] Given highlights exist, when the user searches, then highlights are filterable by keyword
+
+**Story Points:** 5  
+**Priority:** P2-Medium  
+**Dependencies:** E16-S1  
+**Implementation Notes:** New route `/dashboard/highlights`. API endpoint `GET /api/highlights?userId=...` with optional `sessionId` filter. Consider flashcard-style review mode as future enhancement.
+
+---
+
+### E16-S3: AI-Aware Highlights (Personalization)
+
+**ID:** E16-S3  
+**Title:** AI-Aware Highlights (Personalization)  
+**As a** learner  
+**I want** the AI to know what I've highlighted  
+**So that** it can emphasize those concepts in future conversations and track my focus areas
+
+**Acceptance Criteria:**
+- [ ] Given a user has highlights, when starting a new chat session on a related topic, then the system prompt includes the user's highlighted terms as "areas of focus"
+- [ ] Given frequent highlights on a specific concept, when the AI generates follow-up suggestions, then it prioritizes questions related to highlighted material
+- [ ] Given the user's highlight history, when generating learning path suggestions, then highlighted concepts influence path recommendations
+- [ ] Given the AI references a concept the user previously highlighted, then it acknowledges the user's prior interest ("You highlighted this earlier — let's go deeper")
+
+**Story Points:** 5  
+**Priority:** P3-Low  
+**Dependencies:** E16-S1, E16-S2  
+**Implementation Notes:** Aggregate highlights into a per-user `focusTerms` summary. Inject top highlighted terms into the system prompt. Use highlight frequency as a signal in path generation and follow-up suggestion APIs.
+
+---
+
+**Grand Total (all phases):** 409 story points
 
 **MVP Target (P0 only):** 104 points  
 **Full MVP (P0 + P1):** 180 points  
-**Phase 2 (P2 new epics + P3 deferred):** 91 points
+**Phase 2 (P2 new epics + P3 deferred):** 106 points
 
 ---
 
 **Document Status:** Complete Epic/Story Breakdown  
 **Next:** Traceability Matrix  
 **Owner:** Blast  
-**Last Updated:** February 11, 2026
+**Last Updated:** February 12, 2026

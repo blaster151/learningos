@@ -125,10 +125,12 @@ describe('Learning Paths Firebase Service', () => {
 
       mockWhere.mockReturnValue({
         where: vi.fn().mockReturnValue({
+          get: vi.fn().mockResolvedValue({ docs: mockPaths }),
           orderBy: vi.fn().mockReturnValue({
             get: vi.fn().mockResolvedValue({ docs: mockPaths }),
           }),
         }),
+        get: vi.fn().mockResolvedValue({ docs: mockPaths }),
         orderBy: vi.fn().mockReturnValue({
           get: vi.fn().mockResolvedValue({ docs: mockPaths }),
         }),
@@ -147,6 +149,7 @@ describe('Learning Paths Firebase Service', () => {
 
       mockWhere.mockReturnValue({
         where: vi.fn().mockReturnValue({
+          get: vi.fn().mockResolvedValue({ docs: mockActivePath }),
           orderBy: vi.fn().mockReturnValue({
             get: vi.fn().mockResolvedValue({ docs: mockActivePath }),
           }),

@@ -233,6 +233,8 @@ export interface PathMilestone {
   
   // Learning objectives
   objectives: string[];
+  /** Indices of objectives the learner has demonstrated mastery of (AI-assessed) */
+  completedObjectives?: number[];
   
   // Status & Progress
   status: MilestoneStatus;

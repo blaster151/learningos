@@ -5,6 +5,7 @@ import {
   authErrorResponse,
   requireAuthUser,
 } from "@/lib/auth/serverAuth";
+import { serializeDoc } from "@/lib/firebase/serialize";
 
 // ===================================
 // GET - Get path details
@@ -29,7 +30,7 @@ export async function GET(
       return NextResponse.json({ error: "Path not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ path });
+    return NextResponse.json({ path: serializeDoc(path) });
   } catch (error) {
     const authRes = authErrorResponse(error);
     if (authRes) return authRes;
@@ -143,11 +144,48 @@ export async function PATCH(
         break;
       }
 
+      case "update_objectives": {
+        const { milestoneId: objMilestoneId, completedObjectives } = body;
+        if (!objMilestoneId || !Array.isArray(completedObjectives)) {
+          return NextResponse.json(
+            { error: "milestoneId and completedObjectives[] are required for update_objectives" },
+            { status: 400 }
+          );
+        }
+        // Store the completed objective indices and update milestone progress
+        const pathForObj = await pathsService.getPath(userId, pathId);
+        if (pathForObj) {
+          const ms = pathForObj.milestones.find(
+            (m) => m.milestoneId === objMilestoneId
+          );
+          if (ms) {
+            const totalObj = ms.objectives?.length || 1;
+            const msProgress = Math.min(completedObjectives.length / totalObj, 1.0);
+            await pathsService.updateMilestone(userId, pathId, objMilestoneId, {
+              progress: msProgress,
+              completedObjectives,
+            });
+
+            // Recalculate path-level progress from all milestones
+            const updatedPath = await pathsService.getPath(userId, pathId);
+            if (updatedPath) {
+              const pathProgress = updatedPath.milestones.reduce(
+                (sum, m) => sum + (m.progress || 0), 0
+              ) / updatedPath.milestones.length;
+              await pathsService.updatePathProgress(userId, pathId, {
+                progress: pathProgress,
+              });
+            }
+          }
+        }
+        break;
+      }
+
       default:
         return NextResponse.json(
           {
             error:
-              "Invalid action. Must be: accept, abandon, pause, resume, start_milestone, or complete_milestone",
+              "Invalid action. Must be: accept, abandon, pause, resume, start_milestone, complete_milestone, or update_objectives",
           },
           { status: 400 }
         );
@@ -156,7 +194,7 @@ export async function PATCH(
     // Fetch updated path
     const updatedPath = await pathsService.getPath(userId, pathId);
 
-    return NextResponse.json({ path: updatedPath });
+    return NextResponse.json({ path: serializeDoc(updatedPath) });
   } catch (error) {
     const authRes = authErrorResponse(error);
     if (authRes) return authRes;

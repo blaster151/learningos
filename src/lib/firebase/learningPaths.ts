@@ -5,6 +5,16 @@ import { getAdminDb } from "@/lib/firebase/admin";
 import { Timestamp } from "firebase-admin/firestore";
 import type { LearningPath, PathStatus, PathMilestone } from "@/types";
 
+/**
+ * Calculate overall path progress as the average of all milestone progress values.
+ * Each milestone's progress reflects its objective completion (0.0–1.0).
+ */
+function calculatePathProgress(milestones: PathMilestone[]): number {
+  if (milestones.length === 0) return 0;
+  const total = milestones.reduce((sum, m) => sum + (m.progress || 0), 0);
+  return total / milestones.length;
+}
+
 // ===================================
 // Learning Paths Service
 // ===================================
@@ -273,11 +283,8 @@ export const pathsService = {
     path.milestones[milestoneIndex].progress = 1.0;
     path.milestones[milestoneIndex].completedAt = Timestamp.now();
 
-    // Calculate overall path progress
-    const completedMilestones = path.milestones.filter(
-      (m) => m.status === "completed"
-    ).length;
-    const progress = completedMilestones / path.milestones.length;
+    // Calculate overall path progress from milestone-level progress
+    const progress = calculatePathProgress(path.milestones);
 
     // Update path
     await this.updatePathProgress(userId, pathId, {

@@ -65,6 +65,10 @@ function MilestoneCard({
   onComplete,
   isActive,
   pathStatus,
+  onLearnWithAI,
+  onConceptClick,
+  checkedObjectives,
+  onToggleObjective,
 }: {
   milestone: PathMilestone;
   index: number;
@@ -74,15 +78,26 @@ function MilestoneCard({
   onComplete: () => void;
   isActive: boolean;
   pathStatus: string;
+  onLearnWithAI: (conceptNames: string[], conceptIds: string[], milestoneId?: string) => void;
+  onConceptClick: (conceptName: string, conceptId: string) => void;
+  checkedObjectives: Set<number>;
+  onToggleObjective: (milestoneId: string, objectiveIndex: number) => void;
 }) {
   const config = statusConfig[milestone.status] || statusConfig.not_started;
   const isLocked = milestone.status === "locked";
   const isCompleted = milestone.status === "completed";
+  const isInProgress = milestone.status === "in_progress";
   const canStart =
     pathStatus === "active" &&
     (milestone.status === "available" || milestone.status === "not_started");
   const canComplete =
     pathStatus === "active" && milestone.status === "in_progress";
+
+  const totalObjectives = milestone.objectives?.length || 0;
+  const completedObjectives = checkedObjectives.size;
+  const objectiveProgress = totalObjectives > 0
+    ? completedObjectives / totalObjectives
+    : milestone.progress || 0;
 
   return (
     <div
@@ -156,10 +171,12 @@ function MilestoneCard({
                   {milestone.conceptNames.length !== 1 ? "s" : ""}
                 </span>
               )}
-              {milestone.objectives?.length > 0 && (
+              {totalObjectives > 0 && (
                 <span>
-                  🎯 {milestone.objectives.length} objective
-                  {milestone.objectives.length !== 1 ? "s" : ""}
+                  🎯{" "}
+                  {isInProgress
+                    ? `${completedObjectives}/${totalObjectives} objectives`
+                    : `${totalObjectives} objective${totalObjectives !== 1 ? "s" : ""}`}
                 </span>
               )}
             </div>
@@ -189,56 +206,135 @@ function MilestoneCard({
       {/* Expanded content */}
       {isExpanded && !isLocked && (
         <div className="px-4 sm:px-5 pb-4 sm:pb-5 border-t border-gray-200 pt-4 space-y-4">
-          {/* Objectives */}
-          {milestone.objectives?.length > 0 && (
+          {/* Learn with AI CTA - prominent for in-progress milestones */}
+          {isInProgress && milestone.conceptNames?.length > 0 && (
+            <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-lg p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h4 className="text-sm font-semibold text-indigo-900">
+                    Ready to learn?
+                  </h4>
+                  <p className="text-xs text-indigo-700 mt-0.5">
+                    Chat with AI about the concepts in this milestone
+                  </p>
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onLearnWithAI(
+                      milestone.conceptNames,
+                      milestone.conceptIds || [],
+                      milestone.milestoneId
+                    );
+                  }}
+                  className="flex-shrink-0 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors flex items-center gap-2"
+                >
+                  💬 Learn with AI
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Objectives - interactive checkboxes for in-progress, static for others */}
+          {totalObjectives > 0 && (
             <div>
-              <h4 className="text-sm font-semibold text-gray-700 mb-2">
-                Learning Objectives
-              </h4>
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-sm font-semibold text-gray-700">
+                  Learning Objectives
+                </h4>
+                {isInProgress && (
+                  <span className="text-xs text-gray-500">
+                    {completedObjectives}/{totalObjectives} checked
+                  </span>
+                )}
+              </div>
               <ul className="space-y-1.5">
                 {milestone.objectives.map((obj, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm text-gray-600">
-                    <span className="text-green-500 mt-0.5 flex-shrink-0">○</span>
-                    {obj}
+                  <li
+                    key={i}
+                    className={`flex items-start gap-2 text-sm ${
+                      isInProgress
+                        ? "cursor-pointer hover:bg-gray-50 rounded-md px-2 py-1.5 -mx-2 transition-colors"
+                        : "text-gray-600"
+                    }`}
+                    onClick={
+                      isInProgress
+                        ? (e) => {
+                            e.stopPropagation();
+                            onToggleObjective(milestone.milestoneId, i);
+                          }
+                        : undefined
+                    }
+                  >
+                    {isInProgress ? (
+                      <span
+                        className={`mt-0.5 flex-shrink-0 w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${
+                          checkedObjectives.has(i)
+                            ? "bg-green-500 border-green-500 text-white"
+                            : "border-gray-300 bg-white"
+                        }`}
+                      >
+                        {checkedObjectives.has(i) && (
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </span>
+                    ) : isCompleted ? (
+                      <span className="text-green-500 mt-0.5 flex-shrink-0">✓</span>
+                    ) : (
+                      <span className="text-gray-400 mt-0.5 flex-shrink-0">○</span>
+                    )}
+                    <span className={checkedObjectives.has(i) ? "line-through text-gray-400" : ""}>
+                      {obj}
+                    </span>
                   </li>
                 ))}
               </ul>
             </div>
           )}
 
-          {/* Concepts */}
+          {/* Concepts - clickable pills */}
           {milestone.conceptNames?.length > 0 && (
             <div>
               <h4 className="text-sm font-semibold text-gray-700 mb-2">
                 Concepts Covered
               </h4>
               <div className="flex flex-wrap gap-2">
-                {milestone.conceptNames.map((name, i) => (
-                  <span
-                    key={i}
-                    className="px-3 py-1 text-xs font-medium bg-white border border-gray-200 rounded-full text-gray-700"
-                  >
-                    {name}
-                  </span>
-                ))}
+                {milestone.conceptNames.map((name, i) => {
+                  const conceptId = milestone.conceptIds?.[i] || "";
+                  return (
+                    <button
+                      key={i}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onConceptClick(name, conceptId);
+                      }}
+                      className="px-3 py-1 text-xs font-medium bg-white border border-gray-200 rounded-full text-gray-700 hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700 transition-colors cursor-pointer"
+                      title={`Chat about ${name}`}
+                    >
+                      {name}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
 
           {/* Progress bar for in-progress milestones */}
-          {milestone.status === "in_progress" && (
+          {isInProgress && (
             <div>
               <div className="flex justify-between text-sm text-gray-600 mb-1">
                 <span>Progress</span>
                 <span className="font-semibold">
-                  {Math.round((milestone.progress || 0) * 100)}%
+                  {Math.round(objectiveProgress * 100)}%
                 </span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div
                   className="bg-yellow-500 h-2 rounded-full transition-all duration-300"
                   style={{
-                    width: `${Math.round((milestone.progress || 0) * 100)}%`,
+                    width: `${Math.round(objectiveProgress * 100)}%`,
                   }}
                 />
               </div>
@@ -249,17 +345,12 @@ function MilestoneCard({
           {milestone.status === "completed" && milestone.completedAt && (
             <div className="text-sm text-green-700 bg-green-100 rounded-lg px-3 py-2">
               ✅ Completed on{" "}
-              {new Date(
-                typeof milestone.completedAt === "object" &&
-                "seconds" in milestone.completedAt
-                  ? milestone.completedAt.seconds * 1000
-                  : milestone.completedAt
-              ).toLocaleDateString()}
+              {new Date(milestone.completedAt as unknown as string).toLocaleDateString()}
             </div>
           )}
 
           {/* Action buttons */}
-          <div className="flex gap-3 pt-2">
+          <div className="flex flex-wrap gap-3 pt-2">
             {canStart && (
               <button
                 onClick={(e) => {
@@ -280,6 +371,21 @@ function MilestoneCard({
                 className="px-5 py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
               >
                 ✓ Mark as Complete
+              </button>
+            )}
+            {/* Learn with AI for available/not_started milestones too (less prominent) */}
+            {!isInProgress && !isCompleted && milestone.conceptNames?.length > 0 && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onLearnWithAI(
+                    milestone.conceptNames,
+                    milestone.conceptIds || []
+                  );
+                }}
+                className="px-4 py-2 bg-white text-indigo-600 border border-indigo-300 rounded-lg text-sm font-medium hover:bg-indigo-50 transition-colors"
+              >
+                💬 Learn with AI
               </button>
             )}
           </div>
@@ -304,6 +410,10 @@ export default function PathDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [expandedMilestone, setExpandedMilestone] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  // Track checked objectives per milestone: { milestoneId: Set<objectiveIndex> }
+  const [checkedObjectives, setCheckedObjectives] = useState<
+    Record<string, Set<number>>
+  >({});
 
   // Load path data
   const loadPath = useCallback(async () => {
@@ -321,6 +431,19 @@ export default function PathDetailPage() {
       }
       const data = await response.json();
       setPath(data.path);
+
+      // Restore AI-assessed objective completions from persisted data
+      if (data.path?.milestones) {
+        const restoredChecks: Record<string, Set<number>> = {};
+        for (const ms of data.path.milestones) {
+          if (ms.completedObjectives?.length) {
+            restoredChecks[ms.milestoneId] = new Set(ms.completedObjectives);
+          }
+        }
+        if (Object.keys(restoredChecks).length > 0) {
+          setCheckedObjectives((prev) => ({ ...prev, ...restoredChecks }));
+        }
+      }
 
       // Auto-expand the current milestone
       if (data.path?.milestones) {
@@ -399,6 +522,53 @@ export default function PathDetailPage() {
   const handleResumePath = () => {
     performAction("resume");
   };
+
+  // Toggle an objective checkbox for a milestone
+  const handleToggleObjective = useCallback(
+    (milestoneId: string, objectiveIndex: number) => {
+      setCheckedObjectives((prev) => {
+        const milestoneSet = new Set(prev[milestoneId] || []);
+        if (milestoneSet.has(objectiveIndex)) {
+          milestoneSet.delete(objectiveIndex);
+        } else {
+          milestoneSet.add(objectiveIndex);
+        }
+        return { ...prev, [milestoneId]: milestoneSet };
+      });
+    },
+    []
+  );
+
+  // Navigate to AI chat with milestone concepts
+  const handleLearnWithAI = useCallback(
+    (conceptNames: string[], conceptIds: string[], milestoneId?: string) => {
+      // Use the first concept for the chat session topic
+      const primaryConcept = conceptNames[0] || "this topic";
+      const primaryId = conceptIds[0] || "";
+      const allConcepts = conceptNames.join(", ");
+      let url = `/dashboard/chat?concept=${encodeURIComponent(
+        allConcepts
+      )}&conceptId=${encodeURIComponent(primaryId)}`;
+      // Pass path/milestone context so chat can assess objectives
+      if (pathId && milestoneId) {
+        url += `&pathId=${encodeURIComponent(pathId)}&milestoneId=${encodeURIComponent(milestoneId)}`;
+      }
+      router.push(url);
+    },
+    [router, pathId]
+  );
+
+  // Navigate to AI chat for a specific concept
+  const handleConceptClick = useCallback(
+    (conceptName: string, conceptId: string) => {
+      router.push(
+        `/dashboard/chat?concept=${encodeURIComponent(
+          conceptName
+        )}&conceptId=${encodeURIComponent(conceptId)}`
+      );
+    },
+    [router]
+  );
 
   // ===================================
   // Loading State
@@ -674,6 +844,10 @@ export default function PathDetailPage() {
               onComplete={() => handleCompleteMilestone(milestone.milestoneId)}
               isActive={index === (path.currentMilestoneIndex || 0) && (isActive || isPaused)}
               pathStatus={path.status}
+              onLearnWithAI={handleLearnWithAI}
+              onConceptClick={handleConceptClick}
+              checkedObjectives={checkedObjectives[milestone.milestoneId] || new Set()}
+              onToggleObjective={handleToggleObjective}
             />
           ))}
         </div>
@@ -706,21 +880,12 @@ export default function PathDetailPage() {
             )}
             <p>
               <span className="font-medium">Created:</span>{" "}
-              {path.createdAt &&
-                new Date(
-                  typeof path.createdAt === "object" && "seconds" in path.createdAt
-                    ? path.createdAt.seconds * 1000
-                    : path.createdAt
-                ).toLocaleDateString()}
+              {path.createdAt && new Date(path.createdAt as unknown as string).toLocaleDateString()}
             </p>
             {path.startedAt && (
               <p>
                 <span className="font-medium">Started:</span>{" "}
-                {new Date(
-                  typeof path.startedAt === "object" && "seconds" in path.startedAt
-                    ? path.startedAt.seconds * 1000
-                    : path.startedAt
-                ).toLocaleDateString()}
+                {new Date(path.startedAt as unknown as string).toLocaleDateString()}
               </p>
             )}
           </div>
