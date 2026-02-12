@@ -9,7 +9,8 @@ import type { LearningPath } from "@/types";
 export default function LearnPage() {
   const { user } = useAuth();
   const [paths, setPaths] = useState<LearningPath[]>([]);
-  const [activePath, setActivePath] = useState<LearningPath | null>(null);
+  const [activePaths, setActivePaths] = useState<LearningPath[]>([]);
+  const [pausedPaths, setPausedPaths] = useState<LearningPath[]>([]);
   const [suggestedPaths, setSuggestedPaths] = useState<LearningPath[]>([]);
   const [completedPaths, setCompletedPaths] = useState<LearningPath[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,11 +38,13 @@ export default function LearnPage() {
       setPaths(data.paths || []);
 
       // Categorize paths
-      const active = data.paths.find((p: LearningPath) => p.status === "active");
+      const active = data.paths.filter((p: LearningPath) => p.status === "active");
+      const paused = data.paths.filter((p: LearningPath) => p.status === "paused");
       const suggested = data.paths.filter((p: LearningPath) => p.status === "suggested");
       const completed = data.paths.filter((p: LearningPath) => p.status === "completed");
 
-      setActivePath(active || null);
+      setActivePaths(active);
+      setPausedPaths(paused);
       setSuggestedPaths(suggested);
       setCompletedPaths(completed);
     } catch (err) {
@@ -101,6 +104,9 @@ export default function LearnPage() {
   };
 
   const handleAbandonPath = async (pathId: string) => {
+    if (!window.confirm("Are you sure you want to abandon this path? Your progress will be saved but the path will be moved to abandoned.")) {
+      return;
+    }
     try {
       if (!user) return;
       const response = await authFetch(user, `/api/paths/${pathId}`, {
@@ -116,6 +122,44 @@ export default function LearnPage() {
       await loadPaths();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to abandon path");
+    }
+  };
+
+  const handlePausePath = async (pathId: string) => {
+    try {
+      if (!user) return;
+      const response = await authFetch(user, `/api/paths/${pathId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "pause" }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to pause path");
+      }
+
+      await loadPaths();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to pause path");
+    }
+  };
+
+  const handleResumePath = async (pathId: string) => {
+    try {
+      if (!user) return;
+      const response = await authFetch(user, `/api/paths/${pathId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "resume" }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to resume path");
+      }
+
+      await loadPaths();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to resume path");
     }
   };
 
@@ -146,25 +190,52 @@ export default function LearnPage() {
         </div>
       )}
 
-      {/* Active Path */}
-      {activePath && (
+      {/* Active Paths */}
+      {activePaths.length > 0 && (
         <div className="mb-8">
-          <h2 className="text-2xl font-semibold text-gray-900 mb-4">Current Path</h2>
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 sm:p-6 border-2 border-blue-200">
-            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6">
-              <ProgressRing
-                progress={Math.round((activePath.progress || 0) * 100)}
-                size={140}
-                strokeWidth={10}
-              />
-              <div className="flex-1">
-                <PathCard
-                  path={activePath}
-                  onAbandon={handleAbandonPath}
-                  onView={handleViewPath}
-                />
+          <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+            Active Paths {activePaths.length > 1 && `(${activePaths.length})`}
+          </h2>
+          <div className="space-y-4">
+            {activePaths.map((activePath) => (
+              <div key={activePath.pathId} className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 sm:p-6 border-2 border-blue-200">
+                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6">
+                  <ProgressRing
+                    progress={Math.round((activePath.progress || 0) * 100)}
+                    size={140}
+                    strokeWidth={10}
+                  />
+                  <div className="flex-1">
+                    <PathCard
+                      path={activePath}
+                      onPause={handlePausePath}
+                      onAbandon={handleAbandonPath}
+                      onView={handleViewPath}
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Paused Paths */}
+      {pausedPaths.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+            ⏸ Paused Paths {pausedPaths.length > 1 && `(${pausedPaths.length})`}
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {pausedPaths.map((path) => (
+              <PathCard
+                key={path.pathId}
+                path={path}
+                onResume={handleResumePath}
+                onAbandon={handleAbandonPath}
+                onView={handleViewPath}
+              />
+            ))}
           </div>
         </div>
       )}
@@ -181,21 +252,16 @@ export default function LearnPage() {
             onChange={(e) => setGoalInput(e.target.value)}
             placeholder="What do you want to learn? (e.g., 'Master React hooks')"
             className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            disabled={generating || !!activePath}
+            disabled={generating}
           />
           <button
             onClick={handleGeneratePath}
-            disabled={generating || !goalInput.trim() || !!activePath}
+            disabled={generating || !goalInput.trim()}
             className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors sm:w-auto w-full"
           >
             {generating ? "Generating..." : "Generate Path"}
           </button>
         </div>
-        {activePath && (
-          <p className="mt-2 text-sm text-gray-500">
-            Complete or abandon your current path before generating a new one
-          </p>
-        )}
       </div>
 
       {/* Suggested Paths */}
@@ -228,7 +294,7 @@ export default function LearnPage() {
       )}
 
       {/* Empty state */}
-      {!activePath && suggestedPaths.length === 0 && completedPaths.length === 0 && (
+      {activePaths.length === 0 && pausedPaths.length === 0 && suggestedPaths.length === 0 && completedPaths.length === 0 && (
         <div className="text-center py-12">
           <svg
             className="mx-auto h-16 w-16 text-gray-400 mb-4"

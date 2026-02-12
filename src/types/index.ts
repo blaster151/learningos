@@ -185,7 +185,7 @@ export interface ConceptRelation {
 // Learning Path
 // ===================================
 
-export type PathStatus = "suggested" | "active" | "completed" | "abandoned";
+export type PathStatus = "suggested" | "active" | "paused" | "completed" | "abandoned";
 export type MilestoneStatus = "not_started" | "in_progress" | "completed" | "locked" | "available";
 export type MasteryLevel = "exploring" | "learning" | "practicing" | "comfortable" | "expert";
 

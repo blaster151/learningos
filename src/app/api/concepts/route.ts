@@ -141,14 +141,15 @@ export async function GET(request: NextRequest) {
       query = query.where("category", "==", category);
     }
 
-    // Apply sorting
-    if (sortBy === "masteryLevel") {
-      query = query.orderBy("masteryLevel", "desc");
-    } else if (sortBy === "lastPracticed") {
-      query = query.orderBy("lastPracticed", "desc");
-    } else if (sortBy === "name") {
-      query = query.orderBy("displayName", "asc");
-    }
+    // Apply sorting (disabled to avoid composite index requirement)
+    // TODO: Create Firestore indexes and re-enable sorting
+    // if (sortBy === "masteryLevel") {
+    //   query = query.orderBy("masteryLevel", "desc");
+    // } else if (sortBy === "lastPracticed") {
+    //   query = query.orderBy("lastPracticed", "desc");
+    // } else if (sortBy === "name") {
+    //   query = query.orderBy("displayName", "asc");
+    // }
 
     query = query.limit(limit);
 

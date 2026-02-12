@@ -71,6 +71,14 @@ export async function PATCH(
         await pathsService.abandonPath(userId, pathId);
         break;
 
+      case "pause":
+        await pathsService.pausePath(userId, pathId);
+        break;
+
+      case "resume":
+        await pathsService.resumePath(userId, pathId);
+        break;
+
       case "start_milestone": {
         const { milestoneId } = body;
         if (!milestoneId) {
@@ -139,7 +147,7 @@ export async function PATCH(
         return NextResponse.json(
           {
             error:
-              "Invalid action. Must be: accept, abandon, start_milestone, or complete_milestone",
+              "Invalid action. Must be: accept, abandon, pause, resume, start_milestone, or complete_milestone",
           },
           { status: 400 }
         );

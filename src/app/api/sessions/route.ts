@@ -6,6 +6,7 @@ import {
   authErrorResponse,
   requireAuthUser,
 } from "@/lib/auth/serverAuth";
+import { serializeDoc } from "@/lib/firebase/serialize";
 
 // ===================================
 // Types

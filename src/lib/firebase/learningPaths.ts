@@ -70,7 +70,9 @@ export const pathsService = {
       query = query.where("status", "==", status);
     }
 
-    query = query.orderBy("lastActivityAt", "desc");
+    // Removed orderBy to avoid composite index requirement
+    // TODO: Create Firestore index for (userId, lastActivityAt)
+    // query = query.orderBy("lastActivityAt", "desc");
 
     const snapshot = await query.get();
 
@@ -122,17 +124,69 @@ export const pathsService = {
       throw new Error("Unauthorized: Path belongs to different user");
     }
 
-    // Check if user already has an active path
-    const activePath = await this.getActivePath(userId);
-    if (activePath && activePath.pathId !== pathId) {
-      throw new Error(
-        "User already has an active path. Complete or abandon it first."
-      );
+    const updateData: Record<string, any> = {
+      status: "active",
+      lastActivityAt: Timestamp.now(),
+    };
+
+    // Only set startedAt on first acceptance
+    if (!data?.startedAt) {
+      updateData.startedAt = Timestamp.now();
+    }
+
+    await pathRef.update(updateData);
+  },
+
+  /**
+   * Pause an active path (preserves progress, can resume later)
+   */
+  async pausePath(userId: string, pathId: string): Promise<void> {
+    const db = await getAdminDb();
+    const pathRef = db.collection("learning_paths").doc(pathId);
+    const pathDoc = await pathRef.get();
+
+    if (!pathDoc.exists) {
+      throw new Error(`Path ${pathId} not found`);
+    }
+
+    const data = pathDoc.data();
+    if (data?.userId !== userId) {
+      throw new Error("Unauthorized: Path belongs to different user");
+    }
+
+    if (data?.status !== "active") {
+      throw new Error("Can only pause an active path");
+    }
+
+    await pathRef.update({
+      status: "paused",
+      lastActivityAt: Timestamp.now(),
+    });
+  },
+
+  /**
+   * Resume a paused path
+   */
+  async resumePath(userId: string, pathId: string): Promise<void> {
+    const db = await getAdminDb();
+    const pathRef = db.collection("learning_paths").doc(pathId);
+    const pathDoc = await pathRef.get();
+
+    if (!pathDoc.exists) {
+      throw new Error(`Path ${pathId} not found`);
+    }
+
+    const data = pathDoc.data();
+    if (data?.userId !== userId) {
+      throw new Error("Unauthorized: Path belongs to different user");
+    }
+
+    if (data?.status !== "paused") {
+      throw new Error("Can only resume a paused path");
     }
 
     await pathRef.update({
       status: "active",
-      startedAt: Timestamp.now(),
       lastActivityAt: Timestamp.now(),
     });
   },

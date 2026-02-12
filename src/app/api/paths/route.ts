@@ -6,6 +6,7 @@ import {
   authErrorResponse,
   requireAuthUser,
 } from "@/lib/auth/serverAuth";
+import { serializeDoc } from "@/lib/firebase/serialize";
 
 // ===================================
 // GET - Get all paths for a user
@@ -40,7 +41,7 @@ export async function GET(request: NextRequest) {
 
     const paths = await pathsService.getUserPaths(userId, status);
 
-    return NextResponse.json({ paths });
+    return NextResponse.json({ paths: serializeDoc(paths) });
   } catch (error) {
     const authRes = authErrorResponse(error);
     if (authRes) return authRes;

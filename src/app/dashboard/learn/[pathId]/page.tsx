@@ -392,6 +392,14 @@ export default function PathDetailPage() {
     }
   };
 
+  const handlePausePath = () => {
+    performAction("pause");
+  };
+
+  const handleResumePath = () => {
+    performAction("resume");
+  };
+
   // ===================================
   // Loading State
   // ===================================
@@ -445,6 +453,7 @@ export default function PathDetailPage() {
   const isCompleted = path.status === "completed";
   const isSuggested = path.status === "suggested";
   const isActive = path.status === "active";
+  const isPaused = path.status === "paused";
   const isAbandoned = path.status === "abandoned";
 
   // ===================================
@@ -522,6 +531,11 @@ export default function PathDetailPage() {
                   Abandoned
                 </span>
               )}
+              {isPaused && (
+                <span className="px-3 py-1 text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300 rounded-full">
+                  ⏸ Paused
+                </span>
+              )}
             </div>
             <p className="text-gray-600 mb-4">{path.description}</p>
 
@@ -569,6 +583,33 @@ export default function PathDetailPage() {
             </button>
           )}
           {isActive && (
+            <button
+              onClick={handlePausePath}
+              disabled={!!actionLoading}
+              className="px-5 py-2.5 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 disabled:bg-gray-300 transition-colors"
+            >
+              {actionLoading === "pause" ? "Pausing..." : "⏸ Pause Path"}
+            </button>
+          )}
+          {isActive && (
+            <button
+              onClick={handleAbandonPath}
+              disabled={!!actionLoading}
+              className="px-4 py-2 bg-white text-red-600 border border-red-300 rounded-lg text-sm font-medium hover:bg-red-50 transition-colors"
+            >
+              Abandon Path
+            </button>
+          )}
+          {isPaused && (
+            <button
+              onClick={handleResumePath}
+              disabled={!!actionLoading}
+              className="px-6 py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:bg-gray-300 transition-colors"
+            >
+              {actionLoading === "resume" ? "Resuming..." : "▶ Resume Path"}
+            </button>
+          )}
+          {isPaused && (
             <button
               onClick={handleAbandonPath}
               disabled={!!actionLoading}
@@ -631,7 +672,7 @@ export default function PathDetailPage() {
               }
               onStart={() => handleStartMilestone(milestone.milestoneId)}
               onComplete={() => handleCompleteMilestone(milestone.milestoneId)}
-              isActive={index === (path.currentMilestoneIndex || 0) && isActive}
+              isActive={index === (path.currentMilestoneIndex || 0) && (isActive || isPaused)}
               pathStatus={path.status}
             />
           ))}

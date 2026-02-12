@@ -5,12 +5,15 @@ interface PathCardProps {
   path: LearningPath;
   onAccept?: (pathId: string) => void;
   onAbandon?: (pathId: string) => void;
+  onPause?: (pathId: string) => void;
+  onResume?: (pathId: string) => void;
   onView?: (pathId: string) => void;
 }
 
 const statusStyles: Record<PathStatus, string> = {
   suggested: "bg-blue-100 text-blue-800 border-blue-200",
   active: "bg-green-100 text-green-800 border-green-200",
+  paused: "bg-amber-100 text-amber-800 border-amber-200",
   completed: "bg-gray-100 text-gray-800 border-gray-200",
   abandoned: "bg-red-100 text-red-800 border-red-200",
 };
@@ -18,11 +21,12 @@ const statusStyles: Record<PathStatus, string> = {
 const statusLabels: Record<PathStatus, string> = {
   suggested: "Suggested",
   active: "In Progress",
+  paused: "Paused",
   completed: "Completed",
   abandoned: "Abandoned",
 };
 
-export default function PathCard({ path, onAccept, onAbandon, onView }: PathCardProps) {
+export default function PathCard({ path, onAccept, onAbandon, onPause, onResume, onView }: PathCardProps) {
   const progress = Math.round((path.progress || 0) * 100);
   const estimatedHours = Math.ceil((path.estimatedMinutes || 0) / 60);
   const estimatedDays = Math.ceil(estimatedHours / 2); // Assuming 2 hrs/day
@@ -82,7 +86,7 @@ export default function PathCard({ path, onAccept, onAbandon, onView }: PathCard
           </span>
         </div>
 
-        {path.status === "active" && (
+        {(path.status === "active" || path.status === "paused") && (
           <div className="mt-4">
             <div className="flex justify-between text-sm text-gray-700 mb-1">
               <span>Progress</span>
@@ -90,7 +94,9 @@ export default function PathCard({ path, onAccept, onAbandon, onView }: PathCard
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                className={`h-2 rounded-full transition-all duration-300 ${
+                  path.status === "paused" ? "bg-amber-500" : "bg-blue-600"
+                }`}
                 style={{ width: `${progress}%` }}
               />
             </div>
@@ -108,12 +114,39 @@ export default function PathCard({ path, onAccept, onAbandon, onView }: PathCard
           </button>
         )}
 
+        {path.status === "active" && onPause && (
+          <button
+            onClick={() => onPause(path.pathId)}
+            className="flex-1 bg-amber-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-amber-600 transition-colors"
+          >
+            ⏸ Pause
+          </button>
+        )}
+
         {path.status === "active" && onAbandon && (
           <button
             onClick={() => onAbandon(path.pathId)}
-            className="flex-1 bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-red-700 transition-colors"
+            className="flex-1 bg-red-100 text-red-700 px-4 py-2 rounded-md text-sm font-medium hover:bg-red-200 transition-colors border border-red-300"
           >
-            Abandon Path
+            Abandon
+          </button>
+        )}
+
+        {path.status === "paused" && onResume && (
+          <button
+            onClick={() => onResume(path.pathId)}
+            className="flex-1 bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-700 transition-colors"
+          >
+            ▶ Resume
+          </button>
+        )}
+
+        {path.status === "paused" && onAbandon && (
+          <button
+            onClick={() => onAbandon(path.pathId)}
+            className="flex-1 bg-red-100 text-red-700 px-4 py-2 rounded-md text-sm font-medium hover:bg-red-200 transition-colors border border-red-300"
+          >
+            Abandon
           </button>
         )}
 
