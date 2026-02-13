@@ -235,6 +235,7 @@ function QuickActions({ onAction, simplifying, hasMilestone }: QuickActionsProps
     { id: "example", label: "Give me an example", icon: "📝" },
     { id: "quiz", label: "Quiz me", icon: "❓" },
     { id: "simplify", label: simplifying ? "Simplifying…" : "Simplify this", icon: simplifying ? "⏳" : "🎯" },
+    { id: "unpack", label: "Unpack this", icon: "🔬" },
     ...(hasMilestone ? [{ id: "continue_milestone", label: "Continue milestone", icon: "📍" }] : []),
   ];
 
@@ -343,6 +344,10 @@ export function ChatInterface({
   const [simplifyingMessageId, setSimplifyingMessageId] = useState<string | null>(null);
   const [originalContents, setOriginalContents] = useState<Record<string, string>>({});
   const [fadingMessageId, setFadingMessageId] = useState<string | null>(null);
+  // Unpack state — expanding a dense message into 2-3 digestible chunks
+  const [unpackingMessageId, setUnpackingMessageId] = useState<string | null>(null);
+  const [unpackedChunks, setUnpackedChunks] = useState<Record<string, string[]>>({});
+  const [unpackedVisibleCount, setUnpackedVisibleCount] = useState<Record<string, number>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -688,6 +693,12 @@ export function ChatInterface({
       return;
     }
 
+    // Unpack gets special handling — expand into chunks
+    if (action === "unpack") {
+      handleUnpack();
+      return;
+    }
+
     const lastAssistantMessage = [...messages].reverse().find(m => m.role === "assistant");
     if (!lastAssistantMessage) return;
 
@@ -831,6 +842,115 @@ export function ChatInterface({
     );
 
     // Remove from originals
+    setOriginalContents((prev) => {
+      const updated = { ...prev };
+      delete updated[messageId];
+      return updated;
+    });
+
+    // Fade in
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    setFadingMessageId(null);
+  };
+
+  // Unpack a dense message into 2-3 digestible chunks
+  const handleUnpack = async () => {
+    const lastAssistantMessage = [...messages].reverse().find(m => m.role === "assistant" && !m.isStreaming);
+    if (!lastAssistantMessage || !user || unpackingMessageId || simplifyingMessageId) return;
+
+    const targetId = lastAssistantMessage.id;
+    setUnpackingMessageId(targetId);
+
+    try {
+      const response = await authFetch(user, "/api/chat/unpack", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: lastAssistantMessage.content,
+          sessionTopic,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Unpack request failed");
+
+      const data = await response.json();
+      const chunks: string[] = data.chunks;
+
+      if (!chunks || chunks.length < 2) {
+        throw new Error("Not enough chunks returned");
+      }
+
+      // Save original content for collapse/undo
+      setOriginalContents((prev) => ({
+        ...prev,
+        [targetId]: lastAssistantMessage.content,
+      }));
+
+      // Fade out original
+      setFadingMessageId(targetId);
+      await new Promise((resolve) => setTimeout(resolve, 750));
+
+      // Replace original with a short collapsed indicator
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === targetId
+            ? { ...msg, content: `📦 *Unpacked into ${chunks.length} parts below*` }
+            : msg
+        )
+      );
+
+      // Store chunks and show the first one
+      setUnpackedChunks((prev) => ({ ...prev, [targetId]: chunks }));
+      setUnpackedVisibleCount((prev) => ({ ...prev, [targetId]: 1 }));
+
+      // Fade in
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      setFadingMessageId(null);
+    } catch (error) {
+      console.error("Failed to unpack:", error);
+      setFadingMessageId(null);
+    } finally {
+      setUnpackingMessageId(null);
+    }
+  };
+
+  // Show the next chunk of an unpacked message
+  const handleShowNextChunk = (messageId: string) => {
+    const chunks = unpackedChunks[messageId];
+    if (!chunks) return;
+    setUnpackedVisibleCount((prev) => ({
+      ...prev,
+      [messageId]: Math.min((prev[messageId] || 1) + 1, chunks.length),
+    }));
+  };
+
+  // Collapse unpacked chunks back to original message
+  const handleCollapseUnpack = async (messageId: string) => {
+    const original = originalContents[messageId];
+    if (!original) return;
+
+    // Fade out
+    setFadingMessageId(messageId);
+    await new Promise((resolve) => setTimeout(resolve, 750));
+
+    // Restore original message
+    setMessages((prev) =>
+      prev.map((msg) =>
+        msg.id === messageId ? { ...msg, content: original } : msg
+      )
+    );
+
+    // Clean up unpack state
+    setUnpackedChunks((prev) => {
+      const updated = { ...prev };
+      delete updated[messageId];
+      return updated;
+    });
+    setUnpackedVisibleCount((prev) => {
+      const updated = { ...prev };
+      delete updated[messageId];
+      return updated;
+    });
     setOriginalContents((prev) => {
       const updated = { ...prev };
       delete updated[messageId];
@@ -1067,33 +1187,91 @@ export function ChatInterface({
           </div>
         ) : (
           <>
-            {messages.map((message, index) => (
-              <div key={message.id}>
-                <MessageBubble
-                  message={message}
-                  userPhotoURL={user?.photoURL}
-                  onTermClick={handleTermClick}
-                  isSimplifying={simplifyingMessageId === message.id}
-                  isFading={fadingMessageId === message.id}
-                  isSimplified={!!originalContents[message.id]}
-                  onUndoSimplify={() => handleUndoSimplify(message.id)}
-                />
-                {/* Quick Actions after AI response */}
-                {message.role === "assistant" && 
-                 !message.isStreaming && 
-                 index === messages.length - 1 && 
-                 !isLoading && (
-                  <>
-                    <QuickActions onAction={handleQuickAction} simplifying={!!simplifyingMessageId} hasMilestone={!!milestoneObjectives?.length} />
-                    <FollowUpSuggestions
-                      suggestions={followUpSuggestions}
-                      onSelect={handleFollowUpSelect}
-                      isLoading={isLoadingFollowUps}
-                    />
-                  </>
-                )}
-              </div>
-            ))}
+            {messages.map((message, index) => {
+              const chunks = unpackedChunks[message.id];
+              const visibleCount = unpackedVisibleCount[message.id] || 0;
+              const isUnpacked = !!chunks;
+              const isUnpacking = unpackingMessageId === message.id;
+
+              return (
+                <div key={message.id}>
+                  <MessageBubble
+                    message={message}
+                    userPhotoURL={user?.photoURL}
+                    onTermClick={handleTermClick}
+                    isSimplifying={simplifyingMessageId === message.id || isUnpacking}
+                    isFading={fadingMessageId === message.id}
+                    isSimplified={!!originalContents[message.id] && !isUnpacked}
+                    onUndoSimplify={() => handleUndoSimplify(message.id)}
+                  />
+
+                  {/* Unpack collapse control */}
+                  {isUnpacked && (
+                    <div className="mt-1 ml-9 sm:ml-12">
+                      <button
+                        onClick={() => handleCollapseUnpack(message.id)}
+                        className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                        aria-label="Collapse back to original"
+                      >
+                        🔬 Unpacked · <span className="underline">show original</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Unpacked chunks — revealed one at a time */}
+                  {isUnpacked && chunks.slice(0, visibleCount).map((chunk, chunkIdx) => (
+                    <div key={`${message.id}-chunk-${chunkIdx}`} className="mt-3">
+                      <div className="flex gap-2 sm:gap-3 flex-row">
+                        {/* Chunk step indicator instead of avatar */}
+                        <div className="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-xs font-bold text-white">
+                          {chunkIdx + 1}
+                        </div>
+                        <div className="max-w-[85%] sm:max-w-[80%] text-left">
+                          <div className="inline-block rounded-2xl px-3 py-2 sm:px-4 sm:py-3 text-sm sm:text-base bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-bl-md shadow-sm border border-indigo-200 dark:border-indigo-700">
+                            {renderMessageContent(chunk, false, handleTermClick)}
+                          </div>
+                        </div>
+                      </div>
+                      {/* "Next" button after the last visible chunk if more remain */}
+                      {chunkIdx === visibleCount - 1 && visibleCount < chunks.length && (
+                        <div className="mt-2 ml-9 sm:ml-12">
+                          <button
+                            onClick={() => handleShowNextChunk(message.id)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 rounded-full hover:bg-indigo-100 dark:hover:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 transition-all shadow-sm"
+                          >
+                            <span aria-hidden="true">→</span>
+                            Next part ({chunkIdx + 2} of {chunks.length})
+                          </button>
+                        </div>
+                      )}
+                      {/* All chunks shown */}
+                      {chunkIdx === visibleCount - 1 && visibleCount === chunks.length && (
+                        <div className="mt-2 ml-9 sm:ml-12">
+                          <span className="text-xs text-green-600 dark:text-green-400">
+                            ✓ All {chunks.length} parts shown
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                  {/* Quick Actions after AI response (hidden when unpacked) */}
+                  {message.role === "assistant" && 
+                   !message.isStreaming && 
+                   index === messages.length - 1 && 
+                   !isLoading && !isUnpacked && (
+                    <>
+                      <QuickActions onAction={handleQuickAction} simplifying={!!simplifyingMessageId} hasMilestone={!!milestoneObjectives?.length} />
+                      <FollowUpSuggestions
+                        suggestions={followUpSuggestions}
+                        onSelect={handleFollowUpSelect}
+                        isLoading={isLoadingFollowUps}
+                      />
+                    </>
+                  )}
+                </div>
+              );
+            })}
             {isLoading && messages[messages.length - 1]?.role === "user" && (
               <TypingIndicator />
             )}
