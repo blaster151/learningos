@@ -62,6 +62,12 @@
 
 **LearningOS** = Conversational Learning Engine + Personal Knowledge Graph + Adaptive Teaching System
 
+Before generating a path, LearningOS performs a quick *pre-flight check* to calibrate two things:
+1) **Scope** — is the learner asking for an overview, a focused topic, or an entire domain?
+2) **Starting point** — what do they already know well enough to skip (and what gaps will block progress)?
+
+This reduces path churn (“this is too broad/too basic”), makes prerequisite handling feel respectful, and enables a persistent learner model that compounds personalization across future paths.
+
 **Core Mechanics:**
 
 1. **Personalized Intake**
@@ -144,6 +150,7 @@
 | **Emergent Abstraction Tracker** | System detects patterns learner discovers | Phase 2 |
 | **"My Book" Export** | Full learning journey as searchable wiki | Phase 2 |
 | **Prerequisite Intelligence** | Auto-detect knowledge gaps, assess prereqs before path generation, dynamic gap detection during learning | Phase 2 |
+| **Scope & Knowledge Calibration** | Pre-flight scope narrowing + concept-pill calibration to start paths at the right altitude and rung; persists as a global learner knowledge profile | Phase 2 |
 | **Adaptive Difficulty** | Level-aware AI explanations, completion depth tracking, implicit level detection from conversation quality | Phase 2 |
 | **Community Insights** | Anonymized pattern sharing across learners | Phase 3 |
 | **Spaced Repetition** | Intelligent review scheduling | Phase 3 |

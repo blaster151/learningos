@@ -56,8 +56,9 @@ Each story follows the standard format:
 | E15 | Adaptive Difficulty & Learner Level | 4 | 21 |
 | E16 | User Highlights & Annotations | 3 | 15 |
 | E17 | Cross-Session Relation Discovery | 3 | 13 |
-| **Phase 2 Total** | | **32** | **154** |
-| **Grand Total** | | **87** | **428** |
+| E18 | Scope & Knowledge Calibration | 8 | 34 |
+| **Phase 2 Total** | | **40** | **188** |
+| **Grand Total** | | **95** | **462** |
 
 ---
 
@@ -2065,7 +2066,213 @@ A living glossary that speaks in the learner's language, grows with their journe
 
 ---
 
-**Grand Total (all phases):** 422 story points
+## Epic 18: Scope & Knowledge Calibration
+
+**Goal:** Calibrate topic scope and prior knowledge *before* generating a new path so the system starts at the right altitude (overview vs deep dive) and rung (skip what’s known, include what’s missing).
+
+**Rationale:** Users often ask for topics that are too broad (“front-end web development”) or too ambiguous (“quantum mechanics”) and the system currently has to guess both scope and prerequisites. A lightweight, optional calibration step reduces churn, improves prerequisite accuracy, and builds a persistent learner knowledge profile that compounds across future paths.
+
+### Open Questions / Decisions
+
+- **Pills interaction:** Binary by default (“I know this”) with optional “Somewhat” override via secondary action; confirm exact gesture (long-press/right-click/menu).
+- **Wave policy:** Default to 1 wave; show Wave 2 only for high-uncertainty prerequisite clusters; skip waves entirely for micro-topics or when user chooses “Just build”.
+- **Skip defaults:** Conservative (do not waive uncertain prerequisites) plus an early diagnostic objective to auto-skip remedial content when the user is clearly advanced.
+- **Persistence model:** Global per-user concept→confidence profile plus per-path snapshot of assumptions for reproducibility.
+- **Onboarding relationship:** A/B test (level selector vs pills vs hybrid) before replacing the coarse beginner/intermediate/advanced selector.
+
+### Priority Table
+
+| Story ID | Title | Points |
+|----------|-------|--------|
+| E18-S1 | Scope Classification at Path Creation | 5 |
+| E18-S2 | Narrowing Suggestions for Broad Topics | 5 |
+| E18-S3 | Knowledge Pills (Wave 1) | 5 |
+| E18-S4 | Adaptive Knowledge Pills (Wave 2, Targeted) | 3 |
+| E18-S5 | Skip Calibration Defaults | 3 |
+| E18-S6 | Persist Global Knowledge Profile | 5 |
+| E18-S7 | Use Calibration in Path Generation | 5 |
+| E18-S8 | A/B Test: Onboarding Level vs Pills | 3 |
+
+**Total: 8 stories, 34 points**
+
+---
+
+### E18-S1: Scope Classification at Path Creation
+
+**ID:** E18-S1  
+**Title:** Scope Classification at Path Creation  
+**As a** learner  
+**I want** the system to detect when my request is broad or narrow  
+**So that** my learning path matches the depth I actually want
+
+**Acceptance Criteria:**
+- [ ] Given a user submits a natural-language topic for a new path, when the system analyzes it, then it assigns a scope tier (micro, focused, domain, field)
+- [ ] Given the scope tier is domain or field, when results are shown, then the UI presents a choice: “Keep high-level overview” vs “Help me narrow it”
+- [ ] Given the user selects “Keep high-level overview”, when the path is generated, then it is explicitly labeled as an overview (expect superficial coverage)
+
+**Story Points:** 5  
+**Priority:** P1-High  
+**Dependencies:** E3 (Learning Paths)  
+**UX Reference:** Flow 1 (Onboarding) – insert between Intake and Path Generation  
+**API Reference:** POST /api/paths/scope-analyze  
+**Implementation Notes:** Return `{scopeTier, confidence, rationale, suggestedModes}` and use a simple confidence threshold to decide whether to show narrowing UI.
+
+---
+
+### E18-S2: Narrowing Suggestions for Broad Topics
+
+**ID:** E18-S2  
+**Title:** Narrowing Suggestions for Broad Topics  
+**As a** learner  
+**I want** suggested narrower path options when my topic is too broad  
+**So that** I can choose a realistic first path without guessing
+
+**Acceptance Criteria:**
+- [ ] Given the system detects a broad topic, when the user chooses to narrow it, then it shows 3–7 suggested narrower path options
+- [ ] Given narrowing options are shown, then they are presented in a recommended order (learning order or difficulty)
+- [ ] Given the user selects an option, when confirmed, then the system generates a path for that narrower topic
+
+**Story Points:** 5  
+**Priority:** P1-High  
+**Dependencies:** E18-S1  
+**UX Reference:** Flow 1 – “Help me narrow it” choice  
+**API Reference:** POST /api/paths/narrow-suggest  
+**Implementation Notes:** Suggestions should include short descriptions and an estimated depth (e.g., 2–4 milestones) to set expectations.
+
+---
+
+### E18-S3: Knowledge Pills (Wave 1)
+
+**ID:** E18-S3  
+**Title:** Knowledge Pills (Wave 1)  
+**As a** learner  
+**I want** to quickly flag concepts I already know  
+**So that** the path doesn’t waste time on basics
+
+**Acceptance Criteria:**
+- [ ] Given a user is about to generate a new path, when the calibration UI appears, then it shows a single wave of concept pills relevant to the topic
+- [ ] Given the pills are shown, when the user taps a pill, then it marks “I know this” (binary by default)
+- [ ] Given a user wants nuance, when they use a secondary action on a selected pill, then it can be marked as “Somewhat” without forcing 3-way decisions for every pill
+- [ ] Given the calibration UI is shown, then there is a “Skip — just build the path” escape hatch
+
+**Story Points:** 5  
+**Priority:** P1-High  
+**Dependencies:** E18-S1  
+**UX Reference:** Flow 1 – new “pre-flight” step  
+**API Reference:** POST /api/paths/calibration/wave-1  
+**Implementation Notes:** Keep the interaction lightweight (fast taps). “Somewhat” should influence prerequisite waivers conservatively.
+
+---
+
+### E18-S4: Adaptive Knowledge Pills (Wave 2, Targeted)
+
+**ID:** E18-S4  
+**Title:** Adaptive Knowledge Pills (Wave 2, Targeted)  
+**As a** learner  
+**I want** a second wave only when it’s actually useful  
+**So that** calibration stays fast
+
+**Acceptance Criteria:**
+- [ ] Given Wave 1 selections are ambiguous for key prerequisites, when the system needs more signal, then it shows a targeted Wave 2 (not a full second taxonomy dump)
+- [ ] Given the topic is already narrow or low uncertainty, when Wave 1 completes, then Wave 2 is not shown
+- [ ] Given Wave 2 is shown, when the user completes it, then the system proceeds directly to path generation
+
+**Story Points:** 3  
+**Priority:** P2-Medium  
+**Dependencies:** E18-S3  
+**UX Reference:** Flow 1 – conditional extension of pre-flight  
+**API Reference:** POST /api/paths/calibration/wave-2  
+**Implementation Notes:** Wave 2 should focus on an “uncertain cluster” rather than broad coverage.
+
+---
+
+### E18-S5: Skip Calibration Defaults
+
+**ID:** E18-S5  
+**Title:** Skip Calibration Defaults  
+**As a** power user  
+**I want** skipping calibration to still produce a good path  
+**So that** I can move fast without sacrificing quality
+
+**Acceptance Criteria:**
+- [ ] Given the user clicks “Skip — just build the path”, when generating the path, then the system uses conservative defaults (do not waive uncertain prerequisites)
+- [ ] Given calibration is skipped, when the first milestone is generated, then it includes a quick diagnostic objective early to validate starting level
+- [ ] Given early diagnostics indicate the user already knows the basics, when continuing, then the system can shorten or skip remedial content
+
+**Story Points:** 3  
+**Priority:** P1-High  
+**Dependencies:** E18-S3  
+**UX Reference:** Flow 1 – skip path  
+**API Reference:** N/A (behavioral policy)
+
+---
+
+### E18-S6: Persist Global Knowledge Profile
+
+**ID:** E18-S6  
+**Title:** Persist Global Knowledge Profile  
+**As a** learner  
+**I want** my known concepts to carry across paths  
+**So that** personalization compounds over time
+
+**Acceptance Criteria:**
+- [ ] Given a user marks concept pills, when saved, then they are persisted as a global per-user knowledge profile with concept → confidence
+- [ ] Given a new path is created, when the generator runs, then it uses the global profile to seed known concepts
+- [ ] Given a path is generated, then it stores a snapshot of the knowledge assumptions used at creation time
+
+**Story Points:** 5  
+**Priority:** P1-High  
+**Dependencies:** E2 (Onboarding & Profile), E3 (Learning Paths)  
+**UX Reference:** Flow 1 – profile persistence  
+**API Reference:** POST /api/profile/knowledge, GET /api/profile/knowledge  
+**Implementation Notes:** Keep a snapshot for reproducibility (path shouldn’t silently change if the global profile evolves later).
+
+---
+
+### E18-S7: Use Calibration in Path Generation
+
+**ID:** E18-S7  
+**Title:** Use Calibration in Path Generation  
+**As a** learner  
+**I want** the generated path to reflect what I already know and what I need  
+**So that** it feels personalized and efficient
+
+**Acceptance Criteria:**
+- [ ] Given known concepts are available, when generating milestones/objectives, then the system avoids objectives that only reteach known basics
+- [ ] Given missing prerequisite concepts are detected, when generating, then the path includes prerequisites (or recommends a prereq path) before advanced objectives
+- [ ] Given the topic is broad and the user chose “overview”, when generating, then the path explicitly states that mastery may require follow-on paths
+
+**Story Points:** 5  
+**Priority:** P0-Critical  
+**Dependencies:** E3 (Learning Paths), E14 (Prerequisite Intelligence)  
+**UX Reference:** Flow 1 – Path Generation  
+**API Reference:** POST /api/paths/create (enhanced inputs)
+
+---
+
+### E18-S8: A/B Test: Onboarding Level vs Pills
+
+**ID:** E18-S8  
+**Title:** A/B Test: Onboarding Level vs Pills  
+**As a** product owner  
+**I want** to measure whether pills outperform coarse onboarding levels  
+**So that** we choose the best default experience
+
+**Acceptance Criteria:**
+- [ ] Define experiment variants: (A) onboarding level selector, (B) pills-only, (C) hybrid (level + optional pills)
+- [ ] Instrument key metrics: time-to-first-path, path edits/abandon rate, early objective completion velocity, “too easy/too hard” feedback
+- [ ] Ensure users are bucketed consistently and can be excluded from experiment (e.g., admins/testers)
+
+**Story Points:** 3  
+**Priority:** P2-Medium  
+**Dependencies:** E18-S3, E18-S6, E18-S7  
+**UX Reference:** N/A  
+**API Reference:** N/A  
+**Implementation Notes:** Start as a feature flag with deterministic bucketing; promote winner to default after sufficient sample size.
+
+---
+
+**Grand Total (all phases):** 462 story points
 
 **MVP Target (P0 only):** 104 points  
 **Full MVP (P0 + P1):** 180 points  
