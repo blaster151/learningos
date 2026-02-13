@@ -246,13 +246,13 @@ jobs:
       - name: Check staging health
         if: needs.deploy-staging.result == 'success'
         run: |
-          HEALTH_URL="${{ needs.deploy-staging.outputs.url }}/api/test-connections"
+          HEALTH_URL="${{ needs.deploy-staging.outputs.url }}/api/health"
           echo "Checking health at $HEALTH_URL"
           curl -f -s "$HEALTH_URL" | head -c 500
 
       - name: Check production health
         if: needs.deploy-production.result == 'success'
         run: |
-          HEALTH_URL="${{ needs.deploy-production.outputs.url }}/api/test-connections"
+          HEALTH_URL="${{ needs.deploy-production.outputs.url }}/api/health"
           echo "Checking health at $HEALTH_URL"
           curl -f -s "$HEALTH_URL" | head -c 500
