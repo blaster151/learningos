@@ -1186,6 +1186,44 @@ interface LearningQualityMetrics {
 | "Reset the pacing" | Regenerate path with "slower" instruction + smaller steps | ✅ MVP |
 | "Rotate the framing" | Regenerate with different metaphor/angle using targeted prompt | ✅ MVP |
 | "Abstraction scaffolding" | Surface patterns across topics using graph analysis | ⚠️ Phase 2 |
+| "Quiz-verified mastery" | 4-question quizzes per objective (MC, T/F, MC, Short Answer), ≥3/4 to pass | ✅ Implemented |
+| "Adaptive density" | "Unpack this" breaks dense AI responses into 2–3 expanded chunks | ✅ Implemented |
+| "Bold term awareness" | AI bolds all domain terms, injects known concepts into prompt for consistency | ✅ Implemented |
+
+---
+
+## Appendix A: Quiz-Gated Mastery System *(Implemented)*
+
+### Design Rationale
+
+Self-assessment checkboxes for objectives led to unreliable mastery signals. The quiz system replaces auto-completion with verified understanding:
+
+### How It Works
+
+1. **AI Assessment Phase:** During conversation, `assess-objectives` endpoint evaluates whether objectives have been sufficiently covered (not whether learner has mastered them)
+2. **Ready to Quiz State:** Sufficiently-covered objectives transition to "ready to quiz" (🧪 amber pill in UI)
+3. **Quiz Generation:** When learner clicks an amber pill, `/api/quiz/generate` creates a 4-question quiz:
+   - Question 1: Multiple Choice
+   - Question 2: True/False
+   - Question 3: Multiple Choice
+   - Question 4: Short Answer (essay)
+4. **Grading:** MC/TF auto-graded client-side; short answer AI-graded via `/api/quiz/grade-essay` (score ≥ 0.6 = pass)
+5. **Pass Threshold:** ≥3/4 correct → objective marked ✅ mastered
+6. **Failure Path:** <3/4 → feedback shown with explanation of correct answers, retry available
+
+### 3-State Objective Pills
+
+| State | Visual | Meaning | Interaction |
+|-------|--------|---------|-------------|
+| Not ready | ○ (gray) | Objective not yet covered in conversation | Non-interactive |
+| Ready to quiz | 🧪 (amber) | AI detected sufficient coverage | Click to start quiz |
+| Mastered | ✅ (green) | Passed quiz with ≥3/4 | Non-interactive badge |
+
+### Impact on Learning Mechanics
+
+- **Confidence vs Understanding:** Quiz results provide a concrete structural understanding signal, not just self-reported confidence
+- **Overconfidence detection:** Learners who think they understand but fail quizzes reveal confidence-understanding gaps
+- **Active recall:** Quiz questions force retrieval practice, a proven learning technique
 
 ---
 
@@ -1215,7 +1253,7 @@ interface LearningQualityMetrics {
 
 ---
 
-**Document Status:** Implementation-Ready  
+**Document Status:** Implementation-Ready (Quiz system implemented)  
 **Next Review:** After alpha testing  
 **Owner:** Blast  
-**Last Updated:** January 25, 2026
+**Last Updated:** January 27, 2026

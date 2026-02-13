@@ -95,20 +95,45 @@
    - Stores learning history across sessions
    - Injects relevant context into future interactions
 
+7. **Quiz-Gated Mastery** *(Implemented)*
+   - Objectives verified through 4-question quizzes (MC, T/F, MC, Short Answer)
+   - 3-state objective pills: ○ not ready → 🧪 ready to quiz → ✅ mastered
+   - AI grades short-answer questions; ≥3/4 to pass
+
+8. **Smart Bold Terms** *(Implemented)*
+   - AI bolds every domain-relevant term in every response (3–8 per message)
+   - Clickable bold terms send "Tell me about {term}" follow-ups
+   - System prompt injected with user's known concepts for consistent bolding
+
+9. **Unpack This** *(Implemented)*
+   - One-click chunking of dense AI responses into 2–3 expanded parts
+   - Progressive reveal: "Next part (2 of 3)" with indigo-bordered bubbles
+   - Collapsible back to original message
+
+10. **Continue Milestone** *(Implemented)*
+    - Appears during milestone chat sessions to redirect from tangents
+    - Lists remaining uncompleted objectives and asks AI to pick up the next one
+
 ---
 
 ## Key Features
 
 ### MVP (Phase 1) Features
 
-| Feature | Description | Priority |
-|---------|-------------|----------|
-| **Learner Profile Builder** | Conversational onboarding that extracts knowledge, tone preference, metaphor style | P0 |
-| **Micro-Path Generator** | Creates personalized learning sequences for single topic | P0 |
-| **Reflect Mode** | "Teach it back" checkpoints with feedback | P0 |
-| **Basic Concept Graph** | Simple visualization of learned concepts and connections | P0 |
-| **Tone Modulation** | Adjusts communication style (playful, formal, Socratic) | P1 |
-| **Cheat Sheet Generator** | Exports summaries in learner's own words | P1 |
+| Feature | Description | Priority | Status |
+|---------|-------------|----------|--------|
+| **Learner Profile Builder** | Conversational onboarding that extracts knowledge, tone preference, metaphor style | P0 | ✅ Done |
+| **Micro-Path Generator** | Creates personalized learning sequences for single topic | P0 | ✅ Done |
+| **Reflect Mode** | "Teach it back" checkpoints with feedback | P0 | ✅ Done |
+| **Basic Concept Graph** | Simple visualization of learned concepts and connections | P0 | ✅ Done |
+| **Tone Modulation** | Adjusts communication style (playful, formal, Socratic) | P1 | ✅ Done |
+| **Cheat Sheet Generator** | Exports summaries in learner's own words | P1 | ✅ Done |
+| **Objective Quiz System** | Quiz-gated mastery verification for milestone objectives (MC, T/F, short answer); replaces auto-completion | P0 | ✅ Done |
+| **Smart Bold Terms** | AI bolds all domain-relevant terms in responses; injects user's known concepts for consistency | P1 | ✅ Done |
+| **Unpack This** | Breaks dense AI responses into 2–3 expanded, progressively-revealed chunks | P1 | ✅ Done |
+| **Continue Milestone** | One-click button to return from rabbit-hole exploration back to next uncompleted objective | P1 | ✅ Done |
+| **AI Logging & Observability** | Comprehensive prompt/response/token logging for all AI call sites (13+), admin dashboard | P1 | ✅ Done |
+| **Token Usage Tracking** | Per-user and aggregate token usage analytics with admin dashboard at /dashboard/admin | P2 | ✅ Done |
 
 ### Post-MVP Features
 
@@ -415,6 +440,9 @@
 3. **Personal Graph:** Visual representation of *your* understanding
 4. **Conversational:** Feels like a tutor, not a textbook
 5. **Scale-Adaptive:** Adjusts to tiny questions or major explorations
+6. **Quiz-Verified Mastery:** Objectives are verified through targeted quizzes, not self-assessment
+7. **Adaptive Density:** "Unpack this" breaks complex explanations into digestible chunks on demand
+8. **Observable AI:** Every AI call is logged with token counts, enabling cost analysis and quality monitoring
 
 ---
 
@@ -423,27 +451,39 @@
 ### MVP Sprint Plan (8-10 weeks)
 
 #### Sprint 1-2: Foundation (Weeks 1-4)
-- [ ] Project setup (React, Vite, Tailwind, Firebase)
-- [ ] Basic UI shell and navigation
-- [ ] OpenAI integration layer
-- [ ] User authentication (Firebase Auth)
-- [ ] Profile data model
+- [x] Project setup (Next.js, TypeScript, Tailwind, Firebase)
+- [x] Basic UI shell and navigation
+- [x] OpenAI integration layer
+- [x] User authentication (Firebase Auth)
+- [x] Profile data model
 
 #### Sprint 3-4: Core Loop (Weeks 5-8)
-- [ ] Conversational intake flow
-- [ ] Learner profile builder
-- [ ] Micro-path generator (single topic)
-- [ ] Reflect Mode interface
-- [ ] Feedback collection
-- [ ] Basic concept graph storage
+- [x] Conversational intake flow
+- [x] Learner profile builder
+- [x] Micro-path generator (single topic)
+- [x] Reflect Mode interface
+- [x] Feedback collection
+- [x] Basic concept graph storage
 
 #### Sprint 5: Polish & Testing (Weeks 9-10)
-- [ ] Concept graph visualization
-- [ ] Cheat sheet export
-- [ ] Tone modulation
-- [ ] Error handling & edge cases
-- [ ] Alpha user testing
-- [ ] Documentation
+- [x] Concept graph visualization
+- [x] Cheat sheet export
+- [x] Tone modulation
+- [x] Error handling & edge cases
+- [x] Alpha user testing
+- [x] Documentation
+
+#### Sprint 6+: Chat Enhancements (Implemented)
+- [x] Objective quiz system (quiz-gated mastery verification)
+- [x] Smart bold terms (AI bolds domain terms, injects known concepts)
+- [x] Unpack this (chunk dense responses into 2–3 expanded parts)
+- [x] Continue milestone (return from rabbit holes to next objective)
+- [x] AI logging & observability (13+ call sites instrumented)
+- [x] Token usage tracking & admin dashboard
+- [x] Path Knowledge Map modal
+- [x] Docker + GCP Cloud Run deployment
+- [x] GitHub Actions CI/CD
+- [x] 281 tests passing, 0 TypeScript errors
 
 ### Post-MVP Roadmap
 
@@ -543,9 +583,11 @@
 2. ✅ System remembers metaphors across sessions
 3. ✅ Concept graph generates and updates correctly
 4. ✅ Cheat sheets export in learner's language
-5. ✅ 5 internal testers complete 3+ sessions each
-6. ✅ No critical bugs in core flow
-7. ✅ Basic analytics tracking in place
+5. ⬜ 5 internal testers complete 3+ sessions each
+6. ✅ No critical bugs in core flow (281 tests passing, 0 TS errors)
+7. ✅ Basic analytics tracking in place (AI logging + token tracking)
+8. ✅ Objective mastery verified via quiz system
+9. ✅ CI/CD pipeline and Docker deployment configured
 
 ---
 
@@ -608,8 +650,8 @@
 ---
 
 **Document Metadata**
-- Version: 1.0
-- Last Updated: January 25, 2026
+- Version: 1.1
+- Last Updated: January 27, 2026
 - Owner: Blast
-- Status: Draft for Review
-- Next Review: After user interviews
+- Status: Updated with implemented features
+- Next Review: Post-MVP launch

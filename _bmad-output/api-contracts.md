@@ -680,6 +680,138 @@ Get full chat session with messages.
 
 ---
 
+### POST /api/chat/unpack *(Implemented)*
+
+Break a dense AI response into 2–3 expanded chunks.
+
+**Request:**
+```typescript
+{
+  content: string     // The AI response text to unpack
+  userId: string      // For logging
+}
+```
+
+**Response (200 OK):**
+```typescript
+{
+  chunks: string[]    // 2–3 expanded explanation chunks
+}
+```
+
+**Notes:**
+- Uses PRIMARY_MODEL (GPT-4), max_tokens 1500, temperature 0.6
+- Returns JSON with `chunks` array
+- Each chunk expands on a section of the original response with simpler language
+
+---
+
+### POST /api/chat/assess-objectives *(Updated)*
+
+Assess which milestone objectives have been sufficiently covered in conversation.
+
+**Request:**
+```typescript
+{
+  messages: { role: string; content: string }[]
+  objectives: string[]
+}
+```
+
+**Response (200 OK):**
+```typescript
+{
+  readyToQuiz: string[]   // Objectives sufficiently covered, ready for quiz verification
+}
+```
+
+**Notes:**
+- Changed from auto-marking "mastered" to marking "ready to quiz"
+- Uses FALLBACK_MODEL (GPT-3.5-turbo) for cost efficiency
+- Prompt asks "has this objective been sufficiently covered" rather than "has learner mastered"
+
+---
+
+### POST /api/quiz/generate *(Implemented)*
+
+Generate a 4-question quiz for a specific objective.
+
+**Request:**
+```typescript
+{
+  objective: string   // The objective text to quiz on
+  context: string     // Recent conversation context
+  userId: string      // For logging
+}
+```
+
+**Response (200 OK):**
+```typescript
+{
+  questions: [
+    {
+      type: "multiple_choice"
+      question: string
+      options: string[]    // 4 options
+      correctIndex: number
+    },
+    {
+      type: "true_false"
+      question: string
+      correctAnswer: boolean
+    },
+    {
+      type: "multiple_choice"
+      question: string
+      options: string[]
+      correctIndex: number
+    },
+    {
+      type: "short_answer"
+      question: string
+      modelAnswer: string  // For AI grading comparison
+    }
+  ]
+}
+```
+
+**Notes:**
+- Uses PRIMARY_MODEL (GPT-4), max_tokens 1200, temperature 0.6
+- Fixed 4-question format: MC → T/F → MC → Short Answer
+- Questions are contextual to the conversation, not generic
+
+---
+
+### POST /api/quiz/grade-essay *(Implemented)*
+
+AI-grade a short answer quiz response.
+
+**Request:**
+```typescript
+{
+  question: string
+  modelAnswer: string   // Expected answer from quiz generation
+  userAnswer: string    // Learner's response
+  userId: string        // For logging
+}
+```
+
+**Response (200 OK):**
+```typescript
+{
+  correct: boolean      // true if score >= 0.6
+  score: number         // 0.0–1.0
+  feedback: string      // Explanation of grading
+}
+```
+
+**Notes:**
+- Uses PRIMARY_MODEL (GPT-4), temperature 0.3
+- Rejects answers < 5 words (auto-fail)
+- Score ≥ 0.6 = pass
+
+---
+
 ## 6. Concept Graph
 
 ### GET /graph

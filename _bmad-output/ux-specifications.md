@@ -1145,6 +1145,107 @@ Based on conversation context:
 - After code: "Explain this", "Why does this work?"
 - After question: "Related concept", "Opposite of this"
 
+### Quick Actions Bar *(Implemented)*
+
+Displayed below every AI response message:
+
+| Button | Label | Behavior |
+|--------|-------|----------|
+| 💡 | Explain more | Sends "Can you explain that in more detail?" |
+| 📝 | Example | Sends "Can you give me a concrete example?" |
+| ❓ | Quiz me | Sends "Quiz me on what we just covered" |
+| 🎯 | Simplify | Triggers "Simplify this" crossfade (replaces message with simpler version) |
+| 🔬 | Unpack this | Calls `/api/chat/unpack` to split response into 2–3 expanded chunks |
+| 📍 | Continue milestone | *(Only shown during milestone chats)* Lists remaining objectives, asks AI to resume |
+
+### Objective Quiz UI *(Implemented)*
+
+Inline quiz displayed above the objectives tracker when a "ready to quiz" objective is clicked:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  OBJECTIVE PILLS (3-state)                                       │
+│  ┌──────────┐ ┌──────────────┐ ┌──────────────┐                │
+│  │ ✅ Obj 1  │ │ 🧪 Obj 2     │ │ ○ Obj 3      │                │
+│  │ (green)   │ │ (amber,click)│ │ (gray)       │                │
+│  └──────────┘ └──────────────┘ └──────────────┘                │
+├─────────────────────────────────────────────────────────────────┤
+│  QUIZ (inline, when 🧪 clicked)                                 │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │ Question 1 of 4 — Multiple Choice          ● ● ○ ○       │  │
+│  │                                                            │  │
+│  │ "What is the primary purpose of..."                       │  │
+│  │                                                            │  │
+│  │  ┌─────────────────────────────────────┐                  │  │
+│  │  │ ○ Option A                           │                  │  │
+│  │  │ ○ Option B                           │                  │  │
+│  │  │ ○ Option C                           │                  │  │
+│  │  │ ○ Option D                           │                  │  │
+│  │  └─────────────────────────────────────┘                  │  │
+│  │                                                            │  │
+│  │        [Submit Answer]        [Cancel Quiz]               │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                                                                  │
+│  RESULTS (after all 4 questions)                                 │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │ Score: 3/4 — ✅ Passed!                                    │  │
+│  │                                                            │  │
+│  │ Q1 ✅  Q2 ✅  Q3 ❌  Q4 ✅                                 │  │
+│  │                                                            │  │
+│  │ Q3 Feedback: "The correct answer is B because..."         │  │
+│  │                                                            │  │
+│  │        [Continue Learning]                                │  │
+│  └───────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Quiz Flow:**
+1. AI marks objective "ready to quiz" during conversation assessment
+2. Learner clicks amber 🧪 pill → quiz generates (4 questions)
+3. Step-by-step: MC → T/F → MC → Short Answer
+4. MC/TF auto-graded client-side; short answer AI-graded via API
+5. ≥3/4 correct → objective marked ✅ mastered
+6. <3/4 → feedback shown, retry available
+
+### Unpack This UI *(Implemented)*
+
+When "🔬 Unpack this" is clicked on an AI response:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  ORIGINAL MESSAGE (collapsed)                                    │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │ 📦 Unpacked into 3 parts (show original)                  │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                                                                  │
+│  CHUNK 1 (indigo border, visible)                               │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │ 1️⃣ [Expanded explanation of first concept...]              │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                                                                  │
+│  CHUNK 2 (indigo border, visible)                               │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │ 2️⃣ [Expanded explanation of second concept...]             │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                                                                  │
+│           [Next part (3 of 3)]                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Unpack Flow:**
+1. Learner clicks "🔬 Unpack this" on any AI message
+2. Original crossfades to collapsed "📦 Unpacked into N parts" indicator
+3. First chunk appears immediately with indigo border
+4. "Next part" button progressively reveals remaining chunks
+5. "Show original" link collapses chunks and restores original message with crossfade
+
+### Bold Terms Behavior *(Implemented)*
+
+- AI bolds **all domain-relevant terms** in every response (target: 3–8 per message)
+- Bolded terms are clickable — clicking sends "Tell me about **{term}**" as next message
+- System prompt includes up to 50 of the user's previously learned concept names for consistent bolding
+- Bold formatting applies to: technical terms, concept names, methodology names, theory names
+
 ### Interactions
 
 | Element | Action | Response |

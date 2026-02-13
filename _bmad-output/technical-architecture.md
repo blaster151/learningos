@@ -1577,6 +1577,51 @@ await trackMetric("ai.generation.duration", durationMs, {
 - Firebase Console: Database usage, auth metrics
 - Custom Dashboard: AI costs, usage by tier, conversion funnel
 
+### AI Logging & Observability *(Implemented)*
+
+**AI Logger (`src/lib/ai/aiLogger.ts`):**
+
+All OpenAI API calls (13+ call sites) are instrumented through a centralized logging utility that records:
+
+```typescript
+interface AILogEntry {
+  timestamp: string
+  callSite: string          // e.g., "chat", "quiz-generate", "unpack", "assess-objectives"
+  model: string             // "gpt-4" or "gpt-3.5-turbo"
+  promptTokens: number
+  completionTokens: number
+  totalTokens: number
+  durationMs: number
+  userId: string
+  sessionId?: string
+  success: boolean
+  error?: string
+}
+```
+
+**Instrumented Call Sites:**
+| Call Site | Model | Purpose |
+|-----------|-------|---------|
+| `chat` | GPT-4 | Main conversational responses |
+| `quiz-generate` | GPT-4 | Generate 4-question objective quizzes |
+| `quiz-grade-essay` | GPT-4 | AI-grade short answer questions |
+| `unpack` | GPT-4 | Split dense responses into chunks |
+| `assess-objectives` | GPT-3.5-turbo | Detect "ready to quiz" objectives |
+| `extract-concepts` | GPT-3.5-turbo | Extract concepts from conversation |
+| `simplify` | GPT-4 | Simplify AI responses |
+| `generate-path` | GPT-4 | Generate learning paths |
+| `generate-reflection` | GPT-4 | Generate reflection prompts |
+| `grade-reflection` | GPT-4 | Grade reflection responses |
+| `intake-parse` | GPT-3.5-turbo | Parse onboarding intake |
+| `generate-cheatsheet` | GPT-4 | Generate cheat sheets |
+| `generate-follow-ups` | GPT-3.5-turbo | Generate follow-up suggestions |
+
+**Token Usage Admin Dashboard (`/dashboard/admin`):**
+- Per-user token consumption breakdown
+- Aggregate usage by model and call site
+- Cost estimation and trend analysis
+- Accessible to admin users only
+
 ---
 
 ## Development Phases
