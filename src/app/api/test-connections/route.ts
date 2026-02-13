@@ -25,8 +25,8 @@ export async function GET() {
 
   // Test Firebase Admin
   try {
-    const { adminApp } = await import("@/lib/firebase/admin");
-    results.firebase.admin = !!adminApp.name;
+    const { getAdminApp } = await import("@/lib/firebase/admin");
+    results.firebase.admin = !!getAdminApp().name;
   } catch (error) {
     if (!results.firebase.error) {
       results.firebase.error = error instanceof Error ? error.message : String(error);

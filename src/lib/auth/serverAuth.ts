@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { DecodedIdToken } from "firebase-admin/auth";
-import { adminAuth } from "@/lib/firebase/admin";
+import { getAdminAuth } from "@/lib/firebase/admin";
 
 export async function getAuthUser(request: NextRequest): Promise<DecodedIdToken | null> {
   const header = request.headers.get("authorization") ?? request.headers.get("Authorization");
@@ -11,7 +11,7 @@ export async function getAuthUser(request: NextRequest): Promise<DecodedIdToken 
   if (!token) return null;
 
   try {
-    return await adminAuth.verifyIdToken(token, true);
+    return await getAdminAuth().verifyIdToken(token, true);
   } catch {
     return null;
   }

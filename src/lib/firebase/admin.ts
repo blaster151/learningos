@@ -36,13 +36,28 @@ function initializeAdminApp() {
   }
 }
 
-// Initialize on import
-initializeAdminApp();
+// Initialize on first use (not at import time, to avoid build-time failures)
+let _initialized = false;
+function ensureInitialized() {
+  if (!_initialized) {
+    initializeAdminApp();
+    _initialized = true;
+  }
+}
 
 // Lazy-load Firestore to avoid OpenTelemetry issues
 export async function getAdminDb() {
+  ensureInitialized();
   const { getFirestore } = await import("firebase-admin/firestore");
   return getFirestore(adminApp);
 }
 
-export { adminApp, adminAuth };
+export function getAdminApp(): App {
+  ensureInitialized();
+  return adminApp;
+}
+
+export function getAdminAuth(): Auth {
+  ensureInitialized();
+  return adminAuth;
+}

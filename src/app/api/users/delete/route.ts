@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebase/admin";
-import { adminAuth } from "@/lib/firebase/admin";
+import { getAdminAuth } from "@/lib/firebase/admin";
 import {
   requireAuthUser,
   authErrorResponse,
@@ -100,7 +100,7 @@ export async function DELETE(request: NextRequest) {
     await db.collection("users").doc(userId).delete();
 
     // 7. Delete the Firebase Auth user
-    await adminAuth.deleteUser(userId);
+    await getAdminAuth().deleteUser(userId);
 
     return NextResponse.json({
       message: "Account and all data deleted successfully",
