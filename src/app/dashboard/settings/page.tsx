@@ -14,6 +14,9 @@ interface ProfileData {
   displayName: string;
   learningGoal: string;
   preferredPace: "slow" | "moderate" | "fast";
+  experienceLevel: "beginner" | "intermediate" | "advanced";
+  selectedTopics: string[];
+  metaGoal: string;
 }
 
 export default function SettingsPage() {
@@ -29,6 +32,9 @@ export default function SettingsPage() {
     displayName: "",
     learningGoal: "",
     preferredPace: "moderate",
+    experienceLevel: "beginner",
+    selectedTopics: [],
+    metaGoal: "",
   });
   const [originalData, setOriginalData] = useState<ProfileData | null>(null);
 
@@ -48,6 +54,9 @@ export default function SettingsPage() {
           displayName: data.user?.displayName || user?.displayName || "",
           learningGoal: data.user?.learningGoal || "",
           preferredPace: data.user?.preferredPace || "moderate",
+          experienceLevel: data.user?.experienceLevel || "beginner",
+          selectedTopics: data.user?.selectedTopics || [],
+          metaGoal: data.user?.metaGoal || "",
         };
         setFormData(profile);
         setOriginalData(profile);
@@ -68,6 +77,9 @@ export default function SettingsPage() {
           displayName: formData.displayName,
           learningGoal: formData.learningGoal,
           preferredPace: formData.preferredPace,
+          experienceLevel: formData.experienceLevel,
+          selectedTopics: formData.selectedTopics,
+          metaGoal: formData.metaGoal,
         }),
       });
 
@@ -216,6 +228,77 @@ export default function SettingsPage() {
                     <option value="fast">Fast - Move quickly</option>
                   </select>
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Experience Level
+                  </label>
+                  <select
+                    value={formData.experienceLevel}
+                    onChange={(e) => setFormData({ ...formData, experienceLevel: e.target.value as ProfileData["experienceLevel"] })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="beginner">Beginner - Starting fresh</option>
+                    <option value="intermediate">Intermediate - Know the basics</option>
+                    <option value="advanced">Advanced - Solid knowledge</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Topics of Interest
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { id: "programming", name: "Programming", icon: "💻" },
+                      { id: "web-dev", name: "Web Development", icon: "🌐" },
+                      { id: "data-science", name: "Data Science", icon: "📊" },
+                      { id: "machine-learning", name: "Machine Learning", icon: "🤖" },
+                      { id: "design", name: "UI/UX Design", icon: "🎨" },
+                      { id: "devops", name: "DevOps", icon: "⚙️" },
+                      { id: "mobile", name: "Mobile Development", icon: "📱" },
+                      { id: "security", name: "Cybersecurity", icon: "🔒" },
+                      { id: "databases", name: "Databases", icon: "🗄️" },
+                      { id: "cloud", name: "Cloud Computing", icon: "☁️" },
+                      { id: "blockchain", name: "Blockchain", icon: "⛓️" },
+                      { id: "other", name: "Other", icon: "✨" },
+                    ].map((topic) => {
+                      const isSelected = formData.selectedTopics.includes(topic.id);
+                      return (
+                        <button
+                          key={topic.id}
+                          type="button"
+                          onClick={() => {
+                            setFormData((prev) => ({
+                              ...prev,
+                              selectedTopics: isSelected
+                                ? prev.selectedTopics.filter((t) => t !== topic.id)
+                                : [...prev.selectedTopics, topic.id],
+                            }));
+                          }}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-full border transition-all ${
+                            isSelected
+                              ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700"
+                              : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700"
+                          }`}
+                        >
+                          <span>{topic.icon}</span>
+                          <span>{topic.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Meta Goal
+                  </label>
+                  <textarea
+                    value={formData.metaGoal}
+                    onChange={(e) => setFormData({ ...formData, metaGoal: e.target.value })}
+                    placeholder="Your higher-level learning ambition (e.g., 'Become a full-stack developer', 'Transition into data engineering')"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    rows={2}
+                  />
+                </div>
                 <div className="flex gap-2">
                   <Button onClick={handleSave} disabled={isSaving}>
                     {isSaving ? (
@@ -233,7 +316,42 @@ export default function SettingsPage() {
                 </div>
               </div>
             ) : (
-              <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+              <div className="pt-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
+                {/* Display current profile info */}
+                {formData.learningGoal && (
+                  <div>
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Learning Goal</span>
+                    <p className="text-sm text-gray-900 dark:text-gray-100 mt-0.5">{formData.learningGoal}</p>
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-4">
+                  <div>
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Pace</span>
+                    <p className="text-sm text-gray-900 dark:text-gray-100 mt-0.5 capitalize">{formData.preferredPace}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Level</span>
+                    <p className="text-sm text-gray-900 dark:text-gray-100 mt-0.5 capitalize">{formData.experienceLevel}</p>
+                  </div>
+                </div>
+                {formData.selectedTopics.length > 0 && (
+                  <div>
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Topics</span>
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      {formData.selectedTopics.map((t) => (
+                        <span key={t} className="px-2 py-0.5 text-xs bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-full border border-blue-200 dark:border-blue-800">
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {formData.metaGoal && (
+                  <div>
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Meta Goal</span>
+                    <p className="text-sm text-gray-900 dark:text-gray-100 mt-0.5">{formData.metaGoal}</p>
+                  </div>
+                )}
                 <Button variant="outline" onClick={() => setIsEditing(true)}>
                   Edit Profile
                 </Button>

@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { authFetch } from "@/lib/api/authFetch";
 import { Button, Card } from "@/components/ui";
 import { BrainIcon, UserIcon } from "@/components/icons";
 import { ConceptTagsList, type ConceptData } from "./ConceptTag";
 import { ObjectiveQuizComponent } from "./ObjectiveQuiz";
+import { HighlightPopup } from "./HighlightPopup";
+import { useHighlights, type Highlight } from "@/lib/hooks/useHighlights";
 import type { ObjectiveQuiz, QuizQuestion } from "@/types";
 
 // ===================================
@@ -74,16 +76,20 @@ interface MessageBubbleProps {
   isFading?: boolean;
   isSimplified?: boolean;
   onUndoSimplify?: () => void;
+  onTextSelect?: (messageId: string) => void;
+  messageHighlights?: Highlight[];
 }
 
 /**
  * Parse message content and render **bold terms** as clickable buttons (for AI messages).
+ * Also applies highlight marks for saved highlights.
  * Other text is rendered as plain spans preserving whitespace.
  */
 function renderMessageContent(
   content: string,
   isUser: boolean,
-  onTermClick?: (term: string) => void
+  onTermClick?: (term: string) => void,
+  messageHighlights?: Highlight[]
 ) {
   if (isUser || !onTermClick) {
     return <span className="whitespace-pre-wrap break-words leading-relaxed">{content}</span>;
@@ -92,38 +98,98 @@ function renderMessageContent(
   // Split on **bold** markers, keeping the delimiters for reconstruction
   const parts = content.split(/(\*\*[^*]+\*\*)/g);
 
+  // Build a flat text and track which ranges are highlighted
+  const highlightRanges = (messageHighlights || []).map((h) => ({
+    start: h.startOffset,
+    end: h.endOffset,
+    note: h.note,
+  }));
+
+  // If no highlights, render normally
+  if (highlightRanges.length === 0) {
+    return (
+      <span className="whitespace-pre-wrap break-words leading-relaxed" data-message-content>
+        {parts.map((part, i) => {
+          const boldMatch = part.match(/^\*\*(.+)\*\*$/);
+          if (boldMatch) {
+            const term = boldMatch[1];
+            return (
+              <button
+                key={i}
+                onClick={() => onTermClick(term)}
+                className="font-semibold text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-100 hover:underline cursor-pointer bg-transparent border-none p-0 m-0 inline text-inherit transition-colors"
+                title={`Ask about "${term}"`}
+                aria-label={`Learn more about ${term}`}
+              >
+                {term}
+              </button>
+            );
+          }
+          return <span key={i}>{part}</span>;
+        })}
+      </span>
+    );
+  }
+
+  // With highlights — render character-by-character highlighting over the final text
+  // First, produce the plain text (stripping ** markers) for offset matching
+  const plainText = content.replace(/\*\*([^*]+)\*\*/g, "$1");
+  
+  // Build segments: each segment is {text, highlighted, note, isBold}
+  type Segment = { text: string; highlighted: boolean; note?: string; isBold: boolean };
+  const segments: Segment[] = [];
+  
+  // Sort highlights by start offset
+  const sorted = [...highlightRanges].sort((a, b) => a.start - b.start);
+  
+  let cursor = 0;
+  for (const hl of sorted) {
+    if (hl.start > cursor) {
+      segments.push({ text: plainText.slice(cursor, hl.start), highlighted: false, isBold: false });
+    }
+    segments.push({ text: plainText.slice(hl.start, hl.end), highlighted: true, note: hl.note, isBold: false });
+    cursor = hl.end;
+  }
+  if (cursor < plainText.length) {
+    segments.push({ text: plainText.slice(cursor), highlighted: false, isBold: false });
+  }
+
   return (
-    <span className="whitespace-pre-wrap break-words leading-relaxed">
-      {parts.map((part, i) => {
-        const boldMatch = part.match(/^\*\*(.+)\*\*$/);
-        if (boldMatch) {
-          const term = boldMatch[1];
-          return (
-            <button
-              key={i}
-              onClick={() => onTermClick(term)}
-              className="font-semibold text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-100 hover:underline cursor-pointer bg-transparent border-none p-0 m-0 inline text-inherit transition-colors"
-              title={`Ask about "${term}"`}
-              aria-label={`Learn more about ${term}`}
-            >
-              {term}
-            </button>
-          );
-        }
-        return <span key={i}>{part}</span>;
-      })}
+    <span className="whitespace-pre-wrap break-words leading-relaxed" data-message-content>
+      {segments.map((seg, i) =>
+        seg.highlighted ? (
+          <mark
+            key={i}
+            className="bg-yellow-200 dark:bg-yellow-800/60 text-inherit rounded-sm px-0.5"
+            title={seg.note || "Highlighted"}
+          >
+            {seg.text}
+          </mark>
+        ) : (
+          <span key={i}>{seg.text}</span>
+        )
+      )}
     </span>
   );
 }
 
-function MessageBubble({ message, userPhotoURL, onTermClick, isSimplifying, isFading, isSimplified, onUndoSimplify }: MessageBubbleProps) {
+function MessageBubble({ message, userPhotoURL, onTermClick, isSimplifying, isFading, isSimplified, onUndoSimplify, onTextSelect, messageHighlights }: MessageBubbleProps) {
   const isUser = message.role === "user";
+
+  const handleMouseUp = useCallback(() => {
+    if (!isUser && onTextSelect) {
+      // Small delay to let the browser finalize the selection
+      setTimeout(() => onTextSelect(message.id), 10);
+    }
+  }, [isUser, onTextSelect, message.id]);
 
   return (
     <div
       className={`flex gap-2 sm:gap-3 ${isUser ? "flex-row-reverse" : "flex-row"}`}
       role="article"
       aria-label={`${isUser ? "Your" : "AI"} message`}
+      data-message-id={message.id}
+      onMouseUp={handleMouseUp}
     >
       {/* Avatar */}
       <div
@@ -169,7 +235,7 @@ function MessageBubble({ message, userPhotoURL, onTermClick, isSimplifying, isFa
             className={`transition-opacity ease-in-out ${isFading ? "opacity-0" : "opacity-100"}`}
             style={{ transitionDuration: isFading ? "750ms" : "750ms" }}
           >
-            {renderMessageContent(message.content, isUser, onTermClick)}
+            {renderMessageContent(message.content, isUser, onTermClick, messageHighlights)}
           </div>
           {message.isStreaming && (
             <span className="inline-block w-1.5 h-3.5 ml-1 bg-current animate-pulse rounded-sm" aria-label="Typing" />
@@ -350,6 +416,17 @@ export function ChatInterface({
   const [unpackedVisibleCount, setUnpackedVisibleCount] = useState<Record<string, number>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Highlight system (E16)
+  const {
+    highlights,
+    popup: highlightPopup,
+    isSaving: isSavingHighlight,
+    containerRef: highlightContainerRef,
+    handleTextSelection,
+    saveHighlight,
+    dismissPopup: dismissHighlightPopup,
+  } = useHighlights(user, sessionId);
 
   // Expose onSessionEnd in case we need to use it later
   // Currently unused but available for session management
@@ -1125,11 +1202,23 @@ export function ChatInterface({
     <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
       {/* Messages Area */}
       <div 
-        className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4"
+        className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4 relative"
         role="log"
         aria-live="polite"
         aria-label="Chat messages"
+        ref={highlightContainerRef}
       >
+        {/* Highlight Popup */}
+        {highlightPopup.visible && (
+          <HighlightPopup
+            x={highlightPopup.x}
+            y={highlightPopup.y}
+            text={highlightPopup.text}
+            isSaving={isSavingHighlight}
+            onSave={saveHighlight}
+            onDismiss={dismissHighlightPopup}
+          />
+        )}
         {messages.length === 0 && isLoading ? (
           /* Greeting is being generated — show typing indicator */
           <div className="flex flex-col items-center justify-center h-full text-center px-4">
@@ -1203,6 +1292,8 @@ export function ChatInterface({
                     isFading={fadingMessageId === message.id}
                     isSimplified={!!originalContents[message.id] && !isUnpacked}
                     onUndoSimplify={() => handleUndoSimplify(message.id)}
+                    onTextSelect={handleTextSelection}
+                    messageHighlights={highlights.filter((h) => h.messageId === message.id)}
                   />
 
                   {/* Unpack collapse control */}

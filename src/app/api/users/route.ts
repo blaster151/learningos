@@ -24,6 +24,7 @@ interface UpdateUserRequest {
   selectedTopics?: string[];
   experienceLevel?: string;
   preferredPace?: string;
+  metaGoal?: string;
 }
 
 // ===================================
@@ -174,6 +175,7 @@ export async function PATCH(request: NextRequest) {
     if (body.selectedTopics !== undefined) updates.selectedTopics = body.selectedTopics;
     if (body.experienceLevel !== undefined) updates.experienceLevel = body.experienceLevel;
     if (body.preferredPace !== undefined) updates.preferredPace = body.preferredPace;
+    if (body.metaGoal !== undefined) updates.metaGoal = body.metaGoal;
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json(

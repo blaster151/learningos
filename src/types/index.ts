@@ -41,6 +41,22 @@ export interface KnowledgeProfileEntry {
 }
 
 // ===================================
+// Chat Highlights (E16)
+// ===================================
+
+export interface ChatHighlight {
+  highlightId: string;
+  userId: string;
+  sessionId: string;
+  messageId: string;
+  text: string;
+  startOffset: number;
+  endOffset: number;
+  note?: string;
+  createdAt: Timestamp;
+}
+
+// ===================================
 // User Profile
 // ===================================
 

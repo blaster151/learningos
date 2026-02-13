@@ -16,6 +16,7 @@ import {
   XIcon,
   BrainIcon,
   UserIcon,
+  HighlighterIcon,
 } from "@/components/icons";
 
 // ===================================
@@ -27,6 +28,7 @@ const navItems = [
   { href: "/dashboard/learn", label: "Learn", icon: BookIcon },
   { href: "/dashboard/chat", label: "Chat", icon: MessageCircleIcon },
   { href: "/dashboard/graph", label: "Graph", icon: GraphIcon },
+  { href: "/dashboard/highlights", label: "Highlights", icon: HighlighterIcon },
   { href: "/dashboard/settings", label: "Settings", icon: SettingsIcon },
 ];
 
