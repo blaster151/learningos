@@ -42,21 +42,22 @@ export async function POST(request: NextRequest) {
     const aiMessages: Array<{ role: "system" | "user"; content: string }> = [
       {
         role: "system",
-        content: `You are an educational assessment system. Given a conversation between a learner and their AI tutor, determine which learning objectives the learner has demonstrated understanding of.
+        content: `You are an educational assessment system. Given a conversation between a learner and their AI tutor, determine which learning objectives have been sufficiently COVERED in conversation — meaning the learner has been exposed to the material and could now be quizzed on it.
 
-A learner has mastered an objective when they:
-- Correctly explain the concept in their own words
-- Apply the concept correctly in examples or reasoning
-- Answer questions about the concept accurately
-- Show they can relate the concept to other ideas
+An objective is "covered" when:
+- The tutor has explained the key concepts of the objective
+- The learner has engaged with the material (asked questions, discussed it)
+- There is enough conversational context that a quiz could fairly test the objective
 
-Be conservative — only mark an objective as mastered if there is clear evidence in the conversation. Do NOT mark objectives as mastered just because the tutor explained them; the LEARNER must demonstrate understanding.
+This does NOT mean the learner has mastered the objective — that requires passing a separate quiz. You are just identifying which objectives have been discussed enough to be quiz-ready.
+
+Be reasonably generous — if the topic was meaningfully discussed, mark it as covered. Don't require the learner to have demonstrated mastery, just engagement with the material.
 
 Respond with ONLY a JSON object in this format:
 {"mastered": [0, 2], "reasoning": {"0": "brief reason", "2": "brief reason"}}
 
-Where "mastered" is an array of objective indices (0-based) that the learner has demonstrated mastery of.
-If no objectives are mastered yet, respond: {"mastered": [], "reasoning": {}}`,
+Where "mastered" is an array of objective indices (0-based) that have been covered in conversation.
+If no objectives are covered yet, respond: {"mastered": [], "reasoning": {}}`,
       },
       {
         role: "user",

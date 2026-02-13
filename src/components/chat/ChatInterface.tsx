@@ -6,6 +6,8 @@ import { authFetch } from "@/lib/api/authFetch";
 import { Button, Card } from "@/components/ui";
 import { BrainIcon, UserIcon } from "@/components/icons";
 import { ConceptTagsList, type ConceptData } from "./ConceptTag";
+import { ObjectiveQuizComponent } from "./ObjectiveQuiz";
+import type { ObjectiveQuiz, QuizQuestion } from "@/types";
 
 // ===================================
 // Types
@@ -331,6 +333,9 @@ export function ChatInterface({
   const [masteredObjectives, setMasteredObjectives] = useState<Set<number>>(
     new Set(initialCompletedObjectives || [])
   );
+  const [readyToQuizObjectives, setReadyToQuizObjectives] = useState<Set<number>>(new Set());
+  const [activeQuiz, setActiveQuiz] = useState<ObjectiveQuiz | null>(null);
+  const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
   const [assessmentNotice, setAssessmentNotice] = useState<string | null>(null);
   // Simplify-in-place state
   const [simplifyingMessageId, setSimplifyingMessageId] = useState<string | null>(null);
@@ -425,7 +430,8 @@ export function ChatInterface({
     }, 100);
   };
 
-  // Assess whether the learner has demonstrated mastery of milestone objectives
+  // Assess whether the learner has covered enough of an objective to be quizzed
+  // This marks objectives as "ready to quiz" (🧪) — NOT auto-completed
   const assessObjectives = async (allMessages: ChatMessage[]) => {
     if (!user || !milestoneObjectives?.length || !pathId || !milestoneId) return;
 
@@ -453,45 +459,127 @@ export function ChatInterface({
         await response.json();
 
       if (data.mastered.length > 0) {
-        // Find newly mastered objectives
-        const newlyMastered = data.mastered.filter(
-          (i) => !masteredObjectives.has(i)
+        // Mark objectives as ready to quiz (not auto-completed)
+        const newlyReady = data.mastered.filter(
+          (i) => !readyToQuizObjectives.has(i) && !masteredObjectives.has(i)
         );
 
-        if (newlyMastered.length > 0) {
-          setMasteredObjectives((prev) => {
+        if (newlyReady.length > 0) {
+          setReadyToQuizObjectives((prev) => {
             const updated = new Set(prev);
-            newlyMastered.forEach((i) => updated.add(i));
+            newlyReady.forEach((i) => updated.add(i));
             return updated;
           });
 
-          // Show a subtle notification about newly mastered objectives
-          const names = newlyMastered
+          const names = newlyReady
             .map((i) => milestoneObjectives[i])
             .join(", ");
           setAssessmentNotice(
-            `🎯 Objective${newlyMastered.length > 1 ? "s" : ""} mastered: ${names}`
+            `🧪 Ready to quiz: ${names}`
           );
           setTimeout(() => setAssessmentNotice(null), 6000);
-
-          // Persist to the path API — update the milestone's completedObjectives
-          const allMastered = [...masteredObjectives, ...newlyMastered];
-          authFetch(user, `/api/paths/${pathId}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              action: "update_objectives",
-              milestoneId,
-              completedObjectives: allMastered,
-            }),
-          }).catch((err) =>
-            console.error("Failed to persist objective mastery:", err)
-          );
         }
       }
     } catch (error) {
       console.error("Failed to assess objectives:", error);
     }
+  };
+
+  // Generate and start a quiz for a specific objective
+  const startQuiz = async (objectiveIndex: number) => {
+    if (!user || !milestoneObjectives || isGeneratingQuiz || activeQuiz) return;
+
+    const objectiveText = milestoneObjectives[objectiveIndex];
+    setIsGeneratingQuiz(true);
+    setAssessmentNotice(`📝 Generating quiz for: ${objectiveText.length > 40 ? objectiveText.slice(0, 40) + "…" : objectiveText}`);
+
+    try {
+      // Build conversation context from recent messages
+      const conversationContext = messages
+        .filter((m) => m.role === "user" || m.role === "assistant")
+        .slice(-20)
+        .map((m) => `${m.role === "user" ? "LEARNER" : "TUTOR"}: ${m.content}`)
+        .join("\n\n");
+
+      const response = await authFetch(user, "/api/quiz/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          objective: objectiveText,
+          conversationContext,
+          milestoneTitle: sessionTopic,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to generate quiz");
+      }
+
+      const data = await response.json();
+      const questions: QuizQuestion[] = data.questions.map((q: QuizQuestion, i: number) => ({
+        ...q,
+        index: i,
+      }));
+
+      const quiz: ObjectiveQuiz = {
+        objectiveIndex,
+        objectiveText,
+        questions,
+        currentQuestionIndex: 0,
+        status: "in_progress",
+        score: 0,
+        passed: false,
+      };
+
+      setActiveQuiz(quiz);
+      setAssessmentNotice(null);
+    } catch (error) {
+      console.error("Failed to generate quiz:", error);
+      setAssessmentNotice("❌ Failed to generate quiz. Please try again.");
+      setTimeout(() => setAssessmentNotice(null), 4000);
+    } finally {
+      setIsGeneratingQuiz(false);
+    }
+  };
+
+  // Handle quiz completion
+  const handleQuizComplete = (completedQuiz: ObjectiveQuiz) => {
+    if (completedQuiz.passed && user && pathId && milestoneId && milestoneObjectives) {
+      const objIdx = completedQuiz.objectiveIndex;
+
+      // Add to mastered set
+      setMasteredObjectives((prev) => {
+        const updated = new Set(prev);
+        updated.add(objIdx);
+        return updated;
+      });
+
+      // Remove from ready-to-quiz set
+      setReadyToQuizObjectives((prev) => {
+        const updated = new Set(prev);
+        updated.delete(objIdx);
+        return updated;
+      });
+
+      // Persist to the path API
+      const allMastered = [...masteredObjectives, objIdx];
+      authFetch(user, `/api/paths/${pathId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update_objectives",
+          milestoneId,
+          completedObjectives: allMastered,
+        }),
+      }).catch((err) =>
+        console.error("Failed to persist objective mastery:", err)
+      );
+    }
+  };
+
+  // Cancel/dismiss the active quiz
+  const handleQuizCancel = () => {
+    setActiveQuiz(null);
   };
 
   // Auto-scroll to bottom when messages change
@@ -600,6 +688,18 @@ export function ChatInterface({
 
     const lastAssistantMessage = [...messages].reverse().find(m => m.role === "assistant");
     if (!lastAssistantMessage) return;
+
+    // If quiz action and we have ready objectives, start the quiz system
+    if (action === "quiz" && milestoneObjectives?.length) {
+      const readyIdx = milestoneObjectives.findIndex(
+        (_, i) => readyToQuizObjectives.has(i) && !masteredObjectives.has(i)
+      );
+      if (readyIdx >= 0) {
+        startQuiz(readyIdx);
+        return;
+      }
+      // No ready objectives — fall through to chat-based quiz
+    }
 
     const prompts: Record<string, string> = {
       explain: "Can you explain that in more detail?",
@@ -989,6 +1089,15 @@ export function ChatInterface({
         </div>
       )}
 
+      {/* Active Quiz — rendered inline above the objectives tracker */}
+      {activeQuiz && (
+        <ObjectiveQuizComponent
+          quiz={activeQuiz}
+          onComplete={handleQuizComplete}
+          onCancel={handleQuizCancel}
+        />
+      )}
+
       {/* Milestone Objectives Tracker — shown when in a milestone-scoped session */}
       {milestoneObjectives && milestoneObjectives.length > 0 && messages.length > 0 && (
         <div className="mx-3 sm:mx-4 mb-2 px-3 py-2 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg">
@@ -1001,21 +1110,34 @@ export function ChatInterface({
             </span>
           </div>
           <div className="flex flex-wrap gap-1">
-            {milestoneObjectives.map((obj, i) => (
-              <span
-                key={i}
-                className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full transition-colors ${
-                  masteredObjectives.has(i)
-                    ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-300 dark:border-green-700"
-                    : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700"
-                }`}
-                title={obj}
-              >
-                {masteredObjectives.has(i) ? "✅" : "○"}{" "}
-                {obj.length > 30 ? obj.slice(0, 30) + "…" : obj}
-              </span>
-            ))}
+            {milestoneObjectives.map((obj, i) => {
+              const isMastered = masteredObjectives.has(i);
+              const isReady = readyToQuizObjectives.has(i) && !isMastered;
+              return (
+                <button
+                  key={i}
+                  onClick={() => isReady && !activeQuiz && !isGeneratingQuiz && startQuiz(i)}
+                  disabled={isMastered || !isReady || !!activeQuiz || isGeneratingQuiz}
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full transition-all ${
+                    isMastered
+                      ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-300 dark:border-green-700 cursor-default"
+                      : isReady
+                      ? "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/30 cursor-pointer hover:shadow-sm"
+                      : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 cursor-default"
+                  }`}
+                  title={isMastered ? `✅ ${obj}` : isReady ? `🧪 Click to quiz: ${obj}` : obj}
+                >
+                  {isMastered ? "✅" : isReady ? "🧪" : "○"}{" "}
+                  {obj.length > 30 ? obj.slice(0, 30) + "…" : obj}
+                </button>
+              );
+            })}
           </div>
+          {readyToQuizObjectives.size > 0 && !activeQuiz && (
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-1.5">
+              🧪 = Ready to quiz — click to test your understanding
+            </p>
+          )}
         </div>
       )}
 

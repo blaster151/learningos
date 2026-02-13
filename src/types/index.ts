@@ -296,6 +296,45 @@ export interface ReflectionEvent {
 }
 
 // ===================================
+// Objective Quiz System
+// ===================================
+
+export type QuizQuestionType = "multiple_choice" | "true_false" | "short_answer";
+
+export interface QuizQuestion {
+  /** 0-based index within the quiz */
+  index: number;
+  type: QuizQuestionType;
+  question: string;
+  /** MC: 4 options; TF: ["True","False"]; short_answer: undefined */
+  options?: string[];
+  /** MC: index of correct option; TF: 0=True,1=False; short_answer: undefined */
+  correctAnswer?: number;
+  /** Short-answer only: model answer for AI grading */
+  modelAnswer?: string;
+  /** User's submitted answer (MC/TF: option index; short_answer: text) */
+  userAnswer?: number | string;
+  /** Whether this question was answered correctly */
+  isCorrect?: boolean;
+  /** AI feedback for short-answer questions */
+  aiFeedback?: string;
+}
+
+export interface ObjectiveQuiz {
+  objectiveIndex: number;
+  objectiveText: string;
+  questions: QuizQuestion[];
+  /** Current question being displayed (0-3) */
+  currentQuestionIndex: number;
+  /** Quiz state */
+  status: "in_progress" | "grading_essay" | "completed";
+  /** Number of correct answers (out of 4) */
+  score: number;
+  /** Whether the objective was mastered (score >= 3) */
+  passed: boolean;
+}
+
+// ===================================
 // Helper Types
 // ===================================
 
