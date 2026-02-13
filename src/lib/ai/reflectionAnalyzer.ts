@@ -5,6 +5,7 @@
 
 import { openai, AI_CONFIG } from "@/lib/ai/config";
 import { trackTokenUsage } from "@/lib/ai/tokenTracker";
+import { logAICall } from "@/lib/ai/aiLogger";
 import type { ConceptNode, MasteryLevel } from "@/types";
 import type { GeneratedPrompt } from "./reflectionPrompt";
 
@@ -165,6 +166,19 @@ Provide constructive feedback.`;
     });
 
     const responseContent = completion.choices[0]?.message?.content;
+
+    // Log the AI call
+    logAICall({
+      endpoint: "reflection-analysis",
+      model: AI_CONFIG.PRIMARY_MODEL,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage },
+      ],
+      callParams: { max_tokens: 1500, temperature: 0.3, response_format: { type: "json_object" } },
+      response: responseContent || undefined,
+      usage: completion.usage,
+    });
 
     // Track token usage (fire-and-forget)
     trackTokenUsage(userId, "reflection-analysis", AI_CONFIG.PRIMARY_MODEL, completion.usage)

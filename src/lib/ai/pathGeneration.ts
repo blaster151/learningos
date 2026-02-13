@@ -3,6 +3,7 @@
 
 import { openai, AI_CONFIG } from "@/lib/ai/config";
 import { trackTokenUsage } from "@/lib/ai/tokenTracker";
+import { logAICall } from "@/lib/ai/aiLogger";
 import type { 
   ConceptNode, 
   PathGenerationInput, 
@@ -87,6 +88,19 @@ export async function generateLearningPath(
     });
 
     const content = response.choices[0]?.message?.content;
+
+    // Log the AI call
+    logAICall({
+      endpoint: "path-generation",
+      model: AI_CONFIG.PRIMARY_MODEL,
+      messages: [
+        { role: "system", content: PATH_GENERATION_PROMPT },
+        { role: "user", content: userPrompt },
+      ],
+      callParams: { max_tokens: 2000, temperature: 0.7, response_format: { type: "json_object" } },
+      response: content || undefined,
+      usage: response.usage,
+    });
 
     // Track token usage (fire-and-forget)
     trackTokenUsage(input.userId, "path-generation", AI_CONFIG.PRIMARY_MODEL, response.usage)
@@ -314,6 +328,20 @@ export async function regeneratePath(
     });
 
     const content = response.choices[0]?.message?.content;
+
+    // Log the AI call
+    logAICall({
+      endpoint: "path-regeneration",
+      model: AI_CONFIG.PRIMARY_MODEL,
+      messages: [
+        { role: "system", content: PATH_GENERATION_PROMPT },
+        { role: "user", content: basePrompt },
+        { role: "user", content: `The previous path wasn't quite right. Please regenerate with this feedback in mind:\n\n${feedback}` },
+      ],
+      callParams: { max_tokens: 2000, temperature: 0.8, response_format: { type: "json_object" } },
+      response: content || undefined,
+      usage: response.usage,
+    });
 
     // Track token usage (fire-and-forget)
     trackTokenUsage(input.userId, "path-regeneration", AI_CONFIG.PRIMARY_MODEL, response.usage)

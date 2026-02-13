@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { openai, AI_CONFIG } from "@/lib/ai/config";
 import { trackTokenUsage } from "@/lib/ai/tokenTracker";
+import { logAICall } from "@/lib/ai/aiLogger";
 import { requireAuthUser, authErrorResponse } from "@/lib/auth/serverAuth";
 
 // ===================================
@@ -38,12 +39,10 @@ export async function POST(request: NextRequest) {
       .map((m) => `${m.role === "user" ? "LEARNER" : "TUTOR"}: ${m.content}`)
       .join("\n\n");
 
-    const response = await openai.chat.completions.create({
-      model: AI_CONFIG.FALLBACK_MODEL, // Use cheaper model for assessment
-      messages: [
-        {
-          role: "system",
-          content: `You are an educational assessment system. Given a conversation between a learner and their AI tutor, determine which learning objectives the learner has demonstrated understanding of.
+    const aiMessages: Array<{ role: "system" | "user"; content: string }> = [
+      {
+        role: "system",
+        content: `You are an educational assessment system. Given a conversation between a learner and their AI tutor, determine which learning objectives the learner has demonstrated understanding of.
 
 A learner has mastered an objective when they:
 - Correctly explain the concept in their own words
@@ -58,23 +57,37 @@ Respond with ONLY a JSON object in this format:
 
 Where "mastered" is an array of objective indices (0-based) that the learner has demonstrated mastery of.
 If no objectives are mastered yet, respond: {"mastered": [], "reasoning": {}}`,
-        },
-        {
-          role: "user",
-          content: `LEARNING OBJECTIVES:
+      },
+      {
+        role: "user",
+        content: `LEARNING OBJECTIVES:
 ${objectivesList}
 
 CONVERSATION:
 ${conversationText}
 
 Which objectives has the LEARNER demonstrated mastery of?`,
-        },
-      ],
+      },
+    ];
+
+    const response = await openai.chat.completions.create({
+      model: AI_CONFIG.FALLBACK_MODEL, // Use cheaper model for assessment
+      messages: aiMessages,
       max_tokens: 400,
       temperature: 0.3, // Low temperature for more consistent assessment
     });
 
     const raw = response.choices[0]?.message?.content?.trim() || "{}";
+
+    // Log the AI call
+    logAICall({
+      endpoint: "assess-objectives",
+      model: AI_CONFIG.FALLBACK_MODEL,
+      messages: aiMessages,
+      callParams: { max_tokens: 400, temperature: 0.3 },
+      response: raw,
+      usage: response.usage,
+    });
 
     // Track token usage (fire-and-forget)
     trackTokenUsage(authed.uid, "assess-objectives", AI_CONFIG.FALLBACK_MODEL, response.usage)

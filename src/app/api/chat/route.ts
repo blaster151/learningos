@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { openai, AI_CONFIG } from "@/lib/ai/config";
 import { trackStreamingUsage } from "@/lib/ai/tokenTracker";
+import { logAIStreamingCall } from "@/lib/ai/aiLogger";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { Timestamp } from "firebase-admin/firestore";
 import { extractConcepts } from "@/lib/ai/conceptExtraction";
@@ -103,6 +104,7 @@ export async function POST(request: NextRequest) {
 
     // Create a readable stream for the response
     const encoder = new TextEncoder();
+    const streamStartTime = Date.now();
     const readableStream = new ReadableStream({
       async start(controller) {
         let fullResponse = "";
@@ -115,6 +117,16 @@ export async function POST(request: NextRequest) {
               controller.enqueue(encoder.encode(content));
             }
           }
+
+          // Log the AI call
+          logAIStreamingCall({
+            endpoint: "chat",
+            model: AI_CONFIG.PRIMARY_MODEL,
+            messages,
+            callParams: { max_tokens: 1000, temperature: 0.7 },
+            fullResponse,
+            durationMs: Date.now() - streamStartTime,
+          });
 
           // Track estimated token usage (fire-and-forget)
           trackStreamingUsage(userId, "chat", AI_CONFIG.PRIMARY_MODEL, messages, fullResponse)

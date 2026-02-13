@@ -3,6 +3,7 @@
 
 import { openai, AI_CONFIG } from "@/lib/ai/config";
 import { trackTokenUsage } from "@/lib/ai/tokenTracker";
+import { logAICall } from "@/lib/ai/aiLogger";
 
 // ===================================
 // Types
@@ -75,18 +76,30 @@ export async function generateSessionSummary(
       ? "...[earlier conversation truncated]...\n\n" + conversationText.slice(-4000)
       : conversationText;
 
+    const aiMessages: Array<{ role: "system" | "user"; content: string }> = [
+      { role: "system", content: SUMMARY_PROMPT },
+      { role: "user", content: `Generate a summary for this learning session:\n\n${truncatedConversation}` },
+    ];
+
     const response = await openai.chat.completions.create({
       model: AI_CONFIG.FALLBACK_MODEL, // Use cheaper model for summaries
-      messages: [
-        { role: "system", content: SUMMARY_PROMPT },
-        { role: "user", content: `Generate a summary for this learning session:\n\n${truncatedConversation}` },
-      ],
+      messages: aiMessages,
       temperature: 0.5,
       max_tokens: 600,
       response_format: { type: "json_object" },
     });
 
     const content = response.choices[0]?.message?.content;
+
+    // Log the AI call
+    logAICall({
+      endpoint: "session-summary",
+      model: AI_CONFIG.FALLBACK_MODEL,
+      messages: aiMessages,
+      callParams: { max_tokens: 600, temperature: 0.5, response_format: { type: "json_object" } },
+      response: content || undefined,
+      usage: response.usage,
+    });
 
     // Track token usage (fire-and-forget) — no userId available here
     // Token tracking for session summaries is handled at the API route level

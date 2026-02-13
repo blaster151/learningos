@@ -3,6 +3,7 @@
 
 import { openai, AI_CONFIG } from "@/lib/ai/config";
 import { trackTokenUsage } from "@/lib/ai/tokenTracker";
+import { logAICall } from "@/lib/ai/aiLogger";
 import type { RelationType } from "@/types";
 
 // ===================================
@@ -88,15 +89,17 @@ export async function extractConceptsEnhanced(
     // Build context-aware prompt
     const contextInfo = buildContextInfo(context);
 
+    const aiMessages: Array<{ role: "system" | "user"; content: string }> = [
+      { role: "system", content: ENHANCED_EXTRACTION_PROMPT },
+      { 
+        role: "user", 
+        content: `${contextInfo}\n\nMESSAGE TO ANALYZE (from ${context.messageRole}):\n${message}` 
+      },
+    ];
+
     const response = await openai.chat.completions.create({
       model: AI_CONFIG.FALLBACK_MODEL, // Use cheaper model for extraction
-      messages: [
-        { role: "system", content: ENHANCED_EXTRACTION_PROMPT },
-        { 
-          role: "user", 
-          content: `${contextInfo}\n\nMESSAGE TO ANALYZE (from ${context.messageRole}):\n${message}` 
-        },
-      ],
+      messages: aiMessages,
       temperature: 0.3,
       max_tokens: 800,
       response_format: { type: "json_object" },
@@ -106,6 +109,16 @@ export async function extractConceptsEnhanced(
     if (!content) {
       return { concepts: [] };
     }
+
+    // Log the AI call
+    logAICall({
+      endpoint: "concept-extraction-enhanced",
+      model: AI_CONFIG.FALLBACK_MODEL,
+      messages: aiMessages,
+      callParams: { max_tokens: 800, temperature: 0.3, response_format: { type: "json_object" } },
+      response: content,
+      usage: response.usage,
+    });
 
     const parsed = JSON.parse(content) as ExtractionResult;
 

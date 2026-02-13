@@ -5,6 +5,7 @@
 
 import { openai, AI_CONFIG } from "@/lib/ai/config";
 import { trackTokenUsage } from "@/lib/ai/tokenTracker";
+import { logAICall } from "@/lib/ai/aiLogger";
 import type { ConceptNode } from "@/types";
 import type { Timestamp } from "firebase/firestore";
 
@@ -138,6 +139,19 @@ Generate a reflection prompt that will help this learner consolidate their under
     });
 
     const responseContent = completion.choices[0]?.message?.content;
+
+    // Log the AI call
+    logAICall({
+      endpoint: "reflection-prompt",
+      model: AI_CONFIG.PRIMARY_MODEL,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage },
+      ],
+      callParams: { max_tokens: 500, temperature: 0.7, response_format: { type: "json_object" } },
+      response: responseContent || undefined,
+      usage: completion.usage,
+    });
 
     // Track token usage (fire-and-forget)
     trackTokenUsage(userId, "reflection-prompt", AI_CONFIG.PRIMARY_MODEL, completion.usage)

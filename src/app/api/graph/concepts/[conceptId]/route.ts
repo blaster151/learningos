@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { openai, AI_CONFIG } from "@/lib/ai/config";
 import { trackTokenUsage } from "@/lib/ai/tokenTracker";
+import { logAICall } from "@/lib/ai/aiLogger";
 import type { ConceptNode, ConceptRelation, MasteryLevel } from "@/types";
 import {
   assertSameUser,
@@ -416,24 +417,38 @@ async function generateConceptDefinition(
   domain: string
 ): Promise<string | null> {
   try {
+    const messages = [
+      {
+        role: "system" as const,
+        content:
+          "You are a concise educational assistant. Generate a brief, clear definition (1-2 sentences) for a learning concept. The definition should be accessible and educational.",
+      },
+      {
+        role: "user" as const,
+        content: `Define the concept "${conceptName}" in the domain of ${domain || "general knowledge"}. Keep it to 1-2 sentences.`,
+      },
+    ];
+
     const response = await openai.chat.completions.create({
       model: AI_CONFIG.FALLBACK_MODEL,
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a concise educational assistant. Generate a brief, clear definition (1-2 sentences) for a learning concept. The definition should be accessible and educational.",
-        },
-        {
-          role: "user",
-          content: `Define the concept "${conceptName}" in the domain of ${domain || "general knowledge"}. Keep it to 1-2 sentences.`,
-        },
-      ],
+      messages,
       temperature: 0.3,
       max_tokens: 150,
     });
 
-    return response.choices[0]?.message?.content?.trim() || null;
+    const content = response.choices[0]?.message?.content?.trim() || null;
+
+    // Log the AI call
+    logAICall({
+      endpoint: "concept-definition-gen",
+      model: AI_CONFIG.FALLBACK_MODEL,
+      messages,
+      callParams: { max_tokens: 150, temperature: 0.3 },
+      response: content || undefined,
+      usage: response.usage,
+    });
+
+    return content;
   } catch (err) {
     console.error("Failed to generate concept definition:", err);
     return null;

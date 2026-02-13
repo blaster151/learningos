@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { openai, AI_CONFIG } from "@/lib/ai/config";
 import { trackTokenUsage } from "@/lib/ai/tokenTracker";
+import { logAICall } from "@/lib/ai/aiLogger";
 import { requireAuthUser, authErrorResponse } from "@/lib/auth/serverAuth";
 
 // ===================================
@@ -33,12 +34,10 @@ export async function POST(request: NextRequest) {
       ? `The session topic is: "${sessionTopic}".`
       : "This is a general learning session.";
 
-    const response = await openai.chat.completions.create({
-      model: AI_CONFIG.FALLBACK_MODEL, // Use cheaper model for quick suggestions
-      messages: [
-        {
-          role: "system",
-          content: `You generate follow-up questions for a learning chat.
+    const aiMessages: Array<{ role: "system" | "user"; content: string }> = [
+      {
+        role: "system",
+        content: `You generate follow-up questions for a learning chat.
 ${topicContext}
 Given the recent exchange, suggest exactly 3 short follow-up questions the learner might want to ask next.
 Each question should be:
@@ -47,25 +46,39 @@ Each question should be:
 - Progressive — moving the learner deeper into the subject
 Respond with ONLY a JSON array of 3 strings, no other text.
 Example: ["What is X used for?","How does X differ from Y?","Can you show me an example?"]`,
-        },
-        {
-          role: "user",
-          content: `User asked: "${lastUserMessage || "(session just started)"}"
+      },
+      {
+        role: "user",
+        content: `User asked: "${lastUserMessage || "(session just started)"}"
 
 AI responded: "${lastAssistantMessage.slice(0, 800)}"
 
 Generate 3 follow-up questions:`,
-        },
-      ],
+      },
+    ];
+
+    const response = await openai.chat.completions.create({
+      model: AI_CONFIG.FALLBACK_MODEL, // Use cheaper model for quick suggestions
+      messages: aiMessages,
       max_tokens: 200,
       temperature: 0.7,
+    });
+
+    const raw = response.choices[0]?.message?.content?.trim() || "[]";
+
+    // Log the AI call
+    logAICall({
+      endpoint: "follow-ups",
+      model: AI_CONFIG.FALLBACK_MODEL,
+      messages: aiMessages,
+      callParams: { max_tokens: 200, temperature: 0.7 },
+      response: raw,
+      usage: response.usage,
     });
 
     // Track token usage (fire-and-forget)
     trackTokenUsage(authed.uid, "follow-ups", AI_CONFIG.FALLBACK_MODEL, response.usage)
       .catch((err) => console.error("Token tracking failed:", err));
-
-    const raw = response.choices[0]?.message?.content?.trim() || "[]";
 
     // Parse the JSON array — handle potential markdown wrapping
     let suggestions: string[];

@@ -3,6 +3,7 @@
 
 import { openai, AI_CONFIG } from "@/lib/ai/config";
 import { trackTokenUsage } from "@/lib/ai/tokenTracker";
+import { logAICall } from "@/lib/ai/aiLogger";
 
 // ===================================
 // Types
@@ -68,12 +69,14 @@ export async function extractConcepts(
       .join("\n\n");
 
     // Use a faster model for extraction to save costs
+    const aiMessages: Array<{ role: "system" | "user"; content: string }> = [
+      { role: "system", content: EXTRACTION_PROMPT },
+      { role: "user", content: `Analyze this learning conversation:\n\n${conversationText}` },
+    ];
+
     const response = await openai.chat.completions.create({
       model: AI_CONFIG.FALLBACK_MODEL, // Use cheaper model for extraction
-      messages: [
-        { role: "system", content: EXTRACTION_PROMPT },
-        { role: "user", content: `Analyze this learning conversation:\n\n${conversationText}` },
-      ],
+      messages: aiMessages,
       temperature: 0.3, // Lower temperature for more consistent extraction
       max_tokens: 500,
       response_format: { type: "json_object" },
@@ -83,6 +86,16 @@ export async function extractConcepts(
     if (!content) {
       return { concepts: [] };
     }
+
+    // Log the AI call
+    logAICall({
+      endpoint: "concept-extraction-basic",
+      model: AI_CONFIG.FALLBACK_MODEL,
+      messages: aiMessages,
+      callParams: { max_tokens: 500, temperature: 0.3, response_format: { type: "json_object" } },
+      response: content,
+      usage: response.usage,
+    });
 
     // Track token usage
     if (userId) {
