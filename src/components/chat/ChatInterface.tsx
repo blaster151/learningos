@@ -8,6 +8,7 @@ import { BrainIcon, UserIcon } from "@/components/icons";
 import { ConceptTagsList, type ConceptData } from "./ConceptTag";
 import { ObjectiveQuizComponent } from "./ObjectiveQuiz";
 import { HighlightPopup } from "./HighlightPopup";
+import { MarkdownContent } from "./MarkdownContent";
 import { useHighlights, type Highlight } from "@/lib/hooks/useHighlights";
 import type { ObjectiveQuiz, QuizQuestion } from "@/types";
 
@@ -81,9 +82,9 @@ interface MessageBubbleProps {
 }
 
 /**
- * Parse message content and render **bold terms** as clickable buttons (for AI messages).
+ * Render message content with full Markdown + LaTeX math support (for AI messages).
  * Also applies highlight marks for saved highlights.
- * Other text is rendered as plain spans preserving whitespace.
+ * User messages are rendered as plain text.
  */
 function renderMessageContent(
   content: string,
@@ -91,67 +92,45 @@ function renderMessageContent(
   onTermClick?: (term: string) => void,
   messageHighlights?: Highlight[]
 ) {
-  if (isUser || !onTermClick) {
+  if (isUser) {
     return <span className="whitespace-pre-wrap break-words leading-relaxed">{content}</span>;
   }
 
-  // Split on **bold** markers, keeping the delimiters for reconstruction
-  const parts = content.split(/(\*\*[^*]+\*\*)/g);
-
-  // Build a flat text and track which ranges are highlighted
+  // Build highlight ranges
   const highlightRanges = (messageHighlights || []).map((h) => ({
     start: h.startOffset,
     end: h.endOffset,
     note: h.note,
   }));
 
-  // If no highlights, render normally
+  // If no highlights, render with Markdown + LaTeX
   if (highlightRanges.length === 0) {
     return (
-      <span className="whitespace-pre-wrap break-words leading-relaxed" data-message-content>
-        {parts.map((part, i) => {
-          const boldMatch = part.match(/^\*\*(.+)\*\*$/);
-          if (boldMatch) {
-            const term = boldMatch[1];
-            return (
-              <button
-                key={i}
-                onClick={() => onTermClick(term)}
-                className="font-semibold text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-100 hover:underline cursor-pointer bg-transparent border-none p-0 m-0 inline text-inherit transition-colors"
-                title={`Ask about "${term}"`}
-                aria-label={`Learn more about ${term}`}
-              >
-                {term}
-              </button>
-            );
-          }
-          return <span key={i}>{part}</span>;
-        })}
-      </span>
+      <div data-message-content>
+        <MarkdownContent content={content} onTermClick={onTermClick} />
+      </div>
     );
   }
 
-  // With highlights — render character-by-character highlighting over the final text
-  // First, produce the plain text (stripping ** markers) for offset matching
+  // With highlights — overlay highlight marks on the rendered content.
+  // We render the plain text with highlight marks, falling back to non-markdown
+  // rendering because highlights are offset-based on plain text.
   const plainText = content.replace(/\*\*([^*]+)\*\*/g, "$1");
-  
-  // Build segments: each segment is {text, highlighted, note, isBold}
-  type Segment = { text: string; highlighted: boolean; note?: string; isBold: boolean };
+
+  type Segment = { text: string; highlighted: boolean; note?: string };
   const segments: Segment[] = [];
-  
-  // Sort highlights by start offset
   const sorted = [...highlightRanges].sort((a, b) => a.start - b.start);
-  
+
   let cursor = 0;
   for (const hl of sorted) {
     if (hl.start > cursor) {
-      segments.push({ text: plainText.slice(cursor, hl.start), highlighted: false, isBold: false });
+      segments.push({ text: plainText.slice(cursor, hl.start), highlighted: false });
     }
-    segments.push({ text: plainText.slice(hl.start, hl.end), highlighted: true, note: hl.note, isBold: false });
+    segments.push({ text: plainText.slice(hl.start, hl.end), highlighted: true, note: hl.note });
     cursor = hl.end;
   }
   if (cursor < plainText.length) {
-    segments.push({ text: plainText.slice(cursor), highlighted: false, isBold: false });
+    segments.push({ text: plainText.slice(cursor), highlighted: false });
   }
 
   return (
