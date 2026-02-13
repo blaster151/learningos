@@ -8,6 +8,7 @@ import { authFetch } from "@/lib/api/authFetch";
 interface UseGraphOptions {
   user: User | null;
   initialFilters?: GraphFilters;
+  conceptIds?: string[]; // Optional: constrain to specific concepts
 }
 
 interface UseGraphReturn {
@@ -32,6 +33,7 @@ interface UseGraphReturn {
 export function useGraph({
   user,
   initialFilters,
+  conceptIds,
 }: UseGraphOptions): UseGraphReturn {
   const [graphData, setGraphData] = useState<GraphData | null>(null);
   const [filters, setFilters] = useState<GraphFilters>(
@@ -68,6 +70,10 @@ export function useGraph({
         params.append("search", filters.searchQuery);
       }
 
+      if (conceptIds && conceptIds.length > 0) {
+        params.append("conceptIds", conceptIds.join(","));
+      }
+
       const response = await authFetch(user, `/api/graph?${params}`);
 
       if (!response.ok) {
@@ -84,7 +90,7 @@ export function useGraph({
     } finally {
       setLoading(false);
     }
-  }, [user, filters]);
+  }, [user, filters, conceptIds]);
 
   // Fetch data on mount and when filters change
   useEffect(() => {

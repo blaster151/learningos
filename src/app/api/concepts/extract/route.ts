@@ -92,6 +92,7 @@ export async function POST(request: NextRequest) {
               name: concept.name.toLowerCase(),
               displayName: concept.name,
               description: concept.description || "",
+              definition: concept.description || "", // Store as both for compatibility
               masteryLevel: Math.round(concept.confidence * 20),
               exposureCount: 1,
               sessionIds: sessionId ? [sessionId] : [],

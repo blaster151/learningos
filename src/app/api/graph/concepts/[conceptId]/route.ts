@@ -8,6 +8,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebase/admin";
+import { openai, AI_CONFIG } from "@/lib/ai/config";
+import { trackTokenUsage } from "@/lib/ai/tokenTracker";
 import type { ConceptNode, ConceptRelation, MasteryLevel } from "@/types";
 import {
   assertSameUser,
@@ -107,6 +109,46 @@ export async function GET(
       conceptId: conceptDoc.id,
       ...(conceptData as Omit<ConceptNode, "conceptId">),
     };
+
+    // Ensure definition is populated (some concepts were created with "description" instead of "definition")
+    if (!concept.definition && conceptData) {
+      const desc = conceptData.description as string | undefined;
+      if (desc) {
+        // Use existing description as definition
+        concept.definition = desc;
+        // Backfill to Firestore (fire-and-forget)
+        conceptDoc.ref.update({ definition: desc }).catch(() => {});
+      } else {
+        // Generate a definition on-the-fly using AI
+        try {
+          const generated = await generateConceptDefinition(
+            concept.name,
+            concept.domain
+          );
+          if (generated) {
+            concept.definition = generated;
+            // Save back to Firestore (fire-and-forget)
+            conceptDoc.ref.update({ 
+              definition: generated,
+              definitionHistory: [{
+                definition: generated,
+                source: "system" as const,
+                timestamp: new Date().toISOString(),
+              }],
+            }).catch(() => {});
+
+            // Track token usage (fire-and-forget)
+            trackTokenUsage(userId, "concept-definition-gen", AI_CONFIG.FALLBACK_MODEL, {
+              prompt_tokens: 50,
+              completion_tokens: 80,
+              total_tokens: 130,
+            }).catch(() => {});
+          }
+        } catch (err) {
+          console.warn("Failed to generate definition:", err);
+        }
+      }
+    }
 
     // Fetch related concepts via relations (resilient to missing indexes)
     let relatedConcepts: RelatedConceptInfo[] = [];
@@ -363,4 +405,37 @@ async function calculateStatistics(
     daysSinceLastReview,
     averageSessionTime,
   };
+}
+
+// ===================================
+// Generate concept definition via AI
+// ===================================
+
+async function generateConceptDefinition(
+  conceptName: string,
+  domain: string
+): Promise<string | null> {
+  try {
+    const response = await openai.chat.completions.create({
+      model: AI_CONFIG.FALLBACK_MODEL,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a concise educational assistant. Generate a brief, clear definition (1-2 sentences) for a learning concept. The definition should be accessible and educational.",
+        },
+        {
+          role: "user",
+          content: `Define the concept "${conceptName}" in the domain of ${domain || "general knowledge"}. Keep it to 1-2 sentences.`,
+        },
+      ],
+      temperature: 0.3,
+      max_tokens: 150,
+    });
+
+    return response.choices[0]?.message?.content?.trim() || null;
+  } catch (err) {
+    console.error("Failed to generate concept definition:", err);
+    return null;
+  }
 }

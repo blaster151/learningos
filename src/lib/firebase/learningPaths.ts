@@ -295,7 +295,7 @@ export const pathsService = {
   },
 
   /**
-   * Abandon a path
+   * Abandon a path and clean up concepts that were exclusively from this path
    */
   async abandonPath(userId: string, pathId: string): Promise<void> {
     const db = await getAdminDb();
@@ -313,10 +313,90 @@ export const pathsService = {
       throw new Error("Unauthorized: Path belongs to different user");
     }
 
+    // Mark path as abandoned
     await pathRef.update({
       status: "abandoned",
       lastActivityAt: Timestamp.now(),
     });
+
+    // Collect all concept IDs from this path's milestones
+    const milestones = data?.milestones || [];
+    const pathConceptIds = new Set<string>();
+    for (const milestone of milestones) {
+      if (milestone.conceptIds) {
+        for (const id of milestone.conceptIds) {
+          pathConceptIds.add(id);
+        }
+      }
+    }
+
+    if (pathConceptIds.size === 0) return;
+
+    // For each concept, check if it's used elsewhere (other sessions, other paths, or has chat exposure)
+    // Only delete concepts that were exclusively from this path and never discussed in chat
+    const deletePromises: Promise<void>[] = [];
+    const relationDeletePromises: Promise<void>[] = [];
+
+    for (const conceptId of pathConceptIds) {
+      try {
+        const conceptDoc = await db.collection("concepts").doc(conceptId).get();
+        if (!conceptDoc.exists) continue;
+
+        const conceptData = conceptDoc.data();
+        if (!conceptData || conceptData.userId !== userId) continue;
+
+        // Check if this concept has been encountered in sessions beyond the path
+        const sessionIds = conceptData.sessionIds || [];
+        const learnedFrom = conceptData.learnedFrom || "";
+        const exposureCount = conceptData.exposureCount || 0;
+
+        // Keep the concept if:
+        // 1. It was discussed in chat sessions (sessionIds has entries not matching the pathId)
+        // 2. It was learned from a different source
+        // 3. It has meaningful exposure (encountered multiple times organically)
+        // 4. It has moved beyond "exploring" mastery (user has engaged with it)
+        const hasOtherSessions = sessionIds.length > 0 && sessionIds.some((s: string) => s !== pathId);
+        const learnedElsewhere = learnedFrom && learnedFrom !== pathId;
+        const hasSignificantExposure = exposureCount > 2;
+        const hasMasteryProgress = conceptData.masteryLevel && conceptData.masteryLevel !== "exploring";
+
+        if (hasOtherSessions || learnedElsewhere || hasSignificantExposure || hasMasteryProgress) {
+          continue; // Keep this concept
+        }
+
+        // Delete concept and its relations
+        deletePromises.push(
+          conceptDoc.ref.delete().then(() => {}).catch(err => 
+            console.warn(`Failed to delete concept ${conceptId}:`, err)
+          )
+        );
+
+        // Delete relations involving this concept
+        const [sourceRels, targetRels] = await Promise.all([
+          db.collection("concept_relations")
+            .where("userId", "==", userId)
+            .where("sourceConceptId", "==", conceptId)
+            .get(),
+          db.collection("concept_relations")
+            .where("userId", "==", userId)
+            .where("targetConceptId", "==", conceptId)
+            .get(),
+        ]);
+
+        for (const doc of [...sourceRels.docs, ...targetRels.docs]) {
+          relationDeletePromises.push(
+            doc.ref.delete().then(() => {}).catch(err =>
+              console.warn(`Failed to delete relation ${doc.id}:`, err)
+            )
+          );
+        }
+      } catch (err) {
+        console.warn(`Error checking concept ${conceptId} for cleanup:`, err);
+      }
+    }
+
+    // Execute all deletions in parallel
+    await Promise.all([...deletePromises, ...relationDeletePromises]);
   },
 
   /**

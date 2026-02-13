@@ -21,13 +21,23 @@ export async function GET(request: NextRequest) {
     const domainsParam = searchParams.get("domains");
     const masteryLevelsParam = searchParams.get("masteryLevels");
     const searchQuery = searchParams.get("search");
+    const conceptIdsParam = searchParams.get("conceptIds");
 
     assertSameUser(requestedUserId, authed.uid);
     const userId = authed.uid;
 
     // Fetch ALL concepts and relations (filter in transformer)
-    const concepts = await conceptsService.getUserConcepts(userId);
-    const relations = await relationsService.getUserRelations(userId);
+    let concepts = await conceptsService.getUserConcepts(userId);
+    let relations = await relationsService.getUserRelations(userId);
+
+    // If conceptIds filter provided, pre-filter concepts and relations
+    if (conceptIdsParam) {
+      const allowedIds = new Set(conceptIdsParam.split(",").filter(Boolean));
+      concepts = concepts.filter(c => allowedIds.has(c.conceptId));
+      relations = relations.filter(
+        r => allowedIds.has(r.sourceConceptId) && allowedIds.has(r.targetConceptId)
+      );
+    }
 
     // Build client-side filters for the transformer
     const graphFilters = {

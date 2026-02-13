@@ -65,13 +65,24 @@ export async function updateGraphFromMessage(
       return result; // Nothing to update
     }
 
-    // 3. Process each extracted concept
+    // 3. FIRST PASS: Create/update all concepts, building a complete ID map
+    // Maps normalized concept name -> conceptId (includes both existing and newly created)
+    const conceptIdMap = new Map<string, string>();
+    
+    // Pre-populate with existing concepts
+    for (const existing of existingConcepts) {
+      conceptIdMap.set(existing.name.toLowerCase(), existing.conceptId);
+    }
+
+    // Track which concepts were extracted in this message (for co-occurrence relations)
+    const extractedConceptIds: Array<{ id: string; name: string }> = [];
+
     for (const concept of extracted.concepts) {
       try {
         // Check for existing concept (exact or similar match)
         const match = findExistingConcept(concept.name, existingConcepts);
 
-        if (match?.exact) {
+        if (match?.exact || (match && match.similarity > 0.8)) {
           // Update existing concept
           const updates = await updateExistingConcept(
             db, userId, match.conceptId, concept, sessionId, messageRole
@@ -83,40 +94,15 @@ export async function updateGraphFromMessage(
               field: updates.join(", "),
             });
           }
-        } else if (match && match.similarity > 0.8) {
-          // High similarity - treat as same concept, update
-          const updates = await updateExistingConcept(
-            db, userId, match.conceptId, concept, sessionId, messageRole
-          );
-          if (updates.length > 0) {
-            result.updatedConcepts.push({
-              id: match.conceptId,
-              name: match.name,
-              field: updates.join(", "),
-            });
-          }
+          extractedConceptIds.push({ id: match.conceptId, name: match.name });
         } else {
           // New concept - create it
           const newId = await createNewConcept(db, userId, concept, sessionId, messageRole);
           result.newConcepts.push({ id: newId, name: concept.name });
-
-          // Create relations to existing concepts if suggested
-          if (concept.potentialRelations && concept.potentialRelations.length > 0) {
-            for (const rel of concept.potentialRelations) {
-              const targetConcept = findExistingConcept(rel.relatedTo, existingConcepts);
-              if (targetConcept) {
-                const relationId = await createRelation(
-                  db, userId, newId, targetConcept.conceptId, rel.relationType, sessionId
-                );
-                result.newRelations.push({
-                  id: relationId,
-                  from: concept.name,
-                  to: targetConcept.name,
-                  type: rel.relationType,
-                });
-              }
-            }
-          }
+          
+          // Add to the ID map so subsequent concepts can reference it
+          conceptIdMap.set(concept.name.toLowerCase(), newId);
+          extractedConceptIds.push({ id: newId, name: concept.name });
         }
       } catch (err) {
         const errorMsg = `Error processing concept "${concept.name}": ${err}`;
@@ -125,7 +111,60 @@ export async function updateGraphFromMessage(
       }
     }
 
-    // 4. Update session with covered concepts
+    // 4. SECOND PASS: Process relations for ALL extracted concepts (new and existing)
+    //    Now that all concepts from this message are created, we can link them
+    //    Track linked pairs by ID so co-occurrence can skip them
+    const linkedPairIds = new Set<string>();
+
+    for (const concept of extracted.concepts) {
+      if (!concept.potentialRelations || concept.potentialRelations.length === 0) continue;
+
+      // Find the source concept's ID
+      const sourceId = conceptIdMap.get(concept.name.toLowerCase());
+      if (!sourceId) continue;
+
+      for (const rel of concept.potentialRelations) {
+        try {
+          // Look up target in our complete map first (catches same-message concepts)
+          let targetId = conceptIdMap.get(rel.relatedTo.toLowerCase());
+          
+          // If not in map, try fuzzy match against existing concepts
+          if (!targetId) {
+            const targetMatch = findExistingConcept(rel.relatedTo, existingConcepts);
+            if (targetMatch) {
+              targetId = targetMatch.conceptId;
+            }
+          }
+
+          if (targetId && targetId !== sourceId) {
+            const relationId = await createRelation(
+              db, userId, sourceId, targetId, rel.relationType, sessionId
+            );
+            result.newRelations.push({
+              id: relationId,
+              from: concept.name,
+              to: rel.relatedTo,
+              type: rel.relationType,
+            });
+            // Track this pair so co-occurrence doesn't create a weaker duplicate
+            const pairKey = [sourceId, targetId].sort().join("|");
+            linkedPairIds.add(pairKey);
+          }
+        } catch (err) {
+          console.warn(`Failed to create relation ${concept.name} -> ${rel.relatedTo}:`, err);
+        }
+      }
+    }
+
+    // 5. AUTO-RELATE: Create co-occurrence relations between concepts from the same message
+    //    If multiple concepts are discussed in the same message, they're contextually related
+    if (extractedConceptIds.length >= 2) {
+      await createCoOccurrenceRelations(
+        db, userId, sessionId, extractedConceptIds, linkedPairIds, result
+      );
+    }
+
+    // 6. Update session with covered concepts
     await updateSessionConcepts(db, sessionId, result.newConcepts.map(c => c.id));
 
     return result;
@@ -338,18 +377,30 @@ async function createRelation(
   relationType: RelationType,
   sessionId: string
 ): Promise<string> {
-  // Check if relation already exists
-  const existing = await db
-    .collection("concept_relations")
-    .where("userId", "==", userId)
-    .where("sourceConceptId", "==", sourceConceptId)
-    .where("targetConceptId", "==", targetConceptId)
-    .limit(1)
-    .get();
+  // Check if relation already exists in either direction
+  const [existingForward, existingReverse] = await Promise.all([
+    db.collection("concept_relations")
+      .where("userId", "==", userId)
+      .where("sourceConceptId", "==", sourceConceptId)
+      .where("targetConceptId", "==", targetConceptId)
+      .limit(1)
+      .get(),
+    db.collection("concept_relations")
+      .where("userId", "==", userId)
+      .where("sourceConceptId", "==", targetConceptId)
+      .where("targetConceptId", "==", sourceConceptId)
+      .limit(1)
+      .get(),
+  ]);
 
-  if (!existing.empty) {
-    // Update strength of existing relation
-    const existingDoc = existing.docs[0];
+  const existingDoc = !existingForward.empty
+    ? existingForward.docs[0]
+    : !existingReverse.empty
+      ? existingReverse.docs[0]
+      : null;
+
+  if (existingDoc) {
+    // Strengthen existing relation
     const currentStrength = existingDoc.data().strength || 0.5;
     await existingDoc.ref.update({
       strength: Math.min(1.0, currentStrength + 0.1),
@@ -372,6 +423,48 @@ async function createRelation(
 
   const ref = await db.collection("concept_relations").add(relationData);
   return ref.id;
+}
+
+async function createCoOccurrenceRelations(
+  db: FirebaseFirestore.Firestore,
+  userId: string,
+  sessionId: string,
+  concepts: Array<{ id: string; name: string }>,
+  linkedPairIds: Set<string>,
+  result: GraphUpdateResult
+): Promise<void> {
+  for (let i = 0; i < concepts.length; i++) {
+    for (let j = i + 1; j < concepts.length; j++) {
+      const a = concepts[i];
+      const b = concepts[j];
+
+      // Skip if AI already created a specific relation for this pair
+      const pairKey = [a.id, b.id].sort().join("|");
+      if (linkedPairIds.has(pairKey)) {
+        continue;
+      }
+
+      try {
+        // Check if a relation already exists in Firestore (in either direction)
+        // createRelation already checks both directions, so just call it
+        // It will strengthen if exists, create if not
+        const relationId = await createRelation(
+          db, userId, a.id, b.id, "similar_to", sessionId
+        );
+
+        // Only add to results if it's truly new (not just strengthened)
+        // We can tell by checking if the ID is already in an existing doc
+        result.newRelations.push({
+          id: relationId,
+          from: a.name,
+          to: b.name,
+          type: "similar_to",
+        });
+      } catch (err) {
+        console.warn(`Failed to create co-occurrence relation ${a.name} <-> ${b.name}:`, err);
+      }
+    }
+  }
 }
 
 async function updateSessionConcepts(

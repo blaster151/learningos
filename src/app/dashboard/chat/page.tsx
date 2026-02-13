@@ -13,7 +13,11 @@ interface Session {
   topic: string;
   status: "active" | "paused" | "completed";
   createdAt: string;
+  startedAt?: string;
+  lastActivity?: string;
   messageCount: number;
+  pathId?: string;
+  milestoneId?: string;
 }
 
 export default function ChatPage() {
@@ -78,10 +82,14 @@ function ChatPageInner() {
         const data = await response.json();
         setSessions(data.sessions || []);
         
-        // Auto-select most recent active session
-        const activeSession = data.sessions?.find((s: Session) => s.status === "active");
-        if (activeSession) {
-          setActiveSessionId(activeSession.sessionId);
+        // Auto-select most recent active session only if NOT navigating from concept URL
+        // (concept URL handler will pick the right session itself)
+        const hasConceptParam = new URLSearchParams(window.location.search).has("concept");
+        if (!hasConceptParam) {
+          const activeSession = data.sessions?.find((s: Session) => s.status === "active");
+          if (activeSession) {
+            setActiveSessionId(activeSession.sessionId);
+          }
         }
       }
     } catch (error) {
@@ -143,9 +151,26 @@ function ChatPageInner() {
         .catch((err) => console.error("Failed to load milestone objectives:", err));
     }
 
-    // Create a session with concept context
-    const startConceptSession = async () => {
+    // Try to find an existing active session for this path first
+    const startOrResumeSession = async () => {
       try {
+        // If coming from a path, check for existing active sessions on this path
+        if (urlPathId) {
+          const existingSession = sessions.find(
+            (s) => s.pathId === urlPathId && s.status === "active"
+          );
+
+          if (existingSession) {
+            // Resume existing session
+            setActiveSessionId(existingSession.sessionId);
+            setShowHistory(false);
+            setShowSummary(false);
+            window.history.replaceState({}, "", "/dashboard/chat");
+            return;
+          }
+        }
+
+        // No existing session found — create a new one
         const response = await authFetch(user, "/api/sessions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -154,6 +179,8 @@ function ChatPageInner() {
             topic,
             goal: `Deep dive into the concept: ${conceptName}`,
             ...(conceptId && { conceptId }),
+            ...(urlPathId && { pathId: urlPathId }),
+            ...(urlMilestoneId && { milestoneId: urlMilestoneId }),
           }),
         });
 
@@ -173,8 +200,8 @@ function ChatPageInner() {
       }
     };
 
-    startConceptSession();
-  }, [conceptHandled, isLoading, user, searchParams]);
+    startOrResumeSession();
+  }, [conceptHandled, isLoading, user, searchParams, sessions]);
 
   useEffect(() => {
     if (activeSessionId) {
@@ -314,6 +341,9 @@ function ChatPageInner() {
                 Select a previous conversation to continue
               </CardDescription>
             </div>
+            <Button variant="outline" onClick={() => setShowHistory(false)}>
+              Back
+            </Button>
           </CardHeader>
           <CardContent className="flex-1 overflow-y-auto">
             {sessions.length === 0 ? (
@@ -347,7 +377,7 @@ function ChatPageInner() {
                       </span>
                     </div>
                     <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                      {session.messageCount} messages • {new Date(session.createdAt).toLocaleDateString()}
+                      {session.messageCount} messages • {new Date(session.lastActivity || session.createdAt).toLocaleDateString()}
                     </div>
                   </button>
                 ))}
@@ -459,7 +489,7 @@ function ChatPageInner() {
                         </span>
                       </div>
                       <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        {session.messageCount} messages • {new Date(session.createdAt).toLocaleDateString()}
+                        {session.messageCount} messages • {new Date(session.lastActivity || session.createdAt).toLocaleDateString()}
                       </div>
                     </button>
                   ))}

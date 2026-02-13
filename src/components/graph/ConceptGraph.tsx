@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useCallback, useEffect, forwardRef, useImperativeHandle } from "react";
+import { useRef, useCallback, useEffect, useState, forwardRef, useImperativeHandle } from "react";
 import dynamic from "next/dynamic";
 import type { GraphData, GraphNode, GraphLink } from "@/types";
 
@@ -133,6 +133,22 @@ const ConceptGraph = forwardRef<ConceptGraphHandle, ConceptGraphProps>(function 
     return `${sourceName} ${verb} ${targetName}`;
   }, []);
 
+  // Link click handler (for touch users who can't hover)
+  const [linkTooltip, setLinkTooltip] = useState<{ text: string; x: number; y: number } | null>(null);
+
+  const handleLinkClick = useCallback((link: any, event: MouseEvent) => {
+    const label = formatLinkLabel(link);
+    setLinkTooltip({ text: label, x: event.clientX, y: event.clientY });
+    // Auto-dismiss after 3 seconds
+    setTimeout(() => setLinkTooltip(null), 3000);
+  }, [formatLinkLabel]);
+
+  // Dismiss tooltip on background click
+  const handleBackgroundClick = useCallback(() => {
+    setLinkTooltip(null);
+    onBackgroundClick();
+  }, [onBackgroundClick]);
+
   return (
     <div className="relative w-full h-full bg-gray-50 rounded-lg overflow-hidden">
       {/* @ts-ignore - react-force-graph-2d has type mismatches with custom node types */}
@@ -143,7 +159,7 @@ const ConceptGraph = forwardRef<ConceptGraphHandle, ConceptGraphProps>(function 
         nodePointerAreaPaint={nodePointerAreaPaint}
         nodeLabel={(node: any) => node.displayName || node.name || node.id}
         onNodeClick={handleNodeClick}
-        onBackgroundClick={onBackgroundClick}
+        onBackgroundClick={handleBackgroundClick}
         linkLabel={formatLinkLabel}
         linkColor={(link: any) => (link as GraphLink).color || "#CBD5E1"}
         linkWidth={(link: any) => link.__hover ? 4 : 2}
@@ -151,6 +167,7 @@ const ConceptGraph = forwardRef<ConceptGraphHandle, ConceptGraphProps>(function 
           if (prevLink) prevLink.__hover = false;
           if (link) link.__hover = true;
         }}
+        onLinkClick={handleLinkClick}
         linkDirectionalParticles={2}
         linkDirectionalParticleWidth={2}
         width={width}
@@ -162,6 +179,19 @@ const ConceptGraph = forwardRef<ConceptGraphHandle, ConceptGraphProps>(function 
         enableZoomInteraction={true}
         enablePanInteraction={true}
       />
+
+      {/* Link tooltip (for touch/click on links) */}
+      {linkTooltip && (
+        <div
+          className="fixed z-50 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg shadow-lg pointer-events-none max-w-xs"
+          style={{
+            left: Math.min(linkTooltip.x + 10, window.innerWidth - 250),
+            top: linkTooltip.y - 40,
+          }}
+        >
+          {linkTooltip.text}
+        </div>
+      )}
     </div>
   );
 });

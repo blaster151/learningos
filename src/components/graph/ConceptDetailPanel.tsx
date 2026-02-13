@@ -139,7 +139,13 @@ export default function ConceptDetailPanel({
                     {detail.concept.masteryLevel}
                   </span>
                 </div>
-                <p className="text-gray-700">{detail.concept.definition}</p>
+                <p className="text-gray-700">
+                  {detail.concept.definition || (
+                    <span className="text-gray-400 italic">
+                      Definition not available yet
+                    </span>
+                  )}
+                </p>
               </div>
 
               {/* Statistics */}

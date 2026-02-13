@@ -16,6 +16,9 @@ interface CreateSessionRequest {
   userId: string;
   topic?: string;
   goal?: string;
+  pathId?: string;
+  milestoneId?: string;
+  conceptId?: string;
 }
 
 // ===================================
@@ -29,13 +32,13 @@ export async function POST(request: NextRequest) {
 
     assertSameUser(body.userId ?? null, authed.uid);
     const userId = authed.uid;
-    const { topic, goal } = body;
+    const { topic, goal, pathId, milestoneId, conceptId } = body;
 
     const db = await getAdminDb();
     const now = Timestamp.now();
 
     // Create new session
-    const sessionData = {
+    const sessionData: Record<string, unknown> = {
       userId,
       topic: topic || "General Learning",
       goal: goal || null,
@@ -45,6 +48,11 @@ export async function POST(request: NextRequest) {
       conceptsCovered: [],
       status: "active",
     };
+
+    // Store path/milestone context if provided
+    if (pathId) sessionData.pathId = pathId;
+    if (milestoneId) sessionData.milestoneId = milestoneId;
+    if (conceptId) sessionData.conceptId = conceptId;
 
     const sessionRef = await db.collection("sessions").add(sessionData);
 
@@ -121,18 +129,20 @@ export async function GET(request: NextRequest) {
     }
 
     // Get all sessions for user
-    const sessionsSnapshot = await db
+    let query = db
       .collection("sessions")
       .where("userId", "==", userId)
       .orderBy("lastActivity", "desc")
-      .limit(20)
-      .get();
+      .limit(50);
+
+    const sessionsSnapshot = await query.get();
 
     const sessions = sessionsSnapshot.docs.map((doc) => {
       const data = doc.data();
       return {
         sessionId: doc.id,
         ...data,
+        createdAt: data.startedAt?.toDate?.()?.toISOString(),
         startedAt: data.startedAt?.toDate?.()?.toISOString(),
         lastActivity: data.lastActivity?.toDate?.()?.toISOString(),
         endedAt: data.endedAt?.toDate?.()?.toISOString(),

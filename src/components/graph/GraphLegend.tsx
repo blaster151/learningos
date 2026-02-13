@@ -3,21 +3,21 @@
 import type { MasteryLevel, RelationType } from "@/types";
 
 const MASTERY_COLORS: Record<MasteryLevel, string> = {
-  exploring: "#94A3B8", // gray
-  learning: "#60A5FA", // blue
-  practicing: "#34D399", // green
-  comfortable: "#FBBF24", // yellow
-  expert: "#A78BFA", // purple
+  exploring: "#94A3B8",    // Slate - just started
+  learning: "#60A5FA",     // Blue - building understanding
+  practicing: "#A78BFA",   // Purple - applying knowledge
+  comfortable: "#34D399",  // Green - solid understanding
+  expert: "#FBBF24",       // Gold - fully mastered
 };
 
 const RELATION_TYPES: Array<{ type: RelationType; label: string; color: string }> = [
   { type: "prerequisite", label: "Prerequisite", color: "#EF4444" },
-  { type: "builds_on", label: "Builds On", color: "#F59E0B" },
-  { type: "similar_to", label: "Similar To", color: "#10B981" },
-  { type: "contrasts_with", label: "Contrasts With", color: "#6366F1" },
-  { type: "abstracts_to", label: "Abstracts To", color: "#8B5CF6" },
-  { type: "applies_to", label: "Applies To", color: "#EC4899" },
-  { type: "example_of", label: "Example Of", color: "#14B8A6" },
+  { type: "builds_on", label: "Builds On", color: "#F97316" },
+  { type: "similar_to", label: "Similar To", color: "#8B5CF6" },
+  { type: "contrasts_with", label: "Contrasts With", color: "#EC4899" },
+  { type: "abstracts_to", label: "Abstracts To", color: "#06B6D4" },
+  { type: "applies_to", label: "Applies To", color: "#10B981" },
+  { type: "example_of", label: "Example Of", color: "#6366F1" },
 ];
 
 export default function GraphLegend() {

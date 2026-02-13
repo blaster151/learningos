@@ -356,6 +356,7 @@ export interface GraphFilters {
   domains: string[];
   masteryLevels: MasteryLevel[];
   searchQuery: string;
+  conceptIds?: string[]; // Optional: constrain graph to specific concepts
 }
 
 // ===================================

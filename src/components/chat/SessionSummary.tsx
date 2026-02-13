@@ -71,13 +71,22 @@ export function SessionSummary({ sessionId, onClose, onContinue }: SessionSummar
       if (sessionRes.ok) {
         const sessionData = await sessionRes.json();
         setSession(sessionData.session);
-      }
 
-      // Load concepts for this user (recently practiced)
-      const conceptsRes = await authFetch(user, `/api/concepts?sortBy=lastPracticed&limit=10`);
-      if (conceptsRes.ok) {
-        const conceptsData = await conceptsRes.json();
-        setConcepts(conceptsData.concepts || []);
+        // Load concepts specific to this session (using conceptsCovered IDs from session doc)
+        const coveredIds: string[] = sessionData.session?.conceptsCovered || [];
+        if (coveredIds.length > 0) {
+          // Fetch user concepts and filter to those covered in this session
+          const conceptsRes = await authFetch(user, `/api/concepts?sortBy=lastPracticed&limit=50`);
+          if (conceptsRes.ok) {
+            const conceptsData = await conceptsRes.json();
+            const allConcepts: Concept[] = conceptsData.concepts || [];
+            // Filter to only concepts covered in this session
+            const sessionConcepts = allConcepts.filter(
+              (c: Concept) => coveredIds.includes(c.id)
+            );
+            setConcepts(sessionConcepts);
+          }
+        }
       }
 
       // Try to load existing AI summary
