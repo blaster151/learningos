@@ -7,6 +7,7 @@ import { Timestamp } from "firebase-admin/firestore";
 import { extractConcepts } from "@/lib/ai/conceptExtraction";
 import { updateGraphFromMessage } from "@/lib/ai/conceptGraphUpdater";
 import { progressTracker } from "@/lib/learning/progressTracker";
+import { conceptsService } from "@/lib/firebase/concepts";
 import {
   assertSameUser,
   authErrorResponse,
@@ -47,7 +48,12 @@ Guidelines:
 - If a user seems stuck, offer hints rather than full solutions
 - Ask follow-up questions to deepen understanding
 - Use markdown formatting for code blocks and lists when helpful
-- **Bold key terminology** using **double asterisks** when introducing or referencing important concepts, technical terms, or domain-specific vocabulary (e.g. **closure**, **polymorphism**, **event loop**). This helps learners identify and explore key terms interactively.
+- **Bold ALL domain-relevant terms** using **double asterisks** — every technical term, named concept, principle, theory, named entity, or domain-specific vocabulary should be bolded **every time it appears**, not just on first mention. Examples: **Schrödinger's cat**, **closure**, **polymorphism**, **event loop**, **recursion**, **quantum superposition**.
+  - Be generous: if a term is something a learner might want to explore further or add to their knowledge graph, bold it.
+  - Aim for at least 3–8 bolded terms per response. It is better to bold too many than too few.
+  - Bold on EVERY occurrence in the response, not just the first mention.
+  - Bold terms the learner has already encountered in previous messages — consistency matters.
+  - Do NOT bold common English words, conversational filler, or non-domain terms.
 
 Remember: Your goal is not just to answer questions, but to help users truly understand and retain knowledge.`;
 
@@ -78,9 +84,22 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Fetch user's known concepts to inject into system prompt for consistent bolding
+    let systemPrompt = SYSTEM_PROMPT;
+    try {
+      const knownConcepts = await conceptsService.getUserConcepts(userId, { limit: 50 });
+      if (knownConcepts.length > 0) {
+        const conceptNames = knownConcepts.map((c) => c.name);
+        systemPrompt += `\n\nThe learner's knowledge graph already contains these concepts — always bold them when they appear: ${conceptNames.join(", ")}.`;
+      }
+    } catch (err) {
+      console.error("Failed to fetch known concepts for bolding:", err);
+      // Continue without concept list — bolding will still work from the base instruction
+    }
+
     // Build conversation history for context
     const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: systemPrompt },
     ];
 
     // Add conversation history (last 10 messages for context)

@@ -226,14 +226,16 @@ function TypingIndicator() {
 interface QuickActionsProps {
   onAction: (action: string) => void;
   simplifying?: boolean;
+  hasMilestone?: boolean;
 }
 
-function QuickActions({ onAction, simplifying }: QuickActionsProps) {
+function QuickActions({ onAction, simplifying, hasMilestone }: QuickActionsProps) {
   const actions = [
     { id: "explain", label: "Explain more", icon: "💡" },
     { id: "example", label: "Give me an example", icon: "📝" },
     { id: "quiz", label: "Quiz me", icon: "❓" },
     { id: "simplify", label: simplifying ? "Simplifying…" : "Simplify this", icon: simplifying ? "⏳" : "🎯" },
+    ...(hasMilestone ? [{ id: "continue_milestone", label: "Continue milestone", icon: "📍" }] : []),
   ];
 
   return (
@@ -701,6 +703,24 @@ export function ChatInterface({
       // No ready objectives — fall through to chat-based quiz
     }
 
+    // Continue milestone — build a context-rich prompt with remaining objectives
+    if (action === "continue_milestone" && milestoneObjectives?.length) {
+      const remaining = milestoneObjectives
+        .map((obj, i) => ({ obj, i }))
+        .filter(({ i }) => !masteredObjectives.has(i));
+      const nextObjective = remaining[0];
+      const remainingList = remaining.map(({ obj }) => `• ${obj}`).join("\n");
+      const prompt = nextObjective
+        ? `Let's get back to the milestone. I still need to cover these objectives:\n${remainingList}\n\nPlease pick up with the next one: "${nextObjective.obj}". Give me a clear explanation to get started.`
+        : "Let's continue with the milestone. What should we cover next?";
+      setInput(prompt);
+      setTimeout(() => {
+        const sendBtn = document.querySelector('[aria-label="Send message"]') as HTMLButtonElement;
+        sendBtn?.click();
+      }, 100);
+      return;
+    }
+
     const prompts: Record<string, string> = {
       explain: "Can you explain that in more detail?",
       example: "Can you give me a practical example of this?",
@@ -1064,7 +1084,7 @@ export function ChatInterface({
                  index === messages.length - 1 && 
                  !isLoading && (
                   <>
-                    <QuickActions onAction={handleQuickAction} simplifying={!!simplifyingMessageId} />
+                    <QuickActions onAction={handleQuickAction} simplifying={!!simplifyingMessageId} hasMilestone={!!milestoneObjectives?.length} />
                     <FollowUpSuggestions
                       suggestions={followUpSuggestions}
                       onSelect={handleFollowUpSelect}
