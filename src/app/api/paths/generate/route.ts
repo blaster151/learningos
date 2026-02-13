@@ -8,16 +8,23 @@ import {
   authErrorResponse,
   requireAuthUser,
 } from "@/lib/auth/serverAuth";
+import { inferUserLevel } from "@/lib/utils/userLevel";
+import { knowledgeProfileService } from "@/lib/firebase/knowledgeProfile";
 
 // ===================================
 // Types
 // ===================================
 
 interface GeneratePathRequest {
-  userId: string;
+  userId?: string;
   goal: string;
+  originalGoal?: string;
+  isOverview?: boolean;
+  skippedCalibration?: boolean;
   timeAvailableMinutes?: number;
   preferredDepth?: "quick" | "thorough" | "deep";
+  declaredKnownConcepts?: string[];
+  declaredFamiliarConcepts?: string[];
 }
 
 // ===================================
@@ -28,7 +35,17 @@ export async function POST(request: NextRequest) {
   try {
     const authed = await requireAuthUser(request);
     const body: GeneratePathRequest = await request.json();
-    const { userId: requestedUserId, goal, timeAvailableMinutes, preferredDepth } = body;
+    const {
+      userId: requestedUserId,
+      goal,
+      originalGoal,
+      isOverview,
+      skippedCalibration,
+      timeAvailableMinutes,
+      preferredDepth,
+      declaredKnownConcepts,
+      declaredFamiliarConcepts,
+    } = body;
 
     assertSameUser(requestedUserId ?? null, authed.uid);
     const userId = authed.uid;
@@ -44,19 +61,36 @@ export async function POST(request: NextRequest) {
     const knownConcepts = await conceptsService.getUserConcepts(userId);
 
     // Determine user level based on concepts
-    let userLevel: "beginner" | "intermediate" | "advanced" = "beginner";
-    if (knownConcepts.length >= 20) {
-      userLevel = "advanced";
-    } else if (knownConcepts.length >= 5) {
-      userLevel = "intermediate";
-    }
+    const userLevel = inferUserLevel(knownConcepts.length);
+
+    // E18-S6: Load global knowledge profile and merge with declared concepts
+    const globalProfile = await knowledgeProfileService.getProfile(userId);
+    const profileKnown = globalProfile
+      .filter((e) => e.confidence >= 1.0)
+      .map((e) => e.concept);
+    const profileFamiliar = globalProfile
+      .filter((e) => e.confidence >= 0.5 && e.confidence < 1.0)
+      .map((e) => e.concept);
+
+    // Merge: explicit pill selections take priority, then fill from global profile
+    const mergedKnown = Array.from(
+      new Set([...(declaredKnownConcepts || []).filter(Boolean), ...profileKnown])
+    );
+    const mergedFamiliar = Array.from(
+      new Set([...(declaredFamiliarConcepts || []).filter(Boolean), ...profileFamiliar])
+    );
 
     // Generate learning path using AI
     const result = await generateLearningPath({
       userId,
       goal,
+      originalGoal,
+      isOverview,
+      skippedCalibration,
       knownConcepts,
       userLevel,
+      declaredKnownConcepts: mergedKnown.length ? mergedKnown : undefined,
+      declaredFamiliarConcepts: mergedFamiliar.length ? mergedFamiliar : undefined,
       timeAvailableMinutes,
       preferredDepth: preferredDepth || "thorough",
     });
@@ -143,6 +177,23 @@ export async function POST(request: NextRequest) {
         userGoal: goal,
         knownConceptIds: knownConcepts.map((c) => c.conceptId),
         userLevel,
+        ...(originalGoal ? { originalGoal } : {}),
+        ...(isOverview ? { isOverview } : {}),
+        ...(skippedCalibration ? { skippedCalibration } : {}),
+        ...(declaredKnownConcepts?.length
+          ? { declaredKnownConcepts: declaredKnownConcepts.filter(Boolean) }
+          : {}),
+        ...(declaredFamiliarConcepts?.length
+          ? { declaredFamiliarConcepts: declaredFamiliarConcepts.filter(Boolean) }
+          : {}),
+        ...(globalProfile.length
+          ? {
+              knowledgeProfileSnapshot: globalProfile.map((e) => ({
+                concept: e.concept,
+                confidence: e.confidence,
+              })),
+            }
+          : {}),
       },
       createdAt: Timestamp.now(),
       lastActivityAt: Timestamp.now(),

@@ -12,6 +12,35 @@ export interface Timestamp {
 }
 
 // ===================================
+// Path Scope & Calibration
+// ===================================
+
+export type PathScopeTier = "micro" | "focused" | "domain" | "field";
+
+export type TopicScopeAnalysis = {
+  scopeTier: PathScopeTier;
+  confidence: number; // 0-1
+  rationale: string;
+  recommendedMode: "overview" | "narrow";
+  suggestedNarrowTopics: Array<{ title: string; description: string; order: number }>;
+};
+
+export interface CalibrationPill {
+  concept: string;
+  reason: string;
+}
+
+/** Global per-user concept → confidence entry (E18-S6) */
+export interface KnowledgeProfileEntry {
+  userId: string;
+  concept: string;
+  /** 0 = unknown, 0.5 = somewhat familiar, 1.0 = known */
+  confidence: number;
+  source: "calibration" | "quiz" | "reflection";
+  updatedAt?: Timestamp;
+}
+
+// ===================================
 // User Profile
 // ===================================
 
@@ -208,9 +237,16 @@ export interface LearningPath {
   // Generation context
   generatedFrom: {
     userGoal: string;
+    originalGoal?: string;
+    isOverview?: boolean;
+    skippedCalibration?: boolean;
     knownConceptIds: string[];
     userLevel: "beginner" | "intermediate" | "advanced";
     learningStyle?: string;
+    declaredKnownConcepts?: string[];
+    declaredFamiliarConcepts?: string[];
+    /** Snapshot of global knowledge profile used at creation time (E18-S6) */
+    knowledgeProfileSnapshot?: Array<{ concept: string; confidence: number }>;
   };
   
   // Timestamps
@@ -249,8 +285,13 @@ export interface PathMilestone {
 export interface PathGenerationInput {
   userId: string;
   goal: string;
+  originalGoal?: string;
+  isOverview?: boolean;
+  skippedCalibration?: boolean;
   knownConcepts: ConceptNode[];
   userLevel: "beginner" | "intermediate" | "advanced";
+  declaredKnownConcepts?: string[];
+  declaredFamiliarConcepts?: string[];
   timeAvailableMinutes?: number;
   learningStyle?: string;
   preferredDepth?: "quick" | "thorough" | "deep";

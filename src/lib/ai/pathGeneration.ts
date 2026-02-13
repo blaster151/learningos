@@ -60,7 +60,8 @@ RULES:
 - Prerequisites array contains INDICES (numbers) of prior milestones, not names
 - First milestone should have empty prerequisites: []
 - Total estimated time should be realistic (typically 2-6 hours for a focused path)
-- Don't include concepts the user already knows well (comfort level or higher)`;
+- Don't include concepts the user already knows well (comfort level or higher) or self-reported as known
+- If "SKIPPED CALIBRATION" is present, the user did NOT self-report any knowledge. Be conservative: include prerequisite foundations rather than skipping them. Place a brief diagnostic objective as the FIRST objective in the first milestone (e.g., "Demonstrate your current understanding of [key prerequisite]") so the system can gauge the user's real level early. After that diagnostic objective, note in the milestone description that if the user already knows the basics, follow-on milestones can be streamlined.`;
 
 // ===================================
 // Generate Learning Path
@@ -184,6 +185,33 @@ function buildUserPrompt(
     ? `\nTIME CONSTRAINT: User has approximately ${input.timeAvailableMinutes} minutes available. Design the path to fit within this time.`
     : "";
 
+  const declaredKnown = (input.declaredKnownConcepts || []).filter(Boolean);
+  const declaredFamiliar = (input.declaredFamiliarConcepts || []).filter(Boolean);
+  const declaredBlock =
+    declaredKnown.length || declaredFamiliar.length
+      ? `\nSELF-REPORTED CALIBRATION:\n${
+          declaredKnown.length
+            ? `- Known: ${declaredKnown.join(", ")}`
+            : "- Known: (none)"
+        }\n${
+          declaredFamiliar.length
+            ? `- Somewhat familiar: ${declaredFamiliar.join(", ")}`
+            : "- Somewhat familiar: (none)"
+        }\n(Prefer not to re-teach items in Known; you may briefly connect to Somewhat-familiar items.)`
+      : "";
+
+  const skippedCalibrationBlock = input.skippedCalibration
+    ? `\nSKIPPED CALIBRATION: The user skipped the knowledge self-assessment. You have NO self-reported data on what they already know. Use conservative defaults: include all prerequisite foundations (do not assume prior knowledge). Make the FIRST objective of the FIRST milestone a quick diagnostic checkpoint (e.g., "Demonstrate your current understanding of [key prerequisite]") so the system can validate the user's starting level early and adapt.`
+    : "";
+
+  const overviewBlock = input.isOverview
+    ? `\nOVERVIEW MODE: The user chose a high-level overview of a broad topic. Cover the most important sub-areas at a survey level rather than going deep. Explicitly note in the description that mastery of individual sub-areas will require follow-on paths.`
+    : "";
+
+  const originalGoalBlock = input.originalGoal && input.originalGoal !== input.goal
+    ? `\nORIGINAL REQUEST: The user originally asked about "${input.originalGoal}" and then narrowed to the goal above.`
+    : "";
+
   return `Create a learning path for this user:
 
 LEARNING GOAL: ${input.goal}
@@ -192,6 +220,10 @@ USER LEVEL: ${input.userLevel}
 
 EXISTING KNOWLEDGE:
 ${knownConceptsSummary}
+${declaredBlock}
+${skippedCalibrationBlock}
+${overviewBlock}
+${originalGoalBlock}
 ${depthGuidance}
 ${styleGuidance}
 ${timeConstraint}
