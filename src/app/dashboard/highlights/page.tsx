@@ -26,7 +26,7 @@ interface HighlightItem {
 interface SessionInfo {
   sessionId: string;
   topic?: string;
-  startedAt?: { seconds: number; nanoseconds: number };
+  startedAt?: string | { seconds: number; nanoseconds: number };
 }
 
 // ===================================
@@ -158,9 +158,18 @@ export default function HighlightsPage() {
     });
   }, [groupedBySession]);
 
-  const formatDate = (ts: { seconds: number; nanoseconds: number } | undefined) => {
+  const formatDate = (ts: { seconds?: number; _seconds?: number; nanoseconds?: number } | string | undefined) => {
     if (!ts) return "";
-    return new Date(ts.seconds * 1000).toLocaleDateString("en-US", {
+    let date: Date;
+    if (typeof ts === "string") {
+      date = new Date(ts);
+    } else {
+      const secs = ts.seconds ?? (ts as Record<string, number>)._seconds;
+      if (secs === undefined) return "";
+      date = new Date(secs * 1000);
+    }
+    if (isNaN(date.getTime())) return "";
+    return date.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",

@@ -41,21 +41,21 @@ interface ExtractionResult {
 const ENHANCED_EXTRACTION_PROMPT = `You are a learning concept extractor for an educational platform. Analyze the message and identify key learning concepts.
 
 For each concept, extract:
-1. name: Concise name (2-5 words, use standard terminology)
+1. name: Concise name (2-5 words, use standard terminology, consistent casing)
 2. definition: Clear, educational definition (1-2 sentences)
 3. domain: Primary domain (programming, mathematics, science, algorithms, data_structures, web_development, databases, machine_learning, networking, security, other)
 4. category: Subcategory within domain (optional)
 5. confidence: How clearly this concept was discussed (0.0-1.0)
 6. contextInMessage: Brief quote showing where concept was discussed
-7. potentialRelations: Array of potential connections to other concepts mentioned
+7. potentialRelations: Array of connections to OTHER concepts in this SAME message (IMPORTANT: classify each relation carefully)
 
-Relation types to use:
-- "prerequisite": Concept A must be understood before B
-- "builds_on": Concept B extends A
-- "similar_to": Concepts are related/comparable  
-- "contrasts_with": Concepts differ in important ways
-- "example_of": A is an instance of B
-- "applies_to": A is used in context of B
+Relation types — choose the MOST SPECIFIC type that applies:
+- "prerequisite": A must be understood before B (strong dependency)
+- "builds_on": B extends or deepens A (weaker dependency)
+- "contrasts_with": A and B differ in important ways (comparison)
+- "example_of": A is a specific instance/case of B
+- "applies_to": A is used in the practical context of B
+- "similar_to": ONLY when none of the above fit — A and B are loosely related
 
 RULES:
 - Only extract actual learning concepts (not conversational phrases)
@@ -65,6 +65,8 @@ RULES:
 - Be specific: "Python variables" not just "variables" if context is Python
 - Maximum 5 concepts per message to avoid noise
 - Minimum confidence 0.5 to include
+- IMPORTANT: Use consistent canonical names for concepts (e.g. always "Dublin Core" not "Dublin Core standard" or "Dublin core metadata")
+- IMPORTANT: Always include potentialRelations between concepts extracted from the same message. Prefer specific types over "similar_to".
 
 Return JSON:
 {

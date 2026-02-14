@@ -73,12 +73,78 @@ interface MessageBubbleProps {
   message: ChatMessage;
   userPhotoURL?: string | null;
   onTermClick?: (term: string) => void;
+  onExplainParagraph?: (text: string) => void;
   isSimplifying?: boolean;
   isFading?: boolean;
   isSimplified?: boolean;
   onUndoSimplify?: () => void;
   onTextSelect?: (messageId: string) => void;
   messageHighlights?: Highlight[];
+}
+
+/**
+ * Map plain-text offsets to markdown-source offsets, accounting for
+ * markdown syntax characters (**, *, `, ~~, etc.) that aren't visible.
+ * Then inject <mark> HTML tags at the correct positions.
+ */
+function injectHighlightMarks(
+  markdown: string,
+  highlights: { start: number; end: number; note?: string }[]
+): string {
+  if (highlights.length === 0) return markdown;
+
+  // Build a mapping: for each markdown-source index, what's the corresponding
+  // plain-text index? We track "invisible" characters (markdown syntax).
+  const plainToMd: number[] = []; // plainToMd[plainIdx] = markdownIdx
+  let plainIdx = 0;
+  let i = 0;
+  while (i < markdown.length) {
+    // Skip ** bold markers
+    if (markdown[i] === '*' && markdown[i + 1] === '*') {
+      i += 2;
+      continue;
+    }
+    // Skip __ bold/italic markers
+    if (markdown[i] === '_' && markdown[i + 1] === '_') {
+      i += 2;
+      continue;
+    }
+    // Skip ~~ strikethrough markers
+    if (markdown[i] === '~' && markdown[i + 1] === '~') {
+      i += 2;
+      continue;
+    }
+    // Skip single * or _ for italic (only when they appear as markers,
+    // not in the middle of words). This is approximate.
+    if ((markdown[i] === '*' || markdown[i] === '_') &&
+        (i === 0 || markdown[i - 1] === ' ' || markdown[i - 1] === '\n') &&
+        i + 1 < markdown.length && markdown[i + 1] !== ' ' && markdown[i + 1] !== markdown[i]) {
+      i++;
+      continue;
+    }
+    if ((markdown[i] === '*' || markdown[i] === '_') &&
+        i > 0 && markdown[i - 1] !== ' ' && markdown[i - 1] !== markdown[i] &&
+        (i + 1 >= markdown.length || markdown[i + 1] === ' ' || markdown[i + 1] === '\n' || markdown[i + 1] === '.' || markdown[i + 1] === ',')) {
+      i++;
+      continue;
+    }
+    plainToMd[plainIdx] = i;
+    plainIdx++;
+    i++;
+  }
+  // Sentinel for end-of-string
+  plainToMd[plainIdx] = markdown.length;
+
+  // Sort highlights by start offset and inject <mark> tags from end to start
+  // (reverse order so earlier insertions don't shift later offsets)
+  const sorted = [...highlights].sort((a, b) => b.start - a.start);
+  let result = markdown;
+  for (const hl of sorted) {
+    const mdStart = plainToMd[hl.start] ?? 0;
+    const mdEnd = plainToMd[hl.end] ?? markdown.length;
+    result = result.slice(0, mdStart) + '<mark>' + result.slice(mdStart, mdEnd) + '</mark>' + result.slice(mdEnd);
+  }
+  return result;
 }
 
 /**
@@ -90,7 +156,8 @@ function renderMessageContent(
   content: string,
   isUser: boolean,
   onTermClick?: (term: string) => void,
-  messageHighlights?: Highlight[]
+  messageHighlights?: Highlight[],
+  onExplainParagraph?: (text: string) => void
 ) {
   if (isUser) {
     return <span className="whitespace-pre-wrap break-words leading-relaxed">{content}</span>;
@@ -107,52 +174,24 @@ function renderMessageContent(
   if (highlightRanges.length === 0) {
     return (
       <div data-message-content>
-        <MarkdownContent content={content} onTermClick={onTermClick} />
+        <MarkdownContent content={content} onTermClick={onTermClick} onExplainParagraph={onExplainParagraph} />
       </div>
     );
   }
 
-  // With highlights — overlay highlight marks on the rendered content.
-  // We render the plain text with highlight marks, falling back to non-markdown
-  // rendering because highlights are offset-based on plain text.
-  const plainText = content.replace(/\*\*([^*]+)\*\*/g, "$1");
-
-  type Segment = { text: string; highlighted: boolean; note?: string };
-  const segments: Segment[] = [];
-  const sorted = [...highlightRanges].sort((a, b) => a.start - b.start);
-
-  let cursor = 0;
-  for (const hl of sorted) {
-    if (hl.start > cursor) {
-      segments.push({ text: plainText.slice(cursor, hl.start), highlighted: false });
-    }
-    segments.push({ text: plainText.slice(hl.start, hl.end), highlighted: true, note: hl.note });
-    cursor = hl.end;
-  }
-  if (cursor < plainText.length) {
-    segments.push({ text: plainText.slice(cursor), highlighted: false });
-  }
+  // With highlights — inject <mark> tags into the markdown source.
+  // Highlight offsets are based on plain text (markdown stripped), so we
+  // map them back to markdown-source positions before injecting.
+  const markedContent = injectHighlightMarks(content, highlightRanges);
 
   return (
-    <span className="whitespace-pre-wrap break-words leading-relaxed" data-message-content>
-      {segments.map((seg, i) =>
-        seg.highlighted ? (
-          <mark
-            key={i}
-            className="bg-yellow-200 dark:bg-yellow-800/60 text-inherit rounded-sm px-0.5"
-            title={seg.note || "Highlighted"}
-          >
-            {seg.text}
-          </mark>
-        ) : (
-          <span key={i}>{seg.text}</span>
-        )
-      )}
-    </span>
+    <div data-message-content>
+      <MarkdownContent content={markedContent} onTermClick={onTermClick} onExplainParagraph={onExplainParagraph} />
+    </div>
   );
 }
 
-function MessageBubble({ message, userPhotoURL, onTermClick, isSimplifying, isFading, isSimplified, onUndoSimplify, onTextSelect, messageHighlights }: MessageBubbleProps) {
+function MessageBubble({ message, userPhotoURL, onTermClick, onExplainParagraph, isSimplifying, isFading, isSimplified, onUndoSimplify, onTextSelect, messageHighlights }: MessageBubbleProps) {
   const isUser = message.role === "user";
 
   const handleMouseUp = useCallback(() => {
@@ -214,7 +253,7 @@ function MessageBubble({ message, userPhotoURL, onTermClick, isSimplifying, isFa
             className={`transition-opacity ease-in-out ${isFading ? "opacity-0" : "opacity-100"}`}
             style={{ transitionDuration: isFading ? "750ms" : "750ms" }}
           >
-            {renderMessageContent(message.content, isUser, onTermClick, messageHighlights)}
+            {renderMessageContent(message.content, isUser, onTermClick, messageHighlights, onExplainParagraph)}
           </div>
           {message.isStreaming && (
             <span className="inline-block w-1.5 h-3.5 ml-1 bg-current animate-pulse rounded-sm" aria-label="Typing" />
@@ -396,7 +435,22 @@ export function ChatInterface({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Highlight system (E16)
+  // User preference: highlights enabled (default true)
+  const [highlightsEnabled, setHighlightsEnabled] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+    authFetch(user, `/api/users?userId=${user.uid}`)
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        if (data?.user?.highlightsEnabled === false) {
+          setHighlightsEnabled(false);
+        }
+      })
+      .catch(() => {});
+  }, [user]);
+
+  // Highlight system (E16) — only active when enabled
   const {
     highlights,
     popup: highlightPopup,
@@ -805,6 +859,20 @@ export function ChatInterface({
     }
   };
 
+  // Handle per-paragraph "Explain more" button from MarkdownContent
+  const handleExplainParagraph = useCallback((paragraphText: string) => {
+    // Truncate very long paragraphs to keep the prompt reasonable
+    const snippet = paragraphText.length > 300
+      ? paragraphText.slice(0, 300) + "..."
+      : paragraphText;
+    const prompt = `Please explain this in more detail:\n\n"${snippet}"`;
+    setInput(prompt);
+    setTimeout(() => {
+      const sendBtn = document.querySelector('[aria-label="Send message"]') as HTMLButtonElement;
+      sendBtn?.click();
+    }, 100);
+  }, []);
+
   // Silently fetch a simplified version and crossfade it in
   const handleSimplify = async () => {
     const lastAssistantMessage = [...messages].reverse().find(m => m.role === "assistant" && !m.isStreaming);
@@ -1188,7 +1256,7 @@ export function ChatInterface({
         ref={highlightContainerRef}
       >
         {/* Highlight Popup */}
-        {highlightPopup.visible && (
+        {highlightsEnabled && highlightPopup.visible && (
           <HighlightPopup
             x={highlightPopup.x}
             y={highlightPopup.y}
@@ -1267,12 +1335,13 @@ export function ChatInterface({
                     message={message}
                     userPhotoURL={user?.photoURL}
                     onTermClick={handleTermClick}
+                    onExplainParagraph={handleExplainParagraph}
                     isSimplifying={simplifyingMessageId === message.id || isUnpacking}
                     isFading={fadingMessageId === message.id}
                     isSimplified={!!originalContents[message.id] && !isUnpacked}
                     onUndoSimplify={() => handleUndoSimplify(message.id)}
-                    onTextSelect={handleTextSelection}
-                    messageHighlights={highlights.filter((h) => h.messageId === message.id)}
+                    onTextSelect={highlightsEnabled ? handleTextSelection : undefined}
+                    messageHighlights={highlightsEnabled ? highlights.filter((h) => h.messageId === message.id) : []}
                   />
 
                   {/* Unpack collapse control */}

@@ -83,6 +83,9 @@ export interface UserProfile {
   gamificationEnabled?: boolean;
   achievements?: string[];
   
+  // Feature toggles
+  highlightsEnabled?: boolean;
+  
   // Stats
   totalSessions: number;
   totalMessages: number;

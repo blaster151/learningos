@@ -4,11 +4,13 @@ import React, { useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
+import rehypeRaw from "rehype-raw";
 import type { Components } from "react-markdown";
 
 interface MarkdownContentProps {
   content: string;
   onTermClick?: (term: string) => void;
+  onExplainParagraph?: (text: string) => void;
   className?: string;
 }
 
@@ -21,7 +23,7 @@ interface MarkdownContentProps {
  * - Bold, italic, code, lists, headings, links, tables, etc.
  * - Clickable bold terms (concept drilling) via onTermClick
  */
-export function MarkdownContent({ content, onTermClick, className }: MarkdownContentProps) {
+export function MarkdownContent({ content, onTermClick, onExplainParagraph, className }: MarkdownContentProps) {
   // Custom component overrides for react-markdown
   const components = useMemo<Components>(() => ({
     // Make bold text clickable for concept drilling
@@ -70,16 +72,34 @@ export function MarkdownContent({ content, onTermClick, className }: MarkdownCon
         {children}
       </a>
     ),
-    // Add spacing to paragraphs
-    p: ({ children }) => (
-      <p className="my-1 leading-relaxed">{children}</p>
-    ),
+    // Add spacing to paragraphs with optional "Explain" button
+    p: ({ children }) => {
+      const text = extractText(children);
+      const showExplain = onExplainParagraph && text && text.length > 60;
+      return (
+        <p className="my-1 leading-relaxed group/para">
+          {children}
+          {showExplain && (
+            <button
+              onClick={() => onExplainParagraph(text)}
+              className="inline-flex items-center gap-0.5 ml-1 px-1.5 py-0 text-[10px] text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 opacity-0 group-hover/para:opacity-100 transition-opacity rounded border border-transparent hover:border-gray-200 dark:hover:border-gray-700"
+              title="Explain this paragraph in more detail"
+            >
+              💡 Explain
+            </button>
+          )}
+        </p>
+      );
+    },
     // Style lists
     ul: ({ children }) => (
       <ul className="list-disc list-inside my-1 space-y-0.5">{children}</ul>
     ),
     ol: ({ children }) => (
       <ol className="list-decimal list-inside my-1 space-y-0.5">{children}</ol>
+    ),
+    li: ({ children }) => (
+      <li className="leading-relaxed">{children}</li>
     ),
     // Style headings (unlikely in chat but just in case)
     h1: ({ children }) => <h1 className="text-lg font-bold mt-2 mb-1">{children}</h1>,
@@ -107,13 +127,19 @@ export function MarkdownContent({ content, onTermClick, className }: MarkdownCon
         {children}
       </td>
     ),
-  }), [onTermClick]);
+    // Highlight marks (injected as <mark> HTML in markdown source)
+    mark: ({ children }) => (
+      <mark className="bg-yellow-200 dark:bg-yellow-800/60 text-inherit rounded-sm px-0.5">
+        {children}
+      </mark>
+    ),
+  }), [onTermClick, onExplainParagraph]);
 
   return (
     <div className={`markdown-content ${className || ""}`}>
       <ReactMarkdown
         remarkPlugins={[remarkMath]}
-        rehypePlugins={[rehypeKatex]}
+        rehypePlugins={[rehypeRaw, rehypeKatex]}
         components={components}
       >
         {content}

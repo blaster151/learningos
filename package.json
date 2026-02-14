@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --port 3001",
     "dev:emulators": "firebase emulators:start",
     "build": "next build",
-    "start": "next start",
+    "start": "next start --port 3001",
     "lint": "next lint",
     "test": "vitest run",
     "test:watch": "vitest --watch",
@@ -35,6 +35,7 @@
     "react-force-graph-2d": "^1.29.0",
     "react-markdown": "^10.1.0",
     "rehype-katex": "^7.0.1",
+    "rehype-raw": "^7.0.0",
     "remark-math": "^6.0.0",
     "zustand": "^5.0.10"
   },

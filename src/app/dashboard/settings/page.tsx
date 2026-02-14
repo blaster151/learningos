@@ -28,6 +28,7 @@ export default function SettingsPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [highlightsEnabled, setHighlightsEnabled] = useState(true);
   const [formData, setFormData] = useState<ProfileData>({
     displayName: "",
     learningGoal: "",
@@ -60,6 +61,8 @@ export default function SettingsPage() {
         };
         setFormData(profile);
         setOriginalData(profile);
+        // Load preference — default to true if not set
+        setHighlightsEnabled(data.user?.highlightsEnabled !== false);
       }
     } catch (error) {
       console.error("Failed to load profile:", error);
@@ -101,6 +104,22 @@ export default function SettingsPage() {
       setFormData(originalData);
     }
     setIsEditing(false);
+  };
+
+  const handleToggleHighlights = async () => {
+    if (!user) return;
+    const newVal = !highlightsEnabled;
+    setHighlightsEnabled(newVal);
+    try {
+      await authFetch(user, `/api/users?userId=${user.uid}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ highlightsEnabled: newVal }),
+      });
+    } catch (error) {
+      console.error("Failed to update highlight preference:", error);
+      setHighlightsEnabled(!newVal); // revert on error
+    }
   };
 
   const handleSignOut = async () => {
@@ -391,6 +410,29 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
+            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <div>
+                <h4 className="font-medium text-gray-900 dark:text-white">Text Highlighting</h4>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Select text in AI responses to save highlights
+                </p>
+              </div>
+              <button
+                onClick={handleToggleHighlights}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  highlightsEnabled ? "bg-blue-600" : "bg-gray-300 dark:bg-gray-600"
+                }`}
+                role="switch"
+                aria-checked={highlightsEnabled}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                    highlightsEnabled ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
+
             <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
               <div>
                 <h4 className="font-medium text-gray-900 dark:text-white">Email Notifications</h4>

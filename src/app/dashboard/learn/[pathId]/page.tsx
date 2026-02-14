@@ -92,7 +92,9 @@ function MilestoneCard({
     pathStatus === "active" &&
     (milestone.status === "available" || milestone.status === "not_started");
   const canComplete =
-    pathStatus === "active" && milestone.status === "in_progress";
+    pathStatus === "active" &&
+    milestone.status === "in_progress" &&
+    !isCompleted;
 
   const totalObjectives = milestone.objectives?.length || 0;
   const completedObjectives = checkedObjectives.size;
@@ -139,6 +141,7 @@ function MilestoneCard({
                 className={`text-lg font-semibold ${
                   isLocked ? "text-gray-400" : "text-gray-900"
                 }`}
+                title={milestone.title}
               >
                 {milestone.title}
               </h3>
@@ -151,7 +154,8 @@ function MilestoneCard({
             <p
               className={`text-sm ${
                 isLocked ? "text-gray-400" : "text-gray-600"
-              } line-clamp-2`}
+              } ${isExpanded ? "" : "line-clamp-2"}`}
+              title={milestone.description}
             >
               {milestone.description}
             </p>
@@ -217,6 +221,9 @@ function MilestoneCard({
                   </h4>
                   <p className="text-xs text-indigo-700 mt-0.5">
                     Chat with AI about the concepts in this milestone
+                  </p>
+                  <p className="text-[10px] text-indigo-500/70 mt-0.5">
+                    Includes objective quizzes to track your mastery
                   </p>
                 </div>
                 <button
@@ -381,10 +388,12 @@ function MilestoneCard({
                   e.stopPropagation();
                   onLearnWithAI(
                     milestone.conceptNames,
-                    milestone.conceptIds || []
+                    milestone.conceptIds || [],
+                    milestone.milestoneId
                   );
                 }}
                 className="px-4 py-2 bg-white text-indigo-600 border border-indigo-300 rounded-lg text-sm font-medium hover:bg-indigo-50 transition-colors"
+                title="Includes objective quizzes to track mastery"
               >
                 💬 Learn with AI
               </button>
@@ -769,7 +778,7 @@ export default function PathDetailPage() {
               {actionLoading === "accept" ? "Starting..." : "🚀 Start This Path"}
             </button>
           )}
-          {isActive && (
+          {isActive && !isCompleted && (
             <button
               onClick={handlePausePath}
               disabled={!!actionLoading}
@@ -778,7 +787,7 @@ export default function PathDetailPage() {
               {actionLoading === "pause" ? "Pausing..." : "⏸ Pause Path"}
             </button>
           )}
-          {isActive && (
+          {isActive && !isCompleted && (
             <button
               onClick={handleAbandonPath}
               disabled={!!actionLoading}

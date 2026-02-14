@@ -25,6 +25,7 @@ interface UpdateUserRequest {
   experienceLevel?: string;
   preferredPace?: string;
   metaGoal?: string;
+  highlightsEnabled?: boolean;
 }
 
 // ===================================
@@ -176,6 +177,7 @@ export async function PATCH(request: NextRequest) {
     if (body.experienceLevel !== undefined) updates.experienceLevel = body.experienceLevel;
     if (body.preferredPace !== undefined) updates.preferredPace = body.preferredPace;
     if (body.metaGoal !== undefined) updates.metaGoal = body.metaGoal;
+    if (body.highlightsEnabled !== undefined) updates.highlightsEnabled = body.highlightsEnabled;
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json(

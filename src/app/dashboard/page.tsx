@@ -100,10 +100,34 @@ export default function DashboardPage() {
           (sum: number, s: { messageCount?: number }) => sum + (s.messageCount || 0),
           0
         );
+
+        // Compute day streak from session dates
+        const sessionDates = sessionsList
+          .map((s: { lastActivity?: string; startedAt?: string }) => s.lastActivity || s.startedAt)
+          .filter(Boolean)
+          .map((d: string) => {
+            const dt = new Date(d);
+            return `${dt.getFullYear()}-${dt.getMonth()}-${dt.getDate()}`;
+          });
+        const uniqueDays = [...new Set(sessionDates)].sort().reverse();
+        let streak = 0;
+        const today = new Date();
+        for (let i = 0; i < uniqueDays.length; i++) {
+          const expected = new Date(today);
+          expected.setDate(expected.getDate() - i);
+          const key = `${expected.getFullYear()}-${expected.getMonth()}-${expected.getDate()}`;
+          if (uniqueDays.includes(key)) {
+            streak++;
+          } else {
+            break;
+          }
+        }
+
         setStats((prev) => ({
           ...prev,
           sessions: sessionsList.length,
           messages: totalMessages,
+          streak,
         }));
         setHasStartedChat(sessionsList.length > 0);
       }

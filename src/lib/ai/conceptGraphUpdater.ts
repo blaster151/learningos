@@ -241,9 +241,12 @@ function calculateSimilarity(a: string, b: string): number {
   
   if (longer.length === 0) return 1.0;
   
-  // Check if one contains the other
+  // Check if one contains the other — strong signal they're the same concept
+  // e.g. "Dublin Core" vs "Dublin Core Standard"
   if (longer.includes(shorter) || shorter.includes(longer)) {
-    return shorter.length / longer.length * 0.9 + 0.1; // At least 0.1, scaled by length ratio
+    // If the shorter string is at least 60% of the longer, treat as very similar
+    const ratio = shorter.length / longer.length;
+    return ratio >= 0.6 ? 0.85 : ratio * 0.9 + 0.1;
   }
   
   // Simple word overlap for multi-word concepts
@@ -253,7 +256,12 @@ function calculateSimilarity(a: string, b: string): number {
   const union = new Set([...wordsA, ...wordsB]);
   
   if (union.size > 0) {
-    return intersection.length / union.size;
+    const jaccard = intersection.length / union.size;
+    // Boost when most words from the shorter set appear in the longer
+    const recall = wordsA.size <= wordsB.size
+      ? intersection.length / wordsA.size
+      : intersection.length / wordsB.size;
+    return Math.max(jaccard, recall * 0.85);
   }
   
   return 0;
@@ -433,8 +441,12 @@ async function createCoOccurrenceRelations(
   linkedPairIds: Set<string>,
   result: GraphUpdateResult
 ): Promise<void> {
-  for (let i = 0; i < concepts.length; i++) {
-    for (let j = i + 1; j < concepts.length; j++) {
+  // Limit co-occurrence to avoid N^2 explosion with many concepts
+  const maxPairs = 6;
+  let pairsCreated = 0;
+
+  for (let i = 0; i < concepts.length && pairsCreated < maxPairs; i++) {
+    for (let j = i + 1; j < concepts.length && pairsCreated < maxPairs; j++) {
       const a = concepts[i];
       const b = concepts[j];
 
@@ -445,21 +457,18 @@ async function createCoOccurrenceRelations(
       }
 
       try {
-        // Check if a relation already exists in Firestore (in either direction)
-        // createRelation already checks both directions, so just call it
-        // It will strengthen if exists, create if not
+        // Use "similar_to" for co-occurrence (weaker than AI-classified relations)
         const relationId = await createRelation(
           db, userId, a.id, b.id, "similar_to", sessionId
         );
 
-        // Only add to results if it's truly new (not just strengthened)
-        // We can tell by checking if the ID is already in an existing doc
         result.newRelations.push({
           id: relationId,
           from: a.name,
           to: b.name,
           type: "similar_to",
         });
+        pairsCreated++;
       } catch (err) {
         console.warn(`Failed to create co-occurrence relation ${a.name} <-> ${b.name}:`, err);
       }
