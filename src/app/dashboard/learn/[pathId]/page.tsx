@@ -17,37 +17,37 @@ const statusConfig: Record<
   { bg: string; border: string; text: string; icon: string; label: string }
 > = {
   locked: {
-    bg: "bg-gray-50",
-    border: "border-gray-200",
-    text: "text-gray-400",
+    bg: "bg-gray-50 dark:bg-gray-800",
+    border: "border-gray-200 dark:border-gray-700",
+    text: "text-gray-400 dark:text-gray-500",
     icon: "🔒",
     label: "Locked",
   },
   not_started: {
-    bg: "bg-gray-50",
-    border: "border-gray-300",
-    text: "text-gray-600",
+    bg: "bg-gray-50 dark:bg-gray-800",
+    border: "border-gray-300 dark:border-gray-600",
+    text: "text-gray-600 dark:text-gray-400",
     icon: "⏳",
     label: "Not Started",
   },
   available: {
-    bg: "bg-blue-50",
-    border: "border-blue-300",
-    text: "text-blue-800",
+    bg: "bg-blue-50 dark:bg-blue-900/30",
+    border: "border-blue-300 dark:border-blue-700",
+    text: "text-blue-800 dark:text-blue-300",
     icon: "⚡",
     label: "Available",
   },
   in_progress: {
-    bg: "bg-yellow-50",
-    border: "border-yellow-300",
-    text: "text-yellow-800",
+    bg: "bg-yellow-50 dark:bg-yellow-900/30",
+    border: "border-yellow-300 dark:border-yellow-700",
+    text: "text-yellow-800 dark:text-yellow-300",
     icon: "▶️",
     label: "In Progress",
   },
   completed: {
-    bg: "bg-green-50",
-    border: "border-green-300",
-    text: "text-green-800",
+    bg: "bg-green-50 dark:bg-green-900/30",
+    border: "border-green-300 dark:border-green-700",
+    text: "text-green-800 dark:text-green-300",
     icon: "✅",
     label: "Completed",
   },
@@ -105,12 +105,12 @@ function MilestoneCard({
   return (
     <div
       className={`relative border-2 rounded-xl transition-all duration-200 ${config.border} ${config.bg} ${
-        isActive ? "ring-2 ring-blue-400 ring-offset-2" : ""
+        isActive ? "ring-2 ring-blue-400 ring-offset-2 dark:ring-offset-gray-900" : ""
       } ${isLocked ? "opacity-60" : ""}`}
     >
       {/* Connector line between milestones */}
       {index > 0 && (
-        <div className="absolute -top-6 left-8 w-0.5 h-6 bg-gray-300" />
+        <div className="absolute -top-6 left-8 w-0.5 h-6 bg-gray-300 dark:bg-gray-600" />
       )}
 
       {/* Header - always visible */}
@@ -129,7 +129,7 @@ function MilestoneCard({
                 ? "bg-green-500 text-white"
                 : isActive
                 ? "bg-blue-500 text-white"
-                : "bg-gray-200 text-gray-600"
+                : "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
             }`}
           >
             {isCompleted ? "✓" : index + 1}
@@ -139,7 +139,7 @@ function MilestoneCard({
             <div className="flex items-center gap-2 mb-1 flex-wrap">
               <h3
                 className={`text-lg font-semibold ${
-                  isLocked ? "text-gray-400" : "text-gray-900"
+                  isLocked ? "text-gray-400 dark:text-gray-500" : "text-gray-900 dark:text-white"
                 }`}
                 title={milestone.title}
               >
@@ -153,7 +153,7 @@ function MilestoneCard({
             </div>
             <p
               className={`text-sm ${
-                isLocked ? "text-gray-400" : "text-gray-600"
+                isLocked ? "text-gray-400 dark:text-gray-500" : "text-gray-600 dark:text-gray-300"
               } ${isExpanded ? "" : "line-clamp-2"}`}
               title={milestone.description}
             >
@@ -161,7 +161,7 @@ function MilestoneCard({
             </p>
 
             {/* Quick stats row */}
-            <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+            <div className="flex items-center gap-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
               {milestone.estimatedMinutes > 0 && (
                 <span>
                   ⏱{" "}
@@ -190,7 +190,7 @@ function MilestoneCard({
           {/* Expand/collapse chevron */}
           {!isLocked && (
             <svg
-              className={`w-5 h-5 text-gray-400 transition-transform duration-200 flex-shrink-0 mt-1 ${
+              className={`w-5 h-5 text-gray-400 dark:text-gray-500 transition-transform duration-200 flex-shrink-0 mt-1 ${
                 isExpanded ? "rotate-180" : ""
               }`}
               fill="none"
@@ -247,11 +247,11 @@ function MilestoneCard({
           {totalObjectives > 0 && (
             <div>
               <div className="flex items-center justify-between mb-2">
-                <h4 className="text-sm font-semibold text-gray-700">
+                <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                   Learning Objectives
                 </h4>
                 {isInProgress && (
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
                     {completedObjectives}/{totalObjectives} checked
                   </span>
                 )}
@@ -261,25 +261,28 @@ function MilestoneCard({
                   <li
                     key={i}
                     className={`flex items-start gap-2 text-sm ${
-                      isInProgress
-                        ? "cursor-pointer hover:bg-gray-50 rounded-md px-2 py-1.5 -mx-2 transition-colors"
-                        : "text-gray-600"
+                      isInProgress && checkedObjectives.has(i)
+                        ? "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-md px-2 py-1.5 -mx-2 transition-colors"
+                        : isInProgress
+                        ? "rounded-md px-2 py-1.5 -mx-2"
+                        : "text-gray-600 dark:text-gray-400"
                     }`}
                     onClick={
-                      isInProgress
+                      isInProgress && checkedObjectives.has(i)
                         ? (e) => {
                             e.stopPropagation();
                             onToggleObjective(milestone.milestoneId, i);
                           }
                         : undefined
                     }
+                    title={isInProgress && checkedObjectives.has(i) ? "Click to unmark if you feel you haven\u2019t mastered this yet" : undefined}
                   >
                     {isInProgress ? (
                       <span
                         className={`mt-0.5 flex-shrink-0 w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${
                           checkedObjectives.has(i)
                             ? "bg-green-500 border-green-500 text-white"
-                            : "border-gray-300 bg-white"
+                            : "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800"
                         }`}
                       >
                         {checkedObjectives.has(i) && (
@@ -291,9 +294,9 @@ function MilestoneCard({
                     ) : isCompleted ? (
                       <span className="text-green-500 mt-0.5 flex-shrink-0">✓</span>
                     ) : (
-                      <span className="text-gray-400 mt-0.5 flex-shrink-0">○</span>
+                      <span className="text-gray-400 dark:text-gray-500 mt-0.5 flex-shrink-0">○</span>
                     )}
-                    <span className={checkedObjectives.has(i) ? "line-through text-gray-400" : ""}>
+                    <span className={checkedObjectives.has(i) ? "line-through text-gray-400 dark:text-gray-500" : ""}>
                       {obj}
                     </span>
                   </li>

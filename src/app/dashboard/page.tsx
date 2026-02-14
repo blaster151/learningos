@@ -86,6 +86,7 @@ export default function DashboardPage() {
     newConcepts: 0,
   });
   const [hasStartedChat, setHasStartedChat] = useState(false);
+  const [gettingStartedDismissed, setGettingStartedDismissed] = useState(false);
 
   const loadStats = useCallback(async () => {
     if (!user) return;
@@ -152,7 +153,12 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadStats();
-  }, [loadStats]);
+    // Load dismissed state from localStorage
+    if (user) {
+      const dismissed = localStorage.getItem(`gettingStarted_dismissed_${user.uid}`);
+      setGettingStartedDismissed(dismissed === 'true');
+    }
+  }, [loadStats, user]);
 
   // Get greeting based on time of day
   const getGreeting = () => {
@@ -263,19 +269,44 @@ export default function DashboardPage() {
       </Card>
 
       {/* Getting Started */}
-      <Card>
-        <CardHeader>
-          <CardTitle as="h2" className="text-lg">Getting Started</CardTitle>
-          <CardDescription>Complete these steps to get the most out of LearningOS</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {[
-              { label: "Create your account", completed: true },
-              { label: "Complete onboarding", completed: true },
-              { label: "Start your first conversation", completed: hasStartedChat },
-              { label: "Explore the concept map", completed: stats.concepts > 0 },
-            ].map((step, index) => (
+      {!gettingStartedDismissed && (() => {
+        const steps = [
+          { label: "Create your account", completed: true },
+          { label: "Complete onboarding", completed: true },
+          { label: "Start your first conversation", completed: hasStartedChat },
+          { label: "Explore the concept map", completed: stats.concepts > 0 },
+        ];
+        const allCompleted = steps.every(s => s.completed);
+
+        return (
+          <Card>
+            <CardHeader>
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <CardTitle as="h2" className="text-lg">Getting Started</CardTitle>
+                  <CardDescription>Complete these steps to get the most out of LearningOS</CardDescription>
+                </div>
+                {allCompleted && (
+                  <button
+                    onClick={() => {
+                      setGettingStartedDismissed(true);
+                      if (user) {
+                        localStorage.setItem(`gettingStarted_dismissed_${user.uid}`, 'true');
+                      }
+                    }}
+                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1"
+                    title="Dismiss"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {steps.map((step, index) => (
               <div
                 key={index}
                 className={`flex items-center gap-3 p-3 rounded-lg ${
@@ -319,6 +350,8 @@ export default function DashboardPage() {
           </div>
         </CardContent>
       </Card>
+        );
+      })()}
 
       {/* Tip of the Day */}
       <Card variant="outlined" className="bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border-amber-200 dark:border-amber-800">

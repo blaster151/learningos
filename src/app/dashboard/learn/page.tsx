@@ -9,6 +9,9 @@ import type { NarrowTopicSuggestion } from "@/lib/ai/narrowSuggest";
 
 type PreflightStep = "idle" | "analyzing" | "narrow" | "loading_pills" | "pills" | "loading_pills_w2" | "pills_w2";
 
+// Max recursive narrowing depth before we stop re-analyzing
+const MAX_NARROW_DEPTH = 3;
+
 export default function LearnPage() {
   const { user } = useAuth();
   const [paths, setPaths] = useState<LearningPath[]>([]);
@@ -27,6 +30,8 @@ export default function LearnPage() {
   const [originalGoal, setOriginalGoal] = useState<string>("");
   const [isOverview, setIsOverview] = useState(false);
   const [narrowSuggestions, setNarrowSuggestions] = useState<NarrowTopicSuggestion[]>([]);
+  const [narrowDepth, setNarrowDepth] = useState(0);
+  const [narrowHistory, setNarrowHistory] = useState<string[]>([]);
   const [calibrationPills, setCalibrationPills] = useState<CalibrationPill[]>([]);
   const [knownPills, setKnownPills] = useState<Set<string>>(new Set());
   const [somewhatPills, setSomewhatPills] = useState<Set<string>>(new Set());
@@ -78,12 +83,71 @@ export default function LearnPage() {
     setOriginalGoal("");
     setIsOverview(false);
     setNarrowSuggestions([]);
+    setNarrowDepth(0);
+    setNarrowHistory([]);
     setCalibrationPills([]);
     setKnownPills(new Set());
     setSomewhatPills(new Set());
     setWave2Pills([]);
     setKnownPillsW2(new Set());
     setSomewhatPillsW2(new Set());
+  };
+
+  /**
+   * Re-usable scope check: analyze a topic's broadness and either
+   * show narrowing suggestions (if still too broad) or proceed to calibration pills.
+   * Caps at MAX_NARROW_DEPTH to prevent infinite recursion.
+   */
+  const analyzeAndNarrowOrPills = async (goal: string, depth: number, history: string[]) => {
+    if (!user) return;
+
+    // If we've narrowed enough times, skip further analysis and go straight to pills
+    if (depth >= MAX_NARROW_DEPTH) {
+      setPreflightGoal(goal);
+      await startPills(goal);
+      return;
+    }
+
+    setPreflightStep("analyzing");
+    setPreflightGoal(goal);
+    setError(null);
+
+    const scopeRes = await authFetch(user, "/api/paths/scope-analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ goal }),
+    });
+
+    if (!scopeRes.ok) {
+      throw new Error("Failed to analyze scope");
+    }
+
+    const scopeData = (await scopeRes.json()) as { analysis: TopicScopeAnalysis };
+
+    if (scopeData.analysis.recommendedMode === "narrow") {
+      const narrowRes = await authFetch(user, "/api/paths/narrow-suggest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ goal }),
+      });
+
+      if (!narrowRes.ok) {
+        throw new Error("Failed to suggest narrower topics");
+      }
+
+      const narrowData = (await narrowRes.json()) as {
+        suggestions: NarrowTopicSuggestion[];
+      };
+
+      setNarrowSuggestions(narrowData.suggestions || []);
+      setNarrowDepth(depth + 1);
+      setNarrowHistory([...history, goal]);
+      setPreflightStep("narrow");
+      return;
+    }
+
+    // Not broad: proceed to calibration pills
+    await startPills(goal);
   };
 
   const generatePath = async (
@@ -170,45 +234,9 @@ export default function LearnPage() {
     try {
       if (!user) return;
       const goal = goalInput.trim();
-      setPreflightGoal(goal);
       setOriginalGoal(goal);
-      setPreflightStep("analyzing");
-      setError(null);
 
-      const scopeRes = await authFetch(user, "/api/paths/scope-analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ goal }),
-      });
-
-      if (!scopeRes.ok) {
-        throw new Error("Failed to analyze scope");
-      }
-
-      const scopeData = (await scopeRes.json()) as { analysis: TopicScopeAnalysis };
-
-      if (scopeData.analysis.recommendedMode === "narrow") {
-        const narrowRes = await authFetch(user, "/api/paths/narrow-suggest", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ goal }),
-        });
-
-        if (!narrowRes.ok) {
-          throw new Error("Failed to suggest narrower topics");
-        }
-
-        const narrowData = (await narrowRes.json()) as {
-          suggestions: NarrowTopicSuggestion[];
-        };
-
-        setNarrowSuggestions(narrowData.suggestions || []);
-        setPreflightStep("narrow");
-        return;
-      }
-
-      // Not broad: proceed to calibration pills (Wave 1)
-      await startPills(goal);
+      await analyzeAndNarrowOrPills(goal, 0, []);
     } catch (err) {
       resetPreflight();
       setError(err instanceof Error ? err.message : "Failed to generate path");
@@ -309,14 +337,14 @@ export default function LearnPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Learning Paths</h1>
-        <p className="text-gray-600">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Learning Paths</h1>
+        <p className="text-gray-600 dark:text-gray-300">
           AI-guided learning paths personalized to your knowledge and goals
         </p>
       </div>
 
       {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
+        <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-800 dark:text-red-300">
           {error}
         </div>
       )}
@@ -324,12 +352,12 @@ export default function LearnPage() {
       {/* Active Paths */}
       {activePaths.length > 0 && (
         <div className="mb-8">
-          <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+          <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
             Active Paths {activePaths.length > 1 && `(${activePaths.length})`}
           </h2>
           <div className="space-y-4">
             {activePaths.map((activePath) => (
-              <div key={activePath.pathId} className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 sm:p-6 border-2 border-blue-200">
+              <div key={activePath.pathId} className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-4 sm:p-6 border-2 border-blue-200 dark:border-blue-800">
                 <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6">
                   <ProgressRing
                     progress={Math.round((activePath.progress || 0) * 100)}
@@ -354,7 +382,7 @@ export default function LearnPage() {
       {/* Paused Paths */}
       {pausedPaths.length > 0 && (
         <div className="mb-8">
-          <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+          <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
             ⏸ Paused Paths {pausedPaths.length > 1 && `(${pausedPaths.length})`}
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -372,8 +400,8 @@ export default function LearnPage() {
       )}
 
       {/* Generate New Path */}
-      <div className="mb-8 bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">
+      <div className="mb-8 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
           Generate New Learning Path
         </h2>
         <div className="flex flex-col sm:flex-row gap-3">
@@ -381,6 +409,12 @@ export default function LearnPage() {
             type="text"
             value={goalInput}
             onChange={(e) => setGoalInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey && goalInput.trim() && !generating && preflightStep !== "analyzing") {
+                e.preventDefault();
+                handleGeneratePath();
+              }
+            }}
             placeholder="What do you want to learn? (e.g., 'Master React hooks')"
             className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             disabled={generating}
@@ -394,12 +428,23 @@ export default function LearnPage() {
           </button>
         </div>
 
+        {preflightStep === "analyzing" && narrowDepth > 0 && (
+          <div className="mt-4 p-4 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/20">
+            <div className="flex items-center gap-3 text-indigo-900 dark:text-indigo-300">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600 dark:border-indigo-400"></div>
+              <span className="text-sm font-medium">Checking if &ldquo;{preflightGoal}&rdquo; needs further narrowing…</span>
+            </div>
+          </div>
+        )}
+
         {preflightStep === "narrow" && (
-          <div className="mt-4 p-4 rounded-lg border border-indigo-200 bg-indigo-50">
+          <div className="mt-4 p-4 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/20">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
               <div>
-                <div className="font-medium text-indigo-900">This topic is pretty broad.</div>
-                <div className="text-sm text-indigo-800">
+                <div className="font-medium text-indigo-900 dark:text-indigo-300">
+                  {narrowDepth > 1 ? "Still pretty broad — narrow further?" : "This topic is pretty broad."}
+                </div>
+                <div className="text-sm text-indigo-800 dark:text-indigo-400">
                   Pick a narrower starting path, or keep it high-level.
                 </div>
               </div>
@@ -417,12 +462,25 @@ export default function LearnPage() {
                     }
                   })();
                 }}
-                className="px-3 py-2 rounded-md bg-white border border-indigo-200 text-indigo-900 text-sm hover:bg-indigo-100"
+                className="px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-indigo-200 dark:border-indigo-700 text-indigo-900 dark:text-indigo-300 text-sm hover:bg-indigo-100 dark:hover:bg-indigo-900/40"
                 disabled={generating}
               >
                 Keep high-level overview
               </button>
             </div>
+
+            {/* Breadcrumb trail showing narrowing history */}
+            {narrowHistory.length > 0 && (
+              <div className="mb-3 flex flex-wrap items-center gap-1 text-xs text-indigo-700 dark:text-indigo-400">
+                {narrowHistory.map((topic, i) => (
+                  <span key={i} className="flex items-center gap-1">
+                    <span className="max-w-[200px] truncate" title={topic}>{topic}</span>
+                    <span>→</span>
+                  </span>
+                ))}
+                <span className="font-medium max-w-[200px] truncate" title={preflightGoal}>{preflightGoal}</span>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {(narrowSuggestions || []).map((s) => (
@@ -431,28 +489,54 @@ export default function LearnPage() {
                   onClick={() => {
                     void (async () => {
                       try {
-                        await startPills(s.title);
+                        // Re-analyze the selected suggestion for broadness
+                        await analyzeAndNarrowOrPills(s.title, narrowDepth, narrowHistory);
                       } catch (err) {
                         resetPreflight();
-                        setError(err instanceof Error ? err.message : "Failed to start calibration");
+                        setError(err instanceof Error ? err.message : "Failed to analyze topic");
                       }
                     })();
                   }}
-                  className="text-left p-3 rounded-lg bg-white border border-indigo-200 hover:bg-indigo-100"
+                  className="text-left p-3 rounded-lg bg-white dark:bg-gray-800 border border-indigo-200 dark:border-indigo-700 hover:bg-indigo-100 dark:hover:bg-indigo-900/40"
                   disabled={generating}
                 >
-                  <div className="font-medium text-gray-900">{s.order}. {s.title}</div>
+                  <div className="font-medium text-gray-900 dark:text-white">{s.order}. {s.title}</div>
                   {s.description && (
-                    <div className="text-sm text-gray-700 mt-1">{s.description}</div>
+                    <div className="text-sm text-gray-700 dark:text-gray-300 mt-1">{s.description}</div>
                   )}
                 </button>
               ))}
             </div>
 
-            <div className="mt-3 flex justify-end">
+            <div className="mt-3 flex justify-between">
+              {narrowHistory.length > 0 ? (
+                <button
+                  onClick={() => {
+                    // Go back to previous narrowing level
+                    const prevHistory = [...narrowHistory];
+                    const prevGoal = prevHistory.pop()!;
+                    void (async () => {
+                      try {
+                        setNarrowDepth(prevHistory.length + 1);
+                        setNarrowHistory(prevHistory);
+                        await analyzeAndNarrowOrPills(prevGoal, prevHistory.length, prevHistory);
+                      } catch (err) {
+                        resetPreflight();
+                        setError(err instanceof Error ? err.message : "Failed to go back");
+                      }
+                    })();
+                  }}
+                  className="px-3 py-2 rounded-md text-sm text-indigo-900 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 flex items-center gap-1"
+                  disabled={generating}
+                >
+                  ← Back
+                </button>
+              ) : (
+                <div />
+              )}
               <button
                 onClick={resetPreflight}
-                className="px-3 py-2 rounded-md text-sm text-indigo-900 hover:bg-indigo-100"
+                className="px-3 py-2 rounded-md text-sm text-indigo-900 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/40"
               >
                 Cancel
               </button>
@@ -793,7 +877,7 @@ export default function LearnPage() {
       {/* Suggested Paths */}
       {suggestedPaths.length > 0 && (
         <div className="mb-8">
-          <h2 className="text-2xl font-semibold text-gray-900 mb-4">Suggested Paths</h2>
+          <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Suggested Paths</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {suggestedPaths.map((path) => (
               <PathCard
@@ -835,8 +919,8 @@ export default function LearnPage() {
               d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
             />
           </svg>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No learning paths yet</h3>
-          <p className="text-gray-600 mb-6">
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No learning paths yet</h3>
+          <p className="text-gray-600 dark:text-gray-300 mb-6">
             Generate your first AI-guided learning path to get started
           </p>
         </div>

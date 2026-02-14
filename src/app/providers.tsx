@@ -2,6 +2,7 @@
 
 import { AuthProvider } from "@/lib/auth/AuthContext";
 import { ErrorBoundary, ToastProvider } from "@/components/error";
+import { ThemeProvider } from "next-themes";
 import type { ReactNode } from "react";
 
 interface ProvidersProps {
@@ -11,9 +12,11 @@ interface ProvidersProps {
 export function Providers({ children }: ProvidersProps) {
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <ToastProvider>{children}</ToastProvider>
-      </AuthProvider>
+      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        <AuthProvider>
+          <ToastProvider>{children}</ToastProvider>
+        </AuthProvider>
+      </ThemeProvider>
     </ErrorBoundary>
   );
 }

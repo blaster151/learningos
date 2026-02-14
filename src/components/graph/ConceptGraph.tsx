@@ -89,7 +89,9 @@ const ConceptGraph = forwardRef<ConceptGraphHandle, ConceptGraphProps>(function 
         ctx.font = `${fontSize}px Sans-Serif`;
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
-        ctx.fillStyle = "#374151";
+        // Use theme-aware color: dark text in light mode, light text in dark mode
+        const isDark = document.documentElement.classList.contains('dark');
+        ctx.fillStyle = isDark ? "#E5E7EB" : "#374151";
         ctx.fillText(label, node.x, node.y + nodeSize + 2);
       }
     },
@@ -113,6 +115,21 @@ const ConceptGraph = forwardRef<ConceptGraphHandle, ConceptGraphProps>(function 
       }, 100);
     }
   }, [data.nodes.length]);
+
+  // Force redraw when theme changes
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      // Theme class changed on html element, force canvas redraw
+      if (graphRef.current) {
+        graphRef.current.refresh();
+      }
+    });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+    return () => observer.disconnect();
+  }, []);
 
   const RELATION_LABELS: Record<string, string> = {
     prerequisite: "is prerequisite for",
@@ -150,7 +167,7 @@ const ConceptGraph = forwardRef<ConceptGraphHandle, ConceptGraphProps>(function 
   }, [onBackgroundClick]);
 
   return (
-    <div className="relative w-full h-full bg-gray-50 rounded-lg overflow-hidden">
+    <div className="relative w-full h-full bg-gray-50 dark:bg-gray-900 rounded-lg overflow-hidden">
       {/* @ts-ignore - react-force-graph-2d has type mismatches with custom node types */}
       <ForceGraph2D
         ref={graphRef}

@@ -479,6 +479,7 @@ export function ObjectiveQuizComponent({ quiz: initialQuiz, onComplete, onCancel
           />
         ) : currentQuestion ? (
           <QuestionView
+            key={quiz.currentQuestionIndex}
             question={currentQuestion}
             questionNumber={quiz.currentQuestionIndex + 1}
             totalQuestions={quiz.questions.length}

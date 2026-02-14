@@ -22,6 +22,7 @@ export interface ChatMessage {
   content: string;
   timestamp: Date;
   isStreaming?: boolean;
+  isHidden?: boolean;
   concepts?: ConceptData[];
 }
 
@@ -413,7 +414,8 @@ export function ChatInterface({
   const { user } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  // Start loading immediately if we have a topic and no initial messages (greeting will be generated)
+  const [isLoading, setIsLoading] = useState(!!(sessionTopic && initialMessages.length === 0));
   const [greetingSent, setGreetingSent] = useState(false);
   const [followUpSuggestions, setFollowUpSuggestions] = useState<string[]>([]);
   const [isLoadingFollowUps, setIsLoadingFollowUps] = useState(false);
@@ -824,16 +826,23 @@ export function ChatInterface({
       // No ready objectives — fall through to chat-based quiz
     }
 
-    // Continue milestone — build a context-rich prompt with remaining objectives
+    // Continue milestone — focus on the next incomplete objective
     if (action === "continue_milestone" && milestoneObjectives?.length) {
       const remaining = milestoneObjectives
         .map((obj, i) => ({ obj, i }))
         .filter(({ i }) => !masteredObjectives.has(i));
       const nextObjective = remaining[0];
-      const remainingList = remaining.map(({ obj }) => `• ${obj}`).join("\n");
-      const prompt = nextObjective
-        ? `Let's get back to the milestone. I still need to cover these objectives:\n${remainingList}\n\nPlease pick up with the next one: "${nextObjective.obj}". Give me a clear explanation to get started.`
-        : "Let's continue with the milestone. What should we cover next?";
+      const afterNext = remaining[1];
+      let prompt: string;
+      if (nextObjective) {
+        prompt = `Let's get back to the milestone. The next objective I need to cover is: "${nextObjective.obj}".`;
+        if (afterNext) {
+          prompt += `\n(To be followed later by: "${afterNext.obj}")`;
+        }
+        prompt += `\n\nPlease give me a clear explanation to get started.`;
+      } else {
+        prompt = "Let's continue with the milestone. What should we cover next?";
+      }
       setInput(prompt);
       setTimeout(() => {
         const sendBtn = document.querySelector('[aria-label="Send message"]') as HTMLButtonElement;
@@ -866,11 +875,22 @@ export function ChatInterface({
       ? paragraphText.slice(0, 300) + "..."
       : paragraphText;
     const prompt = `Please explain this in more detail:\n\n"${snippet}"`;
-    setInput(prompt);
-    setTimeout(() => {
-      const sendBtn = document.querySelector('[aria-label="Send message"]') as HTMLButtonElement;
-      sendBtn?.click();
-    }, 100);
+
+    // Send directly as a hidden message (don't show the prompt bubble)
+    const userMessage: ChatMessage = {
+      id: `msg-${Date.now()}`,
+      role: "user",
+      content: prompt,
+      timestamp: new Date(),
+      isHidden: true,
+    };
+    setMessages((prev) => [...prev, userMessage]);
+    setIsLoading(true);
+    setFollowUpSuggestions([]);
+    setIsLoadingFollowUps(false);
+
+    // Trigger send with the hidden message
+    void sendMessageDirect(prompt, userMessage);
   }, []);
 
   // Silently fetch a simplified version and crossfade it in
@@ -1128,6 +1148,12 @@ export function ChatInterface({
     setFollowUpSuggestions([]);
     setIsLoadingFollowUps(false);
 
+    await sendMessageDirect(trimmedInput, userMessage);
+  };
+
+  // Direct message send — shared by handleSend and handleExplainParagraph
+  const sendMessageDirect = async (trimmedInput: string, userMessage: ChatMessage) => {
+    if (!user) return;
     try {
       // Call chat API
       const response = await authFetch(user, "/api/chat", {
@@ -1323,7 +1349,7 @@ export function ChatInterface({
           </div>
         ) : (
           <>
-            {messages.map((message, index) => {
+            {messages.filter(m => !m.isHidden).map((message, index) => {
               const chunks = unpackedChunks[message.id];
               const visibleCount = unpackedVisibleCount[message.id] || 0;
               const isUnpacked = !!chunks;

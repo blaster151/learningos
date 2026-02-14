@@ -170,7 +170,7 @@ export async function POST(request: NextRequest) {
       goal,
       milestones,
       estimatedMinutes: generatedPath.estimatedMinutes,
-      status: "suggested",
+      status: "active",
       progress: 0,
       currentMilestoneIndex: 0,
       generatedFrom: {

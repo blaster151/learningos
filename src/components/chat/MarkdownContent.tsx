@@ -91,15 +91,15 @@ export function MarkdownContent({ content, onTermClick, onExplainParagraph, clas
         </p>
       );
     },
-    // Style lists
+    // Style lists — use list-outside + padding so numbers stay on the same line as content
     ul: ({ children }) => (
-      <ul className="list-disc list-inside my-1 space-y-0.5">{children}</ul>
+      <ul className="list-disc list-outside pl-5 my-1 space-y-0.5">{children}</ul>
     ),
     ol: ({ children }) => (
-      <ol className="list-decimal list-inside my-1 space-y-0.5">{children}</ol>
+      <ol className="list-decimal list-outside pl-5 my-1 space-y-0.5">{children}</ol>
     ),
     li: ({ children }) => (
-      <li className="leading-relaxed">{children}</li>
+      <li className="leading-relaxed pl-0.5">{children}</li>
     ),
     // Style headings (unlikely in chat but just in case)
     h1: ({ children }) => <h1 className="text-lg font-bold mt-2 mb-1">{children}</h1>,

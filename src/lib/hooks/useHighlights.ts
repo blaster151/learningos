@@ -114,6 +114,17 @@ export function useHighlights(user: User | null, sessionId: string | undefined) 
         startOffset,
         endOffset,
       });
+
+      // Temporarily wrap the selected text with a visual highlight mark
+      // so it stays visible even after the browser selection clears (due to popup backdrop)
+      try {
+        const mark = document.createElement("mark");
+        mark.className = "bg-yellow-200/70 dark:bg-yellow-500/30 rounded-sm highlight-pending";
+        mark.dataset.highlightPending = "true";
+        range.surroundContents(mark);
+      } catch {
+        // surroundContents can fail if selection crosses element boundaries — that's OK
+      }
     },
     []
   );
@@ -174,11 +185,26 @@ export function useHighlights(user: User | null, sessionId: string | undefined) 
     [user]
   );
 
+  // Remove any pending highlight marks (temporary visual selection indicators)
+  const clearPendingMarks = useCallback(() => {
+    const marks = document.querySelectorAll("mark[data-highlight-pending]");
+    marks.forEach((mark) => {
+      const parent = mark.parentNode;
+      if (parent) {
+        // Replace the <mark> with its text content
+        const text = document.createTextNode(mark.textContent || "");
+        parent.replaceChild(text, mark);
+        parent.normalize(); // Merge adjacent text nodes
+      }
+    });
+  }, []);
+
   // Dismiss the popup
   const dismissPopup = useCallback(() => {
+    clearPendingMarks();
     setPopup((prev) => ({ ...prev, visible: false }));
     window.getSelection()?.removeAllRanges();
-  }, []);
+  }, [clearPendingMarks]);
 
   return {
     highlights,

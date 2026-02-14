@@ -125,6 +125,12 @@ export async function updateGraphFromMessage(
 
       for (const rel of concept.potentialRelations) {
         try {
+          // Skip relations with invalid or missing relatedTo
+          if (!rel.relatedTo || typeof rel.relatedTo !== 'string' || rel.relatedTo.trim() === '') {
+            console.warn(`Skipping invalid relation from ${concept.name}: missing or invalid relatedTo`, rel);
+            continue;
+          }
+
           // Look up target in our complete map first (catches same-message concepts)
           let targetId = conceptIdMap.get(rel.relatedTo.toLowerCase());
           
