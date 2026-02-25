@@ -30,6 +30,43 @@ export interface CalibrationPill {
   reason: string;
 }
 
+export type GapTier = "none" | "small" | "medium" | "large";
+
+export interface AssessedPrerequisite {
+  conceptId: string;
+  conceptName: string;
+  status: "assessed_known" | "assessed_familiar" | "missing" | "unknown";
+  confidence: number; // 0-1
+  evidence?: string;
+}
+
+export interface ScreeningResult {
+  goal: string;
+  narrowedGoal: string;
+  knownConcepts: string[];
+  familiarConcepts: string[];
+  assessedPrerequisites: AssessedPrerequisite[];
+  gapTier: GapTier;
+}
+
+export interface ScreeningProgress {
+  turnCount: number;
+  assessedCount: number;
+  pendingCount: number;
+  narrowedGoal: boolean;
+  broadenedProbe: boolean;
+}
+
+export type ScreeningChatMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
+export type ScreeningUserAction =
+  | { type: "message"; content: string }
+  | { type: "dont_know" }
+  | { type: "generate_now" };
+
 /** Global per-user concept → confidence entry (E18-S6) */
 export interface KnowledgeProfileEntry {
   userId: string;
@@ -264,6 +301,7 @@ export interface LearningPath {
     learningStyle?: string;
     declaredKnownConcepts?: string[];
     declaredFamiliarConcepts?: string[];
+    assessedPrerequisites?: AssessedPrerequisite[];
     /** Snapshot of global knowledge profile used at creation time (E18-S6) */
     knowledgeProfileSnapshot?: Array<{ concept: string; confidence: number }>;
   };
@@ -273,6 +311,10 @@ export interface LearningPath {
   startedAt?: Timestamp;
   completedAt?: Timestamp;
   lastActivityAt: Timestamp;
+
+  // Optional dependency linkage (E14-S6)
+  dependsOnPathId?: string;
+  prerequisiteForPathId?: string;
 }
 
 export interface PathMilestone {
@@ -311,6 +353,10 @@ export interface PathGenerationInput {
   userLevel: "beginner" | "intermediate" | "advanced";
   declaredKnownConcepts?: string[];
   declaredFamiliarConcepts?: string[];
+  screeningResult?: ScreeningResult;
+  screeningConversation?: ScreeningChatMessage[];
+  dependsOnPathId?: string;
+  prerequisiteForPathId?: string;
   timeAvailableMinutes?: number;
   learningStyle?: string;
   preferredDepth?: "quick" | "thorough" | "deep";
