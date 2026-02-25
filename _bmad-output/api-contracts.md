@@ -1215,7 +1215,158 @@ const graph = await client.graph.get({ domain: 'functional-programming' })
 
 ---
 
+## 9. Prerequisite Intelligence (Epic 14)
+
+> Added: February 25, 2026 — Minimum spec for E14 stories, covering the prerequisite chain service and the path-mutation endpoint.
+
+### Design Decision: `getPrerequisiteChain`
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| Location | `src/lib/graph/prerequisiteChain.ts` (client-side service) | The concept graph and relations are already fetched client-side for the graph page; the chain walker needs the same data. No new API route required—reuses `GET /graph`. |
+| Also expose via API? | Yes — `GET /graph/prerequisites/:conceptId` (thin wrapper) | Needed by path-generation (server-side) and by Codex tests that don't mount React. |
+
+### GET /graph/prerequisites/:conceptId
+
+Return the ordered prerequisite chain for a concept, annotated with mastery and assessment flags.
+
+**Query Parameters:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| depth | number | 10 | Max traversal depth (cycle guard) |
+| includeTransitive | boolean | true | Walk full transitive closure |
+
+**Response (200 OK):**
+```typescript
+interface PrerequisiteChainResponse {
+  /** Target concept that was queried */
+  targetConceptId: string;
+  targetConceptName: string;
+
+  /** Ordered list from most-foundational → closest prerequisite */
+  chain: PrerequisiteChainNode[];
+
+  /** True if a cycle was detected and broken during traversal */
+  cycleDetected: boolean;
+  /** Edge IDs where cycles were broken (for debugging / graph cleanup) */
+  cycleEdges: string[];
+
+  /** Total depth traversed */
+  depth: number;
+}
+
+interface PrerequisiteChainNode {
+  conceptId: string;
+  conceptName: string;
+  domain: string;
+  mastery: MasteryLevel;           // Current mastery from ConceptNode
+  masteryScore: number;            // 0.0-1.0 numeric confidence
+  /** Assessment flag derived from mastery */
+  flag: "likely_known"             // masteryScore ≥ 0.8
+      | "needs_assessment"          // masteryScore < 0.3
+      | "partial";                  // 0.3 ≤ masteryScore < 0.8
+  /** How many hops from the target concept (1 = direct prereq) */
+  distanceFromTarget: number;
+  /** Relation ID that links this node to the next node toward target */
+  relationId: string;
+}
+```
+
+**Service function signature** (`src/lib/graph/prerequisiteChain.ts`):
+```typescript
+export async function getPrerequisiteChain(
+  conceptId: string,
+  nodes: ConceptNode[],
+  relations: ConceptRelation[],
+  options?: { maxDepth?: number; includeTransitive?: boolean }
+): Promise<PrerequisiteChainResponse>
+```
+
+**Algorithm notes:**
+- BFS from `conceptId`, following **incoming** `prerequisite` edges.
+- Maintain a `visited` set for cycle detection; when a cycle is found, record the edge in `cycleEdges` and skip.
+- Sort final chain topologically (most-foundational first).
+- Flag each node based on mastery thresholds (≥ 0.8 → `likely_known`, < 0.3 → `needs_assessment`, else `partial`).
+
+**Errors:**
+| Status | Code | When |
+|--------|------|------|
+| 404 | `CONCEPT_NOT_FOUND` | conceptId doesn't exist in user's graph |
+
+---
+
+### PATCH /paths/:pathId/milestones/insert
+
+Insert a new prerequisite milestone into an existing path at a specific position (E14-S3: Dynamic Prerequisite Detection).
+
+**Authentication:** Bearer token required. User must own the path.
+
+**Request:**
+```typescript
+{
+  /** 0-based index where the new milestone should be inserted.
+      Existing milestones at this index and beyond shift right. */
+  insertAtIndex: number;
+
+  /** The milestone to insert */
+  milestone: {
+    title: string;
+    description: string;
+    conceptNames: string[];          // Will be resolved to conceptIds server-side
+    objectives: string[];
+    estimatedMinutes: number;
+  };
+
+  /** Why this milestone was inserted */
+  provenance: {
+    reason: "prerequisite_gap";      // Extensible enum
+    detectedInMilestoneId: string;   // Which milestone surfaced the gap
+    detectedInSessionId?: string;    // Chat session where AI flagged it
+    userChoice: "accepted" | "self_assessed_known";
+  };
+}
+```
+
+**Validation rules:**
+- `insertAtIndex` must be ≥ 0 and ≤ current `milestones.length`.
+- `milestone.conceptNames` must each be ≤ 100 chars, array length ≤ 10.
+- `provenance.detectedInMilestoneId` must reference an existing milestone in the path.
+- Path `status` must be `active` (cannot mutate completed/abandoned paths).
+- A maximum of **5 prerequisite insertions** per path (guard against runaway insertion loops).
+
+**Response (200 OK):**
+```typescript
+{
+  pathId: string;
+  /** The full updated milestones array (all milestones, re-indexed) */
+  milestones: PathMilestone[];
+  /** The newly created milestone with its assigned milestoneId */
+  insertedMilestone: PathMilestone;
+  /** Updated overall path progress (may decrease since new work was added) */
+  pathProgress: number;
+}
+```
+
+**Side effects:**
+1. All milestone `order` fields are recalculated.
+2. `prerequisiteMilestoneIds` of the milestone at `insertAtIndex + 1` is updated to include the new milestone's ID.
+3. If `userChoice === "self_assessed_known"`, the milestone is immediately marked `status: "completed"` and `progress: 1.0`.
+4. If the concept doesn't exist in the user's graph yet, a new `ConceptNode` is created with mastery `exploring`.
+5. A `prerequisite` relation is created (or strength updated) between the new concept(s) and the concept(s) in `detectedInMilestoneId`.
+
+**Errors:**
+| Status | Code | When |
+|--------|------|------|
+| 400 | `INVALID_INDEX` | insertAtIndex out of bounds |
+| 400 | `MAX_INSERTIONS_REACHED` | Path already has 5 inserted prereq milestones |
+| 403 | `FORBIDDEN` | User doesn't own this path |
+| 404 | `PATH_NOT_FOUND` | pathId doesn't exist |
+| 409 | `PATH_NOT_ACTIVE` | Path is completed or abandoned |
+
+---
+
 **Document Status:** Complete API Contract Documentation  
 **Next:** Epic/Story Breakdown  
 **Owner:** Blast  
-**Last Updated:** January 27, 2026
+**Last Updated:** February 25, 2026

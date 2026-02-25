@@ -1625,7 +1625,79 @@ All components must:
 
 ---
 
+## 11. Prerequisite Badges & Gap Interaction (Epic 14)
+
+> Added: February 25, 2026 — UX note covering where prerequisite badges appear and how the "Add prerequisite milestone" flow works.
+
+### 11a. Prerequisite Badge on Path Detail
+
+When viewing a learning path (`/dashboard/paths/:pathId`), milestones that were **inserted as prerequisites** display a visual badge.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Milestone 2 of 6                                           │
+│                                                              │
+│  📘 JavaScript Closures            [Prerequisite] ← badge   │
+│  Added because a gap was detected in "React Hooks"          │
+│                                                              │
+│  Status: 🌱 Not Started                                     │
+│                                                              │
+│  ───────────── or, if self-assessed ─────────────            │
+│                                                              │
+│  📘 JavaScript Closures     [Prerequisite · Skipped] ← badge│
+│  You indicated you already know this.                        │
+│  Status: ✅ Completed (self-assessed)                       │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+| Badge State | Appearance | Meaning |
+|-------------|------------|---------|
+| `Prerequisite` | Purple outline badge | Inserted by system to fill a gap |
+| `Prerequisite · Skipped` | Gray outline badge | User self-assessed as already known |
+
+**Visual connector:** A thin dashed arrow connects the prerequisite milestone to the milestone it unlocks, reinforcing the dependency.
+
+### 11b. "Add Prerequisite Milestone" Interaction (In-Chat)
+
+When the AI detects a prerequisite gap during a chat session (E14-S3), a **non-blocking inline card** appears in the chat stream:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  ⚠️  Possible Knowledge Gap Detected                        │
+│                                                              │
+│  It looks like understanding **closures** would help here.   │
+│  This is a prerequisite for the concept you're working on.   │
+│                                                              │
+│  [➕ Add prerequisite milestone]    [I know this, continue]  │
+│       (primary button)                (secondary button)     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+| User Action | System Behavior |
+|-------------|----------------|
+| **"Add prerequisite milestone"** | Calls `PATCH /paths/:pathId/milestones/insert` with `userChoice: "accepted"`. New milestone inserted before the current one. Chat shows confirmation: "✅ Added 'JavaScript Closures' as a new milestone. You can tackle it whenever you're ready." Current milestone status unchanged. |
+| **"I know this, continue"** | Calls `PATCH /paths/:pathId/milestones/insert` with `userChoice: "self_assessed_known"`. Milestone is inserted **and immediately completed**. Chat shows: "👍 Got it — recorded as already known. Let's keep going." Concept graph updated with self-assessed mastery. |
+
+### 11c. Prerequisite Indicators on Concept Graph
+
+Already covered by existing edge visualization (§8 Edge Visualization):
+
+| Type | Style |
+|------|-------|
+| Prerequisite | Solid red arrow (`#EF4444`) |
+
+No changes needed to the graph page; the existing `prerequisite` edge style is sufficient.
+
+### 11d. Accessibility
+
+- Badge text is readable by screen readers (`role="status"`, `aria-label="Prerequisite milestone"`).
+- The in-chat gap card is keyboard-navigable; buttons are focusable.
+- Color is never the sole indicator — text labels accompany every badge.
+
+---
+
 **Document Status:** Complete UX Specifications  
 **Next:** API Contract Documentation  
 **Owner:** Blast  
-**Last Updated:** January 27, 2026
+**Last Updated:** February 25, 2026
