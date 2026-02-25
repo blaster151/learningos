@@ -26,6 +26,15 @@ export interface ChatMessage {
   concepts?: ConceptData[];
 }
 
+interface PrerequisiteGapAlert {
+  detected: boolean;
+  prerequisiteConceptId?: string;
+  prerequisiteConceptName?: string;
+  targetConceptId?: string;
+  reason?: string;
+  createdAt?: string;
+}
+
 interface ChatInterfaceProps {
   sessionId?: string;
   initialMessages?: ChatMessage[];
@@ -101,31 +110,43 @@ function injectHighlightMarks(
   let i = 0;
   while (i < markdown.length) {
     // Skip ** bold markers
-    if (markdown[i] === '*' && markdown[i + 1] === '*') {
+    if (markdown[i] === "*" && markdown[i + 1] === "*") {
       i += 2;
       continue;
     }
     // Skip __ bold/italic markers
-    if (markdown[i] === '_' && markdown[i + 1] === '_') {
+    if (markdown[i] === "_" && markdown[i + 1] === "_") {
       i += 2;
       continue;
     }
     // Skip ~~ strikethrough markers
-    if (markdown[i] === '~' && markdown[i + 1] === '~') {
+    if (markdown[i] === "~" && markdown[i + 1] === "~") {
       i += 2;
       continue;
     }
     // Skip single * or _ for italic (only when they appear as markers,
     // not in the middle of words). This is approximate.
-    if ((markdown[i] === '*' || markdown[i] === '_') &&
-        (i === 0 || markdown[i - 1] === ' ' || markdown[i - 1] === '\n') &&
-        i + 1 < markdown.length && markdown[i + 1] !== ' ' && markdown[i + 1] !== markdown[i]) {
+    if (
+      (markdown[i] === "*" || markdown[i] === "_") &&
+      (i === 0 || markdown[i - 1] === " " || markdown[i - 1] === "\n") &&
+      i + 1 < markdown.length &&
+      markdown[i + 1] !== " " &&
+      markdown[i + 1] !== markdown[i]
+    ) {
       i++;
       continue;
     }
-    if ((markdown[i] === '*' || markdown[i] === '_') &&
-        i > 0 && markdown[i - 1] !== ' ' && markdown[i - 1] !== markdown[i] &&
-        (i + 1 >= markdown.length || markdown[i + 1] === ' ' || markdown[i + 1] === '\n' || markdown[i + 1] === '.' || markdown[i + 1] === ',')) {
+    if (
+      (markdown[i] === "*" || markdown[i] === "_") &&
+      i > 0 &&
+      markdown[i - 1] !== " " &&
+      markdown[i - 1] !== markdown[i] &&
+      (i + 1 >= markdown.length ||
+        markdown[i + 1] === " " ||
+        markdown[i + 1] === "\n" ||
+        markdown[i + 1] === "." ||
+        markdown[i + 1] === ",")
+    ) {
       i++;
       continue;
     }
@@ -143,7 +164,12 @@ function injectHighlightMarks(
   for (const hl of sorted) {
     const mdStart = plainToMd[hl.start] ?? 0;
     const mdEnd = plainToMd[hl.end] ?? markdown.length;
-    result = result.slice(0, mdStart) + '<mark>' + result.slice(mdStart, mdEnd) + '</mark>' + result.slice(mdEnd);
+    result =
+      result.slice(0, mdStart) +
+      "<mark>" +
+      result.slice(mdStart, mdEnd) +
+      "</mark>" +
+      result.slice(mdEnd);
   }
   return result;
 }
@@ -161,7 +187,11 @@ function renderMessageContent(
   onExplainParagraph?: (text: string) => void
 ) {
   if (isUser) {
-    return <span className="whitespace-pre-wrap break-words leading-relaxed">{content}</span>;
+    return (
+      <span className="whitespace-pre-wrap break-words leading-relaxed">
+        {content}
+      </span>
+    );
   }
 
   // Build highlight ranges
@@ -175,7 +205,11 @@ function renderMessageContent(
   if (highlightRanges.length === 0) {
     return (
       <div data-message-content>
-        <MarkdownContent content={content} onTermClick={onTermClick} onExplainParagraph={onExplainParagraph} />
+        <MarkdownContent
+          content={content}
+          onTermClick={onTermClick}
+          onExplainParagraph={onExplainParagraph}
+        />
       </div>
     );
   }
@@ -187,12 +221,27 @@ function renderMessageContent(
 
   return (
     <div data-message-content>
-      <MarkdownContent content={markedContent} onTermClick={onTermClick} onExplainParagraph={onExplainParagraph} />
+      <MarkdownContent
+        content={markedContent}
+        onTermClick={onTermClick}
+        onExplainParagraph={onExplainParagraph}
+      />
     </div>
   );
 }
 
-function MessageBubble({ message, userPhotoURL, onTermClick, onExplainParagraph, isSimplifying, isFading, isSimplified, onUndoSimplify, onTextSelect, messageHighlights }: MessageBubbleProps) {
+function MessageBubble({
+  message,
+  userPhotoURL,
+  onTermClick,
+  onExplainParagraph,
+  isSimplifying,
+  isFading,
+  isSimplified,
+  onUndoSimplify,
+  onTextSelect,
+  messageHighlights,
+}: MessageBubbleProps) {
   const isUser = message.role === "user";
 
   const handleMouseUp = useCallback(() => {
@@ -212,7 +261,7 @@ function MessageBubble({ message, userPhotoURL, onTermClick, onExplainParagraph,
     >
       {/* Avatar */}
       <div
-        className={`flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center ${
+        className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full sm:h-8 sm:w-8 ${
           isUser
             ? "bg-blue-600"
             : "bg-gradient-to-br from-purple-500 to-indigo-600"
@@ -224,29 +273,33 @@ function MessageBubble({ message, userPhotoURL, onTermClick, onExplainParagraph,
             <img
               src={userPhotoURL}
               alt="Your avatar"
-              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover"
+              className="h-7 w-7 rounded-full object-cover sm:h-8 sm:w-8"
             />
           ) : (
-            <UserIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
+            <UserIcon className="h-3.5 w-3.5 text-white sm:h-4 sm:w-4" />
           )
         ) : (
-          <BrainIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
+          <BrainIcon className="h-3.5 w-3.5 text-white sm:h-4 sm:w-4" />
         )}
       </div>
 
       {/* Message Content */}
-      <div className={`max-w-[85%] sm:max-w-[80%] ${isUser ? "text-right" : "text-left"}`}>
+      <div
+        className={`max-w-[85%] sm:max-w-[80%] ${isUser ? "text-right" : "text-left"}`}
+      >
         <div
-          className={`inline-block rounded-2xl px-3 py-2 sm:px-4 sm:py-3 text-sm sm:text-base relative ${
+          className={`relative inline-block rounded-2xl px-3 py-2 text-sm sm:px-4 sm:py-3 sm:text-base ${
             isUser
-              ? "bg-blue-600 text-white rounded-br-md"
-              : "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-bl-md shadow-sm border border-gray-200 dark:border-gray-700"
+              ? "rounded-br-md bg-blue-600 text-white"
+              : "rounded-bl-md border border-gray-200 bg-white text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
           }`}
         >
           {/* Simplifying spinner overlay */}
           {isSimplifying && (
-            <div className="absolute inset-0 flex items-center justify-center bg-white/60 dark:bg-gray-800/60 rounded-2xl z-10">
-              <span className="animate-spin text-lg" aria-label="Simplifying">🎯</span>
+            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-white/60 dark:bg-gray-800/60">
+              <span className="animate-spin text-lg" aria-label="Simplifying">
+                🎯
+              </span>
             </div>
           )}
           {/* Content with crossfade transition */}
@@ -254,19 +307,28 @@ function MessageBubble({ message, userPhotoURL, onTermClick, onExplainParagraph,
             className={`transition-opacity ease-in-out ${isFading ? "opacity-0" : "opacity-100"}`}
             style={{ transitionDuration: isFading ? "750ms" : "750ms" }}
           >
-            {renderMessageContent(message.content, isUser, onTermClick, messageHighlights, onExplainParagraph)}
+            {renderMessageContent(
+              message.content,
+              isUser,
+              onTermClick,
+              messageHighlights,
+              onExplainParagraph
+            )}
           </div>
           {message.isStreaming && (
-            <span className="inline-block w-1.5 h-3.5 ml-1 bg-current animate-pulse rounded-sm" aria-label="Typing" />
+            <span
+              className="ml-1 inline-block h-3.5 w-1.5 animate-pulse rounded-sm bg-current"
+              aria-label="Typing"
+            />
           )}
         </div>
-        
+
         {/* Simplified indicator with undo */}
         {isSimplified && !isUser && onUndoSimplify && (
-          <div className="mt-1 ml-1">
+          <div className="ml-1 mt-1">
             <button
               onClick={onUndoSimplify}
-              className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              className="text-xs text-gray-400 transition-colors hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
               aria-label="Show original version"
             >
               🎯 Simplified · <span className="underline">show original</span>
@@ -275,9 +337,12 @@ function MessageBubble({ message, userPhotoURL, onTermClick, onExplainParagraph,
         )}
 
         {/* Concept Tags - only show for assistant messages with concepts */}
-        {!isUser && !message.isStreaming && message.concepts && message.concepts.length > 0 && (
-          <ConceptTagsList concepts={message.concepts} />
-        )}
+        {!isUser &&
+          !message.isStreaming &&
+          message.concepts &&
+          message.concepts.length > 0 && (
+            <ConceptTagsList concepts={message.concepts} />
+          )}
       </div>
     </div>
   );
@@ -289,15 +354,31 @@ function MessageBubble({ message, userPhotoURL, onTermClick, onExplainParagraph,
 
 function TypingIndicator() {
   return (
-    <div className="flex gap-2 sm:gap-3" role="status" aria-label="AI is typing">
-      <div className="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center" aria-hidden="true">
-        <BrainIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
+    <div
+      className="flex gap-2 sm:gap-3"
+      role="status"
+      aria-label="AI is typing"
+    >
+      <div
+        className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 sm:h-8 sm:w-8"
+        aria-hidden="true"
+      >
+        <BrainIcon className="h-3.5 w-3.5 text-white sm:h-4 sm:w-4" />
       </div>
-      <div className="bg-white dark:bg-gray-800 rounded-2xl rounded-bl-md px-3 py-2 sm:px-4 sm:py-3 shadow-sm border border-gray-200 dark:border-gray-700">
+      <div className="rounded-2xl rounded-bl-md border border-gray-200 bg-white px-3 py-2 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:px-4 sm:py-3">
         <div className="flex gap-1">
-          <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-          <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-          <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+          <span
+            className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400 sm:h-2 sm:w-2"
+            style={{ animationDelay: "0ms" }}
+          />
+          <span
+            className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400 sm:h-2 sm:w-2"
+            style={{ animationDelay: "150ms" }}
+          />
+          <span
+            className="h-1.5 w-1.5 animate-bounce rounded-full bg-gray-400 sm:h-2 sm:w-2"
+            style={{ animationDelay: "300ms" }}
+          />
         </div>
       </div>
     </div>
@@ -314,25 +395,41 @@ interface QuickActionsProps {
   hasMilestone?: boolean;
 }
 
-function QuickActions({ onAction, simplifying, hasMilestone }: QuickActionsProps) {
+function QuickActions({
+  onAction,
+  simplifying,
+  hasMilestone,
+}: QuickActionsProps) {
   const actions = [
     { id: "explain", label: "Explain more", icon: "💡" },
     { id: "example", label: "Give me an example", icon: "📝" },
     { id: "quiz", label: "Quiz me", icon: "❓" },
-    { id: "simplify", label: simplifying ? "Simplifying…" : "Simplify this", icon: simplifying ? "⏳" : "🎯" },
+    {
+      id: "simplify",
+      label: simplifying ? "Simplifying…" : "Simplify this",
+      icon: simplifying ? "⏳" : "🎯",
+    },
     { id: "unpack", label: "Unpack this", icon: "🔬" },
-    ...(hasMilestone ? [{ id: "continue_milestone", label: "Continue milestone", icon: "📍" }] : []),
+    ...(hasMilestone
+      ? [{ id: "continue_milestone", label: "Continue milestone", icon: "📍" }]
+      : []),
   ];
 
   return (
-    <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-2 ml-9 sm:ml-12" role="group" aria-label="Quick actions">
+    <div
+      className="ml-9 mt-2 flex flex-wrap gap-1.5 sm:ml-12 sm:gap-2"
+      role="group"
+      aria-label="Quick actions"
+    >
       {actions.map((action) => (
         <button
           key={action.id}
           onClick={() => onAction(action.id)}
           disabled={action.id === "simplify" && simplifying}
-          className={`inline-flex items-center gap-1 sm:gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 text-xs sm:text-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 transition-all shadow-sm hover:shadow ${
-            action.id === "simplify" && simplifying ? "opacity-50 cursor-not-allowed" : ""
+          className={`inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 shadow-sm transition-all hover:bg-gray-100 hover:shadow dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-sm ${
+            action.id === "simplify" && simplifying
+              ? "cursor-not-allowed opacity-50"
+              : ""
           }`}
           aria-label={action.label}
         >
@@ -354,18 +451,26 @@ interface FollowUpSuggestionsProps {
   isLoading?: boolean;
 }
 
-function FollowUpSuggestions({ suggestions, onSelect, isLoading }: FollowUpSuggestionsProps) {
+function FollowUpSuggestions({
+  suggestions,
+  onSelect,
+  isLoading,
+}: FollowUpSuggestionsProps) {
   if (!isLoading && suggestions.length === 0) return null;
 
   return (
-    <div className="mt-2 ml-9 sm:ml-12 space-y-1.5" role="group" aria-label="Follow-up suggestions">
+    <div
+      className="ml-9 mt-2 space-y-1.5 sm:ml-12"
+      role="group"
+      aria-label="Follow-up suggestions"
+    >
       <p className="text-xs text-gray-500 dark:text-gray-400">Follow up:</p>
       {isLoading ? (
         <div className="flex gap-2">
           {[1, 2, 3].map((i) => (
             <div
               key={i}
-              className="h-7 w-32 bg-blue-50 dark:bg-blue-900/20 rounded-full animate-pulse border border-blue-200 dark:border-blue-800"
+              className="h-7 w-32 animate-pulse rounded-full border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20"
             />
           ))}
         </div>
@@ -375,7 +480,7 @@ function FollowUpSuggestions({ suggestions, onSelect, isLoading }: FollowUpSugge
             <button
               key={i}
               onClick={() => onSelect(suggestion)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-full hover:bg-blue-100 dark:hover:bg-blue-900/40 border border-blue-200 dark:border-blue-800 transition-all"
+              className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs text-blue-700 transition-all hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-900/40 sm:text-sm"
             >
               <span aria-hidden="true">→</span>
               {suggestion}
@@ -415,25 +520,42 @@ export function ChatInterface({
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [input, setInput] = useState("");
   // Start loading immediately if we have a topic and no initial messages (greeting will be generated)
-  const [isLoading, setIsLoading] = useState(!!(sessionTopic && initialMessages.length === 0));
+  const [isLoading, setIsLoading] = useState(
+    !!(sessionTopic && initialMessages.length === 0)
+  );
   const [greetingSent, setGreetingSent] = useState(false);
   const [followUpSuggestions, setFollowUpSuggestions] = useState<string[]>([]);
   const [isLoadingFollowUps, setIsLoadingFollowUps] = useState(false);
   const [masteredObjectives, setMasteredObjectives] = useState<Set<number>>(
     new Set(initialCompletedObjectives || [])
   );
-  const [readyToQuizObjectives, setReadyToQuizObjectives] = useState<Set<number>>(new Set());
+  const [readyToQuizObjectives, setReadyToQuizObjectives] = useState<
+    Set<number>
+  >(new Set());
   const [activeQuiz, setActiveQuiz] = useState<ObjectiveQuiz | null>(null);
   const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
   const [assessmentNotice, setAssessmentNotice] = useState<string | null>(null);
+  const [prerequisiteGapAlert, setPrerequisiteGapAlert] =
+    useState<PrerequisiteGapAlert | null>(null);
+  const [isApplyingPrereqAction, setIsApplyingPrereqAction] = useState(false);
   // Simplify-in-place state
-  const [simplifyingMessageId, setSimplifyingMessageId] = useState<string | null>(null);
-  const [originalContents, setOriginalContents] = useState<Record<string, string>>({});
+  const [simplifyingMessageId, setSimplifyingMessageId] = useState<
+    string | null
+  >(null);
+  const [originalContents, setOriginalContents] = useState<
+    Record<string, string>
+  >({});
   const [fadingMessageId, setFadingMessageId] = useState<string | null>(null);
   // Unpack state — expanding a dense message into 2-3 digestible chunks
-  const [unpackingMessageId, setUnpackingMessageId] = useState<string | null>(null);
-  const [unpackedChunks, setUnpackedChunks] = useState<Record<string, string[]>>({});
-  const [unpackedVisibleCount, setUnpackedVisibleCount] = useState<Record<string, number>>({});
+  const [unpackingMessageId, setUnpackingMessageId] = useState<string | null>(
+    null
+  );
+  const [unpackedChunks, setUnpackedChunks] = useState<
+    Record<string, string[]>
+  >({});
+  const [unpackedVisibleCount, setUnpackedVisibleCount] = useState<
+    Record<string, number>
+  >({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -443,7 +565,7 @@ export function ChatInterface({
   useEffect(() => {
     if (!user) return;
     authFetch(user, `/api/users?userId=${user.uid}`)
-      .then((res) => res.ok ? res.json() : null)
+      .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.user?.highlightsEnabled === false) {
           setHighlightsEnabled(false);
@@ -493,9 +615,7 @@ export function ChatInterface({
           // Update the message with extracted concepts
           setMessages((prev) =>
             prev.map((msg) =>
-              msg.id === messageId
-                ? { ...msg, concepts: data.concepts }
-                : msg
+              msg.id === messageId ? { ...msg, concepts: data.concepts } : msg
             )
           );
         }
@@ -544,7 +664,9 @@ export function ChatInterface({
     setInput(prompt);
     // Auto-send after a brief delay
     setTimeout(() => {
-      const sendBtn = document.querySelector('[aria-label="Send message"]') as HTMLButtonElement;
+      const sendBtn = document.querySelector(
+        '[aria-label="Send message"]'
+      ) as HTMLButtonElement;
       sendBtn?.click();
     }, 100);
   };
@@ -552,7 +674,8 @@ export function ChatInterface({
   // Assess whether the learner has covered enough of an objective to be quizzed
   // This marks objectives as "ready to quiz" (🧪) — NOT auto-completed
   const assessObjectives = async (allMessages: ChatMessage[]) => {
-    if (!user || !milestoneObjectives?.length || !pathId || !milestoneId) return;
+    if (!user || !milestoneObjectives?.length || !pathId || !milestoneId)
+      return;
 
     // Need at least 2 user messages to start assessing
     const userMsgCount = allMessages.filter((m) => m.role === "user").length;
@@ -593,9 +716,7 @@ export function ChatInterface({
           const names = newlyReady
             .map((i) => milestoneObjectives[i])
             .join(", ");
-          setAssessmentNotice(
-            `🧪 Ready to quiz: ${names}`
-          );
+          setAssessmentNotice(`🧪 Ready to quiz: ${names}`);
           setTimeout(() => setAssessmentNotice(null), 6000);
         }
       }
@@ -610,7 +731,9 @@ export function ChatInterface({
 
     const objectiveText = milestoneObjectives[objectiveIndex];
     setIsGeneratingQuiz(true);
-    setAssessmentNotice(`📝 Generating quiz for: ${objectiveText.length > 40 ? objectiveText.slice(0, 40) + "…" : objectiveText}`);
+    setAssessmentNotice(
+      `📝 Generating quiz for: ${objectiveText.length > 40 ? objectiveText.slice(0, 40) + "…" : objectiveText}`
+    );
 
     try {
       // Build conversation context from recent messages
@@ -635,10 +758,12 @@ export function ChatInterface({
       }
 
       const data = await response.json();
-      const questions: QuizQuestion[] = data.questions.map((q: QuizQuestion, i: number) => ({
-        ...q,
-        index: i,
-      }));
+      const questions: QuizQuestion[] = data.questions.map(
+        (q: QuizQuestion, i: number) => ({
+          ...q,
+          index: i,
+        })
+      );
 
       const quiz: ObjectiveQuiz = {
         objectiveIndex,
@@ -663,7 +788,13 @@ export function ChatInterface({
 
   // Handle quiz completion
   const handleQuizComplete = (completedQuiz: ObjectiveQuiz) => {
-    if (completedQuiz.passed && user && pathId && milestoneId && milestoneObjectives) {
+    if (
+      completedQuiz.passed &&
+      user &&
+      pathId &&
+      milestoneId &&
+      milestoneObjectives
+    ) {
       const objIdx = completedQuiz.objectiveIndex;
 
       // Add to mastered set
@@ -716,7 +847,15 @@ export function ChatInterface({
 
   // Auto-generate AI greeting for topic-scoped sessions
   useEffect(() => {
-    if (greetingSent || !sessionTopic || !user || !sessionId || messages.length > 0 || isLoading) return;
+    if (
+      greetingSent ||
+      !sessionTopic ||
+      !user ||
+      !sessionId ||
+      messages.length > 0 ||
+      isLoading
+    )
+      return;
     setGreetingSent(true);
 
     // Extract the actual topic from "Learning about: X" format
@@ -811,7 +950,9 @@ export function ChatInterface({
       return;
     }
 
-    const lastAssistantMessage = [...messages].reverse().find(m => m.role === "assistant");
+    const lastAssistantMessage = [...messages]
+      .reverse()
+      .find((m) => m.role === "assistant");
     if (!lastAssistantMessage) return;
 
     // If quiz action and we have ready objectives, start the quiz system
@@ -841,11 +982,14 @@ export function ChatInterface({
         }
         prompt += `\n\nPlease give me a clear explanation to get started.`;
       } else {
-        prompt = "Let's continue with the milestone. What should we cover next?";
+        prompt =
+          "Let's continue with the milestone. What should we cover next?";
       }
       setInput(prompt);
       setTimeout(() => {
-        const sendBtn = document.querySelector('[aria-label="Send message"]') as HTMLButtonElement;
+        const sendBtn = document.querySelector(
+          '[aria-label="Send message"]'
+        ) as HTMLButtonElement;
         sendBtn?.click();
       }, 100);
       return;
@@ -862,7 +1006,9 @@ export function ChatInterface({
       setInput(prompt);
       // Auto-send after a brief delay
       setTimeout(() => {
-        const sendBtn = document.querySelector('[aria-label="Send message"]') as HTMLButtonElement;
+        const sendBtn = document.querySelector(
+          '[aria-label="Send message"]'
+        ) as HTMLButtonElement;
         sendBtn?.click();
       }, 100);
     }
@@ -871,9 +1017,10 @@ export function ChatInterface({
   // Handle per-paragraph "Explain more" button from MarkdownContent
   const handleExplainParagraph = useCallback((paragraphText: string) => {
     // Truncate very long paragraphs to keep the prompt reasonable
-    const snippet = paragraphText.length > 300
-      ? paragraphText.slice(0, 300) + "..."
-      : paragraphText;
+    const snippet =
+      paragraphText.length > 300
+        ? paragraphText.slice(0, 300) + "..."
+        : paragraphText;
     const prompt = `Please explain this in more detail:\n\n"${snippet}"`;
 
     // Send directly as a hidden message (don't show the prompt bubble)
@@ -895,7 +1042,9 @@ export function ChatInterface({
 
   // Silently fetch a simplified version and crossfade it in
   const handleSimplify = async () => {
-    const lastAssistantMessage = [...messages].reverse().find(m => m.role === "assistant" && !m.isStreaming);
+    const lastAssistantMessage = [...messages]
+      .reverse()
+      .find((m) => m.role === "assistant" && !m.isStreaming);
     if (!lastAssistantMessage || !user || simplifyingMessageId) return;
 
     const targetId = lastAssistantMessage.id;
@@ -942,9 +1091,7 @@ export function ChatInterface({
       // Swap in the new content while invisible
       setMessages((prev) =>
         prev.map((msg) =>
-          msg.id === targetId
-            ? { ...msg, content: simplifiedContent }
-            : msg
+          msg.id === targetId ? { ...msg, content: simplifiedContent } : msg
         )
       );
 
@@ -952,7 +1099,6 @@ export function ChatInterface({
       // Small delay to ensure React renders the new content at opacity 0
       await new Promise((resolve) => setTimeout(resolve, 50));
       setFadingMessageId(null);
-
     } catch (error) {
       console.error("Failed to simplify:", error);
       // Revert on error
@@ -979,9 +1125,7 @@ export function ChatInterface({
     // Swap back
     setMessages((prev) =>
       prev.map((msg) =>
-        msg.id === messageId
-          ? { ...msg, content: original }
-          : msg
+        msg.id === messageId ? { ...msg, content: original } : msg
       )
     );
 
@@ -999,8 +1143,16 @@ export function ChatInterface({
 
   // Unpack a dense message into 2-3 digestible chunks
   const handleUnpack = async () => {
-    const lastAssistantMessage = [...messages].reverse().find(m => m.role === "assistant" && !m.isStreaming);
-    if (!lastAssistantMessage || !user || unpackingMessageId || simplifyingMessageId) return;
+    const lastAssistantMessage = [...messages]
+      .reverse()
+      .find((m) => m.role === "assistant" && !m.isStreaming);
+    if (
+      !lastAssistantMessage ||
+      !user ||
+      unpackingMessageId ||
+      simplifyingMessageId
+    )
+      return;
 
     const targetId = lastAssistantMessage.id;
     setUnpackingMessageId(targetId);
@@ -1038,7 +1190,10 @@ export function ChatInterface({
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === targetId
-            ? { ...msg, content: `📦 *Unpacked into ${chunks.length} parts below*` }
+            ? {
+                ...msg,
+                content: `📦 *Unpacked into ${chunks.length} parts below*`,
+              }
             : msg
         )
       );
@@ -1110,7 +1265,9 @@ export function ChatInterface({
   const handleFollowUpSelect = (suggestion: string) => {
     setInput(suggestion);
     setTimeout(() => {
-      const sendBtn = document.querySelector('[aria-label="Send message"]') as HTMLButtonElement;
+      const sendBtn = document.querySelector(
+        '[aria-label="Send message"]'
+      ) as HTMLButtonElement;
       sendBtn?.click();
     }, 100);
   };
@@ -1152,7 +1309,10 @@ export function ChatInterface({
   };
 
   // Direct message send — shared by handleSend and handleExplainParagraph
-  const sendMessageDirect = async (trimmedInput: string, userMessage: ChatMessage) => {
+  const sendMessageDirect = async (
+    trimmedInput: string,
+    userMessage: ChatMessage
+  ) => {
     if (!user) return;
     try {
       // Call chat API
@@ -1211,9 +1371,7 @@ export function ChatInterface({
       // Mark streaming complete and fetch concepts
       setMessages((prev) =>
         prev.map((msg) =>
-          msg.id === assistantMessage.id
-            ? { ...msg, isStreaming: false }
-            : msg
+          msg.id === assistantMessage.id ? { ...msg, isStreaming: false } : msg
         )
       );
 
@@ -1241,13 +1399,14 @@ export function ChatInterface({
       }
     } catch (error) {
       console.error("Failed to send message:", error);
-      
+
       // Remove the user message that failed
       setMessages((prev) => prev.filter((msg) => msg.id !== userMessage.id));
-      
+
       // Show error toast/notification
-      const errorMessage = error instanceof Error ? error.message : "Network error";
-      
+      const errorMessage =
+        error instanceof Error ? error.message : "Network error";
+
       // Add error message to chat
       setMessages((prev) => [
         ...prev,
@@ -1263,6 +1422,93 @@ export function ChatInterface({
     }
   };
 
+  const fetchPrerequisiteGapAlert = useCallback(async () => {
+    if (!user || !sessionId) return;
+
+    try {
+      const response = await authFetch(
+        user,
+        `/api/sessions?userId=${user.uid}&sessionId=${sessionId}`
+      );
+      if (!response.ok) return;
+
+      const data = await response.json();
+      const alert = data?.session?.prerequisiteGapAlert as
+        | PrerequisiteGapAlert
+        | undefined;
+      if (alert?.detected) {
+        setPrerequisiteGapAlert(alert);
+      }
+    } catch (error) {
+      console.error("Failed to fetch prerequisite alert:", error);
+    }
+  }, [user, sessionId]);
+
+  useEffect(() => {
+    if (isLoading) return;
+    fetchPrerequisiteGapAlert();
+  }, [messages.length, isLoading, fetchPrerequisiteGapAlert]);
+
+  const handleAddPrerequisiteMilestone = async () => {
+    if (
+      !user ||
+      !pathId ||
+      !prerequisiteGapAlert?.prerequisiteConceptName ||
+      !milestoneId
+    )
+      return;
+
+    setIsApplyingPrereqAction(true);
+    try {
+      await authFetch(user, `/api/paths/${pathId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "insert_milestone",
+          beforeMilestoneId: milestoneId,
+          conceptId: prerequisiteGapAlert.prerequisiteConceptId,
+          conceptName: prerequisiteGapAlert.prerequisiteConceptName,
+          title: `Prerequisite: ${prerequisiteGapAlert.prerequisiteConceptName}`,
+          description: `Bridge prerequisite gap before continuing with this milestone.`,
+        }),
+      });
+      setAssessmentNotice(
+        `Added prerequisite milestone for ${prerequisiteGapAlert.prerequisiteConceptName}.`
+      );
+      setPrerequisiteGapAlert(null);
+    } catch (error) {
+      console.error("Failed to add prerequisite milestone:", error);
+    } finally {
+      setIsApplyingPrereqAction(false);
+    }
+  };
+
+  const handleKnownPrerequisiteContinue = async () => {
+    if (!user || !pathId || !prerequisiteGapAlert?.prerequisiteConceptId)
+      return;
+
+    setIsApplyingPrereqAction(true);
+    try {
+      await authFetch(user, `/api/paths/${pathId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "self_assess_prerequisite_known",
+          conceptId: prerequisiteGapAlert.prerequisiteConceptId,
+          confidence: 0.85,
+        }),
+      });
+      setAssessmentNotice(
+        `Recorded: you self-assessed ${prerequisiteGapAlert.prerequisiteConceptName || "this prerequisite"} as known.`
+      );
+      setPrerequisiteGapAlert(null);
+    } catch (error) {
+      console.error("Failed to record prerequisite self-assessment:", error);
+    } finally {
+      setIsApplyingPrereqAction(false);
+    }
+  };
+
   // Handle keyboard submit
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -1272,10 +1518,10 @@ export function ChatInterface({
   };
 
   return (
-    <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
+    <div className="flex h-full flex-col bg-gray-50 dark:bg-gray-900">
       {/* Messages Area */}
-      <div 
-        className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4 relative"
+      <div
+        className="relative flex-1 space-y-3 overflow-y-auto p-3 sm:space-y-4 sm:p-4"
         role="log"
         aria-live="polite"
         aria-label="Chat messages"
@@ -1294,11 +1540,11 @@ export function ChatInterface({
         )}
         {messages.length === 0 && isLoading ? (
           /* Greeting is being generated — show typing indicator */
-          <div className="flex flex-col items-center justify-center h-full text-center px-4">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg">
-              <BrainIcon className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
+          <div className="flex h-full flex-col items-center justify-center px-4 text-center">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 shadow-lg sm:h-20 sm:w-20">
+              <BrainIcon className="h-8 w-8 text-white sm:h-10 sm:w-10" />
             </div>
-            <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white mb-2">
+            <h2 className="mb-2 text-xl font-semibold text-gray-900 dark:text-white sm:text-2xl">
               {sessionTopic || "Starting session..."}
             </h2>
             <div className="mt-4">
@@ -1306,137 +1552,168 @@ export function ChatInterface({
             </div>
           </div>
         ) : messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center px-4">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg">
-              <BrainIcon className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
+          <div className="flex h-full flex-col items-center justify-center px-4 text-center">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 shadow-lg sm:h-20 sm:w-20">
+              <BrainIcon className="h-8 w-8 text-white sm:h-10 sm:w-10" />
             </div>
             {sessionTopic ? (
               <>
-                <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white mb-2">
+                <h2 className="mb-2 text-xl font-semibold text-gray-900 dark:text-white sm:text-2xl">
                   {sessionTopic}
                 </h2>
-                <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 max-w-md mb-6">
+                <p className="mb-6 max-w-md text-sm text-gray-600 dark:text-gray-400 sm:text-base">
                   Preparing your learning session...
                 </p>
               </>
             ) : (
               <>
-                <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white mb-2">
+                <h2 className="mb-2 text-xl font-semibold text-gray-900 dark:text-white sm:text-2xl">
                   Start a Conversation
                 </h2>
-                <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 max-w-md mb-6">
-                  Ask me anything you want to learn about. I&apos;ll help you understand
-                  concepts through conversation and track your progress.
+                <p className="mb-6 max-w-md text-sm text-gray-600 dark:text-gray-400 sm:text-base">
+                  Ask me anything you want to learn about. I&apos;ll help you
+                  understand concepts through conversation and track your
+                  progress.
                 </p>
-                <div className="mt-2 flex flex-wrap justify-center gap-2 max-w-lg">
+                <div className="mt-2 flex max-w-lg flex-wrap justify-center gap-2">
                   {[
                     "Explain recursion simply",
                     "What is a closure in JavaScript?",
                     "How do databases work?",
                   ].map((prompt) => (
-                <button
-                  key={prompt}
-                  onClick={() => setInput(prompt)}
-                  className="px-3 py-2 text-xs sm:text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-blue-300 dark:hover:border-blue-600 transition-all shadow-sm hover:shadow"
-                  aria-label={`Use example prompt: ${prompt}`}
-                >
-                  {prompt}
-                </button>
-              ))}
+                    <button
+                      key={prompt}
+                      onClick={() => setInput(prompt)}
+                      className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs shadow-sm transition-all hover:border-blue-300 hover:bg-gray-50 hover:shadow dark:border-gray-700 dark:bg-gray-800 dark:hover:border-blue-600 dark:hover:bg-gray-700 sm:text-sm"
+                      aria-label={`Use example prompt: ${prompt}`}
+                    >
+                      {prompt}
+                    </button>
+                  ))}
                 </div>
               </>
             )}
           </div>
         ) : (
           <>
-            {messages.filter(m => !m.isHidden).map((message, index) => {
-              const chunks = unpackedChunks[message.id];
-              const visibleCount = unpackedVisibleCount[message.id] || 0;
-              const isUnpacked = !!chunks;
-              const isUnpacking = unpackingMessageId === message.id;
+            {messages
+              .filter((m) => !m.isHidden)
+              .map((message, index) => {
+                const chunks = unpackedChunks[message.id];
+                const visibleCount = unpackedVisibleCount[message.id] || 0;
+                const isUnpacked = !!chunks;
+                const isUnpacking = unpackingMessageId === message.id;
 
-              return (
-                <div key={message.id}>
-                  <MessageBubble
-                    message={message}
-                    userPhotoURL={user?.photoURL}
-                    onTermClick={handleTermClick}
-                    onExplainParagraph={handleExplainParagraph}
-                    isSimplifying={simplifyingMessageId === message.id || isUnpacking}
-                    isFading={fadingMessageId === message.id}
-                    isSimplified={!!originalContents[message.id] && !isUnpacked}
-                    onUndoSimplify={() => handleUndoSimplify(message.id)}
-                    onTextSelect={highlightsEnabled ? handleTextSelection : undefined}
-                    messageHighlights={highlightsEnabled ? highlights.filter((h) => h.messageId === message.id) : []}
-                  />
+                return (
+                  <div key={message.id}>
+                    <MessageBubble
+                      message={message}
+                      userPhotoURL={user?.photoURL}
+                      onTermClick={handleTermClick}
+                      onExplainParagraph={handleExplainParagraph}
+                      isSimplifying={
+                        simplifyingMessageId === message.id || isUnpacking
+                      }
+                      isFading={fadingMessageId === message.id}
+                      isSimplified={
+                        !!originalContents[message.id] && !isUnpacked
+                      }
+                      onUndoSimplify={() => handleUndoSimplify(message.id)}
+                      onTextSelect={
+                        highlightsEnabled ? handleTextSelection : undefined
+                      }
+                      messageHighlights={
+                        highlightsEnabled
+                          ? highlights.filter((h) => h.messageId === message.id)
+                          : []
+                      }
+                    />
 
-                  {/* Unpack collapse control */}
-                  {isUnpacked && (
-                    <div className="mt-1 ml-9 sm:ml-12">
-                      <button
-                        onClick={() => handleCollapseUnpack(message.id)}
-                        className="text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                        aria-label="Collapse back to original"
-                      >
-                        🔬 Unpacked · <span className="underline">show original</span>
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Unpacked chunks — revealed one at a time */}
-                  {isUnpacked && chunks.slice(0, visibleCount).map((chunk, chunkIdx) => (
-                    <div key={`${message.id}-chunk-${chunkIdx}`} className="mt-3">
-                      <div className="flex gap-2 sm:gap-3 flex-row">
-                        {/* Chunk step indicator instead of avatar */}
-                        <div className="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-xs font-bold text-white">
-                          {chunkIdx + 1}
-                        </div>
-                        <div className="max-w-[85%] sm:max-w-[80%] text-left">
-                          <div className="inline-block rounded-2xl px-3 py-2 sm:px-4 sm:py-3 text-sm sm:text-base bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-bl-md shadow-sm border border-indigo-200 dark:border-indigo-700">
-                            {renderMessageContent(chunk, false, handleTermClick)}
-                          </div>
-                        </div>
+                    {/* Unpack collapse control */}
+                    {isUnpacked && (
+                      <div className="ml-9 mt-1 sm:ml-12">
+                        <button
+                          onClick={() => handleCollapseUnpack(message.id)}
+                          className="text-xs text-gray-400 transition-colors hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+                          aria-label="Collapse back to original"
+                        >
+                          🔬 Unpacked ·{" "}
+                          <span className="underline">show original</span>
+                        </button>
                       </div>
-                      {/* "Next" button after the last visible chunk if more remain */}
-                      {chunkIdx === visibleCount - 1 && visibleCount < chunks.length && (
-                        <div className="mt-2 ml-9 sm:ml-12">
-                          <button
-                            onClick={() => handleShowNextChunk(message.id)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 rounded-full hover:bg-indigo-100 dark:hover:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 transition-all shadow-sm"
-                          >
-                            <span aria-hidden="true">→</span>
-                            Next part ({chunkIdx + 2} of {chunks.length})
-                          </button>
-                        </div>
-                      )}
-                      {/* All chunks shown */}
-                      {chunkIdx === visibleCount - 1 && visibleCount === chunks.length && (
-                        <div className="mt-2 ml-9 sm:ml-12">
-                          <span className="text-xs text-green-600 dark:text-green-400">
-                            ✓ All {chunks.length} parts shown
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                    )}
 
-                  {/* Quick Actions after AI response (hidden when unpacked) */}
-                  {message.role === "assistant" && 
-                   !message.isStreaming && 
-                   index === messages.length - 1 && 
-                   !isLoading && !isUnpacked && (
-                    <>
-                      <QuickActions onAction={handleQuickAction} simplifying={!!simplifyingMessageId} hasMilestone={!!milestoneObjectives?.length} />
-                      <FollowUpSuggestions
-                        suggestions={followUpSuggestions}
-                        onSelect={handleFollowUpSelect}
-                        isLoading={isLoadingFollowUps}
-                      />
-                    </>
-                  )}
-                </div>
-              );
-            })}
+                    {/* Unpacked chunks — revealed one at a time */}
+                    {isUnpacked &&
+                      chunks.slice(0, visibleCount).map((chunk, chunkIdx) => (
+                        <div
+                          key={`${message.id}-chunk-${chunkIdx}`}
+                          className="mt-3"
+                        >
+                          <div className="flex flex-row gap-2 sm:gap-3">
+                            {/* Chunk step indicator instead of avatar */}
+                            <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 text-xs font-bold text-white sm:h-8 sm:w-8">
+                              {chunkIdx + 1}
+                            </div>
+                            <div className="max-w-[85%] text-left sm:max-w-[80%]">
+                              <div className="inline-block rounded-2xl rounded-bl-md border border-indigo-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm dark:border-indigo-700 dark:bg-gray-800 dark:text-gray-100 sm:px-4 sm:py-3 sm:text-base">
+                                {renderMessageContent(
+                                  chunk,
+                                  false,
+                                  handleTermClick
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          {/* "Next" button after the last visible chunk if more remain */}
+                          {chunkIdx === visibleCount - 1 &&
+                            visibleCount < chunks.length && (
+                              <div className="ml-9 mt-2 sm:ml-12">
+                                <button
+                                  onClick={() =>
+                                    handleShowNextChunk(message.id)
+                                  }
+                                  className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs text-indigo-700 shadow-sm transition-all hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-300 dark:hover:bg-indigo-900/40 sm:text-sm"
+                                >
+                                  <span aria-hidden="true">→</span>
+                                  Next part ({chunkIdx + 2} of {chunks.length})
+                                </button>
+                              </div>
+                            )}
+                          {/* All chunks shown */}
+                          {chunkIdx === visibleCount - 1 &&
+                            visibleCount === chunks.length && (
+                              <div className="ml-9 mt-2 sm:ml-12">
+                                <span className="text-xs text-green-600 dark:text-green-400">
+                                  ✓ All {chunks.length} parts shown
+                                </span>
+                              </div>
+                            )}
+                        </div>
+                      ))}
+
+                    {/* Quick Actions after AI response (hidden when unpacked) */}
+                    {message.role === "assistant" &&
+                      !message.isStreaming &&
+                      index === messages.length - 1 &&
+                      !isLoading &&
+                      !isUnpacked && (
+                        <>
+                          <QuickActions
+                            onAction={handleQuickAction}
+                            simplifying={!!simplifyingMessageId}
+                            hasMilestone={!!milestoneObjectives?.length}
+                          />
+                          <FollowUpSuggestions
+                            suggestions={followUpSuggestions}
+                            onSelect={handleFollowUpSelect}
+                            isLoading={isLoadingFollowUps}
+                          />
+                        </>
+                      )}
+                  </div>
+                );
+              })}
             {isLoading && messages[messages.length - 1]?.role === "user" && (
               <TypingIndicator />
             )}
@@ -1447,7 +1724,7 @@ export function ChatInterface({
 
       {/* Objective Mastery Notice */}
       {assessmentNotice && (
-        <div className="mx-3 sm:mx-4 mb-2 px-4 py-2.5 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg text-sm text-green-800 dark:text-green-200 animate-in fade-in slide-in-from-bottom-2 flex items-center gap-2">
+        <div className="animate-in fade-in slide-in-from-bottom-2 mx-3 mb-2 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-2.5 text-sm text-green-800 dark:border-green-800 dark:bg-green-900/20 dark:text-green-200 sm:mx-4">
           <span>{assessmentNotice}</span>
         </div>
       )}
@@ -1462,52 +1739,94 @@ export function ChatInterface({
       )}
 
       {/* Milestone Objectives Tracker — shown when in a milestone-scoped session */}
-      {milestoneObjectives && milestoneObjectives.length > 0 && messages.length > 0 && (
-        <div className="mx-3 sm:mx-4 mb-2 px-3 py-2 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">
-              Milestone Objectives
-            </span>
-            <span className="text-xs text-indigo-500 dark:text-indigo-400">
-              {masteredObjectives.size}/{milestoneObjectives.length} mastered
-            </span>
+      {milestoneObjectives &&
+        milestoneObjectives.length > 0 &&
+        messages.length > 0 && (
+          <div className="mx-3 mb-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 dark:border-indigo-800 dark:bg-indigo-900/20 sm:mx-4">
+            <div className="mb-1 flex items-center justify-between">
+              <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">
+                Milestone Objectives
+              </span>
+              <span className="text-xs text-indigo-500 dark:text-indigo-400">
+                {masteredObjectives.size}/{milestoneObjectives.length} mastered
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {milestoneObjectives.map((obj, i) => {
+                const isMastered = masteredObjectives.has(i);
+                const isReady = readyToQuizObjectives.has(i) && !isMastered;
+                return (
+                  <button
+                    key={i}
+                    onClick={() =>
+                      isReady &&
+                      !activeQuiz &&
+                      !isGeneratingQuiz &&
+                      startQuiz(i)
+                    }
+                    disabled={
+                      isMastered || !isReady || !!activeQuiz || isGeneratingQuiz
+                    }
+                    className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs transition-all ${
+                      isMastered
+                        ? "cursor-default border border-green-300 bg-green-100 text-green-700 dark:border-green-700 dark:bg-green-900/30 dark:text-green-300"
+                        : isReady
+                          ? "cursor-pointer border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 hover:shadow-sm dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-300 dark:hover:bg-amber-900/30"
+                          : "cursor-default border border-gray-200 bg-white text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
+                    }`}
+                    title={
+                      isMastered
+                        ? `✅ ${obj}`
+                        : isReady
+                          ? `🧪 Click to quiz: ${obj}`
+                          : obj
+                    }
+                  >
+                    {isMastered ? "✅" : isReady ? "🧪" : "○"}{" "}
+                    {obj.length > 30 ? obj.slice(0, 30) + "…" : obj}
+                  </button>
+                );
+              })}
+            </div>
+            {readyToQuizObjectives.size > 0 && !activeQuiz && (
+              <p className="mt-1.5 text-xs text-amber-600 dark:text-amber-400">
+                🧪 = Ready to quiz — click to test your understanding
+              </p>
+            )}
           </div>
-          <div className="flex flex-wrap gap-1">
-            {milestoneObjectives.map((obj, i) => {
-              const isMastered = masteredObjectives.has(i);
-              const isReady = readyToQuizObjectives.has(i) && !isMastered;
-              return (
-                <button
-                  key={i}
-                  onClick={() => isReady && !activeQuiz && !isGeneratingQuiz && startQuiz(i)}
-                  disabled={isMastered || !isReady || !!activeQuiz || isGeneratingQuiz}
-                  className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full transition-all ${
-                    isMastered
-                      ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-300 dark:border-green-700 cursor-default"
-                      : isReady
-                      ? "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/30 cursor-pointer hover:shadow-sm"
-                      : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 cursor-default"
-                  }`}
-                  title={isMastered ? `✅ ${obj}` : isReady ? `🧪 Click to quiz: ${obj}` : obj}
-                >
-                  {isMastered ? "✅" : isReady ? "🧪" : "○"}{" "}
-                  {obj.length > 30 ? obj.slice(0, 30) + "…" : obj}
-                </button>
-              );
-            })}
+        )}
+
+      {prerequisiteGapAlert?.detected && (
+        <div className="mx-3 mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 dark:border-amber-800 dark:bg-amber-900/20 sm:mx-4">
+          <p className="mb-2 text-sm text-amber-900 dark:text-amber-200">
+            ⚠️ Possible prerequisite gap:{" "}
+            <strong>{prerequisiteGapAlert.prerequisiteConceptName}</strong>.{" "}
+            {prerequisiteGapAlert.reason}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              onClick={handleAddPrerequisiteMilestone}
+              disabled={isApplyingPrereqAction || !pathId || !milestoneId}
+            >
+              Add prerequisite milestone
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={handleKnownPrerequisiteContinue}
+              disabled={isApplyingPrereqAction || !pathId}
+            >
+              I know this, continue
+            </Button>
           </div>
-          {readyToQuizObjectives.size > 0 && !activeQuiz && (
-            <p className="text-xs text-amber-600 dark:text-amber-400 mt-1.5">
-              🧪 = Ready to quiz — click to test your understanding
-            </p>
-          )}
         </div>
       )}
 
       {/* Input Area - sticky for mobile keyboard handling */}
-      <div className="border-t border-gray-200 dark:border-gray-800 p-3 sm:p-4 bg-white dark:bg-gray-900 shadow-lg sticky bottom-0 safe-area-inset-bottom">
-        <div className="flex gap-2 sm:gap-3 max-w-4xl mx-auto">
-          <div className="flex-1 relative">
+      <div className="safe-area-inset-bottom sticky bottom-0 border-t border-gray-200 bg-white p-3 shadow-lg dark:border-gray-800 dark:bg-gray-900 sm:p-4">
+        <div className="mx-auto flex max-w-4xl gap-2 sm:gap-3">
+          <div className="relative flex-1">
             <textarea
               ref={inputRef}
               value={input}
@@ -1515,14 +1834,17 @@ export function ChatInterface({
               onKeyDown={handleKeyDown}
               placeholder="Ask me anything..."
               rows={1}
-              className="w-full resize-none rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 sm:px-4 py-2.5 sm:py-3 text-base sm:text-base text-gray-900 dark:text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              className="w-full resize-none rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-base text-gray-900 placeholder-gray-500 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 sm:px-4 sm:py-3 sm:text-base"
               disabled={isLoading}
               aria-label="Message input"
               maxLength={2000}
               style={{ fontSize: "16px" }} // Prevents iOS zoom on focus
             />
             {input.length > 1800 && (
-              <span className="absolute bottom-2 right-2 text-xs text-gray-400" aria-live="polite">
+              <span
+                className="absolute bottom-2 right-2 text-xs text-gray-400"
+                aria-live="polite"
+              >
                 {2000 - input.length}
               </span>
             )}
@@ -1530,18 +1852,20 @@ export function ChatInterface({
           <Button
             onClick={handleSend}
             disabled={!input.trim() || isLoading}
-            className="px-3 sm:px-4 min-w-[44px] min-h-[44px] h-10 sm:h-11 shrink-0"
+            className="h-10 min-h-[44px] min-w-[44px] shrink-0 px-3 sm:h-11 sm:px-4"
             aria-label="Send message"
             title="Send message (Enter)"
           >
             {isLoading ? (
-              <span className="animate-spin" aria-hidden="true">⏳</span>
+              <span className="animate-spin" aria-hidden="true">
+                ⏳
+              </span>
             ) : (
-              <SendIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+              <SendIcon className="h-4 w-4 sm:h-5 sm:w-5" />
             )}
           </Button>
         </div>
-        <p className="text-xs text-gray-500 dark:text-gray-400 text-center mt-2 hidden sm:block">
+        <p className="mt-2 hidden text-center text-xs text-gray-500 dark:text-gray-400 sm:block">
           Press Enter to send, Shift + Enter for new line
         </p>
       </div>

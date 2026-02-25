@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { pathsService } from "@/lib/firebase/learningPaths";
+import { conceptsService } from "@/lib/firebase/concepts";
+import { Timestamp } from "firebase-admin/firestore";
 import {
   assertSameUser,
   authErrorResponse,
@@ -60,7 +62,10 @@ export async function PATCH(
     const userId = authed.uid;
 
     if (!action) {
-      return NextResponse.json({ error: "action is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "action is required" },
+        { status: 400 }
+      );
     }
 
     switch (action) {
@@ -114,7 +119,11 @@ export async function PATCH(
             { status: 400 }
           );
         }
-        await pathsService.completeMilestone(userId, pathId, completeMilestoneId);
+        await pathsService.completeMilestone(
+          userId,
+          pathId,
+          completeMilestoneId
+        );
 
         // Auto-unlock and advance to next milestone
         const pathAfterComplete = await pathsService.getPath(userId, pathId);
@@ -144,11 +153,118 @@ export async function PATCH(
         break;
       }
 
+      case "insert_milestone": {
+        const {
+          title,
+          description,
+          conceptId,
+          conceptName,
+          objectives,
+          estimatedMinutes,
+          beforeMilestoneId,
+          milestoneId,
+        } = body;
+
+        if (!title || !description || !conceptName) {
+          return NextResponse.json(
+            {
+              error:
+                "title, description, and conceptName are required for insert_milestone",
+            },
+            { status: 400 }
+          );
+        }
+
+        const pathForInsert = await pathsService.getPath(userId, pathId);
+        if (!pathForInsert) {
+          return NextResponse.json(
+            { error: "Path not found" },
+            { status: 404 }
+          );
+        }
+
+        const targetMilestoneId =
+          beforeMilestoneId ||
+          pathForInsert.milestones[pathForInsert.currentMilestoneIndex]
+            ?.milestoneId;
+
+        const insertIndex = targetMilestoneId
+          ? pathForInsert.milestones.findIndex(
+              (m) => m.milestoneId === targetMilestoneId
+            )
+          : pathForInsert.currentMilestoneIndex;
+
+        const safeInsertIndex =
+          insertIndex === -1
+            ? pathForInsert.currentMilestoneIndex
+            : insertIndex;
+
+        const newMilestoneId = milestoneId || `prereq_${Date.now()}`;
+        const createdMilestone = {
+          milestoneId: newMilestoneId,
+          order: safeInsertIndex,
+          title,
+          description,
+          conceptIds: conceptId ? [conceptId] : [],
+          conceptNames: [conceptName],
+          estimatedMinutes: estimatedMinutes ?? 30,
+          objectives:
+            Array.isArray(objectives) && objectives.length > 0
+              ? objectives
+              : [`Build foundational understanding of ${conceptName}`],
+          completedObjectives: [],
+          status: "available" as const,
+          progress: 0,
+          prerequisiteMilestoneIds: [],
+        };
+
+        await pathsService.insertMilestone(
+          userId,
+          pathId,
+          createdMilestone,
+          safeInsertIndex
+        );
+        break;
+      }
+
+      case "self_assess_prerequisite_known": {
+        const { conceptId, confidence = 0.85 } = body;
+        if (!conceptId) {
+          return NextResponse.json(
+            {
+              error: "conceptId is required for self_assess_prerequisite_known",
+            },
+            { status: 400 }
+          );
+        }
+
+        const concept = await conceptsService.getConcept(userId, conceptId);
+        if (!concept) {
+          return NextResponse.json(
+            { error: "Concept not found" },
+            { status: 404 }
+          );
+        }
+
+        await conceptsService.updateConcept(userId, conceptId, {
+          confidence: Math.max(0, Math.min(1, confidence)),
+          understanding: Math.max(
+            concept.understanding,
+            Math.max(0, Math.min(1, confidence))
+          ),
+          lastReviewed: Timestamp.now() as unknown as any,
+        });
+        break;
+      }
+
       case "update_objectives": {
         const { milestoneId: objMilestoneId, completedObjectives } = body;
         if (!objMilestoneId || !Array.isArray(completedObjectives)) {
           return NextResponse.json(
-            { error: "milestoneId and completedObjectives[] are required for update_objectives" },
+            {
+              error:
+                "milestoneId and completedObjectives[] are required for update_objectives",
+            },
             { status: 400 }
           );
         }
@@ -160,7 +276,10 @@ export async function PATCH(
           );
           if (ms) {
             const totalObj = ms.objectives?.length || 1;
-            const msProgress = Math.min(completedObjectives.length / totalObj, 1.0);
+            const msProgress = Math.min(
+              completedObjectives.length / totalObj,
+              1.0
+            );
             await pathsService.updateMilestone(userId, pathId, objMilestoneId, {
               progress: msProgress,
               completedObjectives,
@@ -169,9 +288,11 @@ export async function PATCH(
             // Recalculate path-level progress from all milestones
             const updatedPath = await pathsService.getPath(userId, pathId);
             if (updatedPath) {
-              const pathProgress = updatedPath.milestones.reduce(
-                (sum, m) => sum + (m.progress || 0), 0
-              ) / updatedPath.milestones.length;
+              const pathProgress =
+                updatedPath.milestones.reduce(
+                  (sum, m) => sum + (m.progress || 0),
+                  0
+                ) / updatedPath.milestones.length;
               await pathsService.updatePathProgress(userId, pathId, {
                 progress: pathProgress,
               });
@@ -185,7 +306,7 @@ export async function PATCH(
         return NextResponse.json(
           {
             error:
-              "Invalid action. Must be: accept, abandon, pause, resume, start_milestone, complete_milestone, or update_objectives",
+              "Invalid action. Must be: accept, abandon, pause, resume, start_milestone, complete_milestone, update_objectives, insert_milestone, or self_assess_prerequisite_known",
           },
           { status: 400 }
         );
