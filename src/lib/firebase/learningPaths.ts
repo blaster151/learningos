@@ -40,10 +40,7 @@ export const pathsService = {
   /**
    * Get a path by ID
    */
-  async getPath(
-    userId: string,
-    pathId: string
-  ): Promise<LearningPath | null> {
+  async getPath(userId: string, pathId: string): Promise<LearningPath | null> {
     const db = await getAdminDb();
     const pathDoc = await db.collection("learning_paths").doc(pathId).get();
 
@@ -243,7 +240,7 @@ export const pathsService = {
 
     if (updates.status) {
       updateData.status = updates.status;
-      
+
       // Set completedAt if status is completed
       if (updates.status === "completed" && !data?.completedAt) {
         updateData.completedAt = Timestamp.now();
@@ -355,29 +352,41 @@ export const pathsService = {
         // 2. It was learned from a different source
         // 3. It has meaningful exposure (encountered multiple times organically)
         // 4. It has moved beyond "exploring" mastery (user has engaged with it)
-        const hasOtherSessions = sessionIds.length > 0 && sessionIds.some((s: string) => s !== pathId);
+        const hasOtherSessions =
+          sessionIds.length > 0 && sessionIds.some((s: string) => s !== pathId);
         const learnedElsewhere = learnedFrom && learnedFrom !== pathId;
         const hasSignificantExposure = exposureCount > 2;
-        const hasMasteryProgress = conceptData.masteryLevel && conceptData.masteryLevel !== "exploring";
+        const hasMasteryProgress =
+          conceptData.masteryLevel && conceptData.masteryLevel !== "exploring";
 
-        if (hasOtherSessions || learnedElsewhere || hasSignificantExposure || hasMasteryProgress) {
+        if (
+          hasOtherSessions ||
+          learnedElsewhere ||
+          hasSignificantExposure ||
+          hasMasteryProgress
+        ) {
           continue; // Keep this concept
         }
 
         // Delete concept and its relations
         deletePromises.push(
-          conceptDoc.ref.delete().then(() => {}).catch(err => 
-            console.warn(`Failed to delete concept ${conceptId}:`, err)
-          )
+          conceptDoc.ref
+            .delete()
+            .then(() => {})
+            .catch((err) =>
+              console.warn(`Failed to delete concept ${conceptId}:`, err)
+            )
         );
 
         // Delete relations involving this concept
         const [sourceRels, targetRels] = await Promise.all([
-          db.collection("concept_relations")
+          db
+            .collection("concept_relations")
             .where("userId", "==", userId)
             .where("sourceConceptId", "==", conceptId)
             .get(),
-          db.collection("concept_relations")
+          db
+            .collection("concept_relations")
             .where("userId", "==", userId)
             .where("targetConceptId", "==", conceptId)
             .get(),
@@ -385,9 +394,12 @@ export const pathsService = {
 
         for (const doc of [...sourceRels.docs, ...targetRels.docs]) {
           relationDeletePromises.push(
-            doc.ref.delete().then(() => {}).catch(err =>
-              console.warn(`Failed to delete relation ${doc.id}:`, err)
-            )
+            doc.ref
+              .delete()
+              .then(() => {})
+              .catch((err) =>
+                console.warn(`Failed to delete relation ${doc.id}:`, err)
+              )
           );
         }
       } catch (err) {
@@ -416,6 +428,63 @@ export const pathsService = {
   /**
    * Update milestone in path
    */
+
+  /**
+   * Insert a milestone at a specific index and re-index milestone ordering/dependencies.
+   */
+  async insertMilestone(
+    userId: string,
+    pathId: string,
+    milestone: PathMilestone,
+    insertIndex: number
+  ): Promise<void> {
+    const path = await this.getPath(userId, pathId);
+    if (!path) {
+      throw new Error(`Path ${pathId} not found`);
+    }
+
+    const safeIndex = Math.max(
+      0,
+      Math.min(insertIndex, path.milestones.length)
+    );
+    const milestones = [...path.milestones];
+    milestones.splice(safeIndex, 0, milestone);
+
+    const idByOldIndex = path.milestones.map((m) => m.milestoneId);
+    const idByNewIndex = milestones.map((m) => m.milestoneId);
+
+    const remapped = milestones.map((m, newIndex) => {
+      let prereqs = m.prerequisiteMilestoneIds || [];
+
+      // For the inserted milestone, ensure no broken prerequisites.
+      if (m.milestoneId === milestone.milestoneId) {
+        prereqs = prereqs.filter((id) => idByNewIndex.includes(id));
+      }
+
+      // If a milestone previously depended on the milestone at the insertion index,
+      // preserve that dependency and keep others intact.
+      const oldIndex = idByOldIndex.indexOf(m.milestoneId);
+      if (oldIndex !== -1 && oldIndex >= safeIndex) {
+        prereqs = Array.from(new Set(prereqs));
+      }
+
+      return {
+        ...m,
+        order: newIndex,
+        prerequisiteMilestoneIds: prereqs,
+      };
+    });
+
+    await this.updatePathProgress(userId, pathId, {
+      milestones: remapped,
+      currentMilestoneIndex:
+        path.currentMilestoneIndex >= safeIndex
+          ? path.currentMilestoneIndex + 1
+          : path.currentMilestoneIndex,
+      progress: calculatePathProgress(remapped),
+    });
+  },
+
   async updateMilestone(
     userId: string,
     pathId: string,
