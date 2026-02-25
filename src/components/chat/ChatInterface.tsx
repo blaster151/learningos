@@ -1444,10 +1444,18 @@ export function ChatInterface({
     }
   }, [user, sessionId]);
 
+  // Track previous isLoading state so we only poll when a response just finished
+  const prevIsLoadingRef = useRef(false);
+
   useEffect(() => {
-    if (isLoading) return;
-    fetchPrerequisiteGapAlert();
-  }, [messages.length, isLoading, fetchPrerequisiteGapAlert]);
+    const wasLoading = prevIsLoadingRef.current;
+    prevIsLoadingRef.current = isLoading;
+
+    // Only fetch after an assistant response completes (isLoading: true → false)
+    if (wasLoading && !isLoading) {
+      fetchPrerequisiteGapAlert();
+    }
+  }, [isLoading, fetchPrerequisiteGapAlert]);
 
   const handleAddPrerequisiteMilestone = async () => {
     if (

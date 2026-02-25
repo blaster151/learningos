@@ -1217,152 +1217,315 @@ const graph = await client.graph.get({ domain: 'functional-programming' })
 
 ## 9. Prerequisite Intelligence (Epic 14)
 
-> Added: February 25, 2026 — Minimum spec for E14 stories, covering the prerequisite chain service and the path-mutation endpoint.
+> Added: February 25, 2026 — Spec for E14-S2/S3 stories, covering the prerequisite chain service and the path-mutation actions.
+> Updated: February 25, 2026 — Aligned with Codex 5.x implementation.
 
 ### Design Decision: `getPrerequisiteChain`
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| Location | `src/lib/graph/prerequisiteChain.ts` (client-side service) | The concept graph and relations are already fetched client-side for the graph page; the chain walker needs the same data. No new API route required—reuses `GET /graph`. |
-| Also expose via API? | Yes — `GET /graph/prerequisites/:conceptId` (thin wrapper) | Needed by path-generation (server-side) and by Codex tests that don't mount React. |
+| Location | `src/lib/learning/prerequisiteChain.ts` (server-side service) | Queries Firestore directly for fresh concept/relation data. Keeps graph-walk logic co-located with other learning services. |
+| Exposed as standalone API? | No — called internally by chat route and gap monitor. | Not needed as a public endpoint; consumed only server-side. A thin API wrapper can be added later if client needs arise. |
 
-### GET /graph/prerequisites/:conceptId
+### Service: `getPrerequisiteChain(userId, targetConceptId)`
 
-Return the ordered prerequisite chain for a concept, annotated with mastery and assessment flags.
+Return the ordered prerequisite chain for a concept, annotated with mastery and readiness flags.
 
-**Query Parameters:**
-
-| Param | Type | Default | Description |
-|-------|------|---------|-------------|
-| depth | number | 10 | Max traversal depth (cycle guard) |
-| includeTransitive | boolean | true | Walk full transitive closure |
-
-**Response (200 OK):**
-```typescript
-interface PrerequisiteChainResponse {
-  /** Target concept that was queried */
-  targetConceptId: string;
-  targetConceptName: string;
-
-  /** Ordered list from most-foundational → closest prerequisite */
-  chain: PrerequisiteChainNode[];
-
-  /** True if a cycle was detected and broken during traversal */
-  cycleDetected: boolean;
-  /** Edge IDs where cycles were broken (for debugging / graph cleanup) */
-  cycleEdges: string[];
-
-  /** Total depth traversed */
-  depth: number;
-}
-
-interface PrerequisiteChainNode {
-  conceptId: string;
-  conceptName: string;
-  domain: string;
-  mastery: MasteryLevel;           // Current mastery from ConceptNode
-  masteryScore: number;            // 0.0-1.0 numeric confidence
-  /** Assessment flag derived from mastery */
-  flag: "likely_known"             // masteryScore ≥ 0.8
-      | "needs_assessment"          // masteryScore < 0.3
-      | "partial";                  // 0.3 ≤ masteryScore < 0.8
-  /** How many hops from the target concept (1 = direct prereq) */
-  distanceFromTarget: number;
-  /** Relation ID that links this node to the next node toward target */
-  relationId: string;
-}
-```
-
-**Service function signature** (`src/lib/graph/prerequisiteChain.ts`):
+**Function signature** (`src/lib/learning/prerequisiteChain.ts`):
 ```typescript
 export async function getPrerequisiteChain(
-  conceptId: string,
-  nodes: ConceptNode[],
-  relations: ConceptRelation[],
-  options?: { maxDepth?: number; includeTransitive?: boolean }
-): Promise<PrerequisiteChainResponse>
+  userId: string,
+  targetConceptId: string
+): Promise<PrerequisiteChainResult>
+```
+
+**Return type:**
+```typescript
+export type PrerequisiteReadiness =
+  | "likely_known"       // masteryScore ≥ 0.8
+  | "needs_assessment"   // masteryScore < 0.3 (or null)
+  | "reinforce";         // 0.3 ≤ masteryScore < 0.8
+
+export interface PrerequisiteConcept {
+  conceptId: string;
+  conceptName: string;
+  depth: number;              // Hops from target (1 = direct prereq)
+  mastery: number | null;     // 0.0-1.0 numeric score, null if unknown
+  readiness: PrerequisiteReadiness;
+  source: "graph" | "inferred"; // "inferred" = AI-generated when no graph prereqs exist
+}
+
+export interface PrerequisiteChainResult {
+  targetConceptId: string;
+  /** Ordered list: deepest (most-foundational) first */
+  prerequisites: PrerequisiteConcept[];
+  /** True if a cycle was detected and broken during traversal */
+  cycleDetected: boolean;
+  /** True if no graph prerequisites existed and the AI inference fallback was used */
+  usedInferredPrerequisites: boolean;
+}
 ```
 
 **Algorithm notes:**
-- BFS from `conceptId`, following **incoming** `prerequisite` edges.
-- Maintain a `visited` set for cycle detection; when a cycle is found, record the edge in `cycleEdges` and skip.
-- Sort final chain topologically (most-foundational first).
-- Flag each node based on mastery thresholds (≥ 0.8 → `likely_known`, < 0.3 → `needs_assessment`, else `partial`).
-
-**Errors:**
-| Status | Code | When |
-|--------|------|------|
-| 404 | `CONCEPT_NOT_FOUND` | conceptId doesn't exist in user's graph |
+- BFS from `targetConceptId`, following **incoming** `prerequisite` relations (sourceConceptId → targetConceptId).
+- Maintain a `visiting` set for cycle detection; when revisiting a node, set `cycleDetected = true` and skip.
+- Sort final chain by depth descending (most-foundational first), then alphabetically.
+- Flag each node: ≥ 0.8 → `likely_known`, < 0.3 or null → `needs_assessment`, else `reinforce`.
+- **AI fallback:** When no graph prerequisites exist, call LLM (`AI_CONFIG.FALLBACK_MODEL`) to infer 2–5 likely prerequisites. These are returned with `source: "inferred"` and synthetic concept IDs (`inferred:<name>:<index>`).
 
 ---
 
-### PATCH /paths/:pathId/milestones/insert
+### PATCH /paths/:pathId — action: `insert_milestone`
 
-Insert a new prerequisite milestone into an existing path at a specific position (E14-S3: Dynamic Prerequisite Detection).
+Insert a new prerequisite milestone into an existing path before a specified milestone (E14-S3: Dynamic Prerequisite Detection).
 
 **Authentication:** Bearer token required. User must own the path.
 
 **Request:**
 ```typescript
 {
-  /** 0-based index where the new milestone should be inserted.
-      Existing milestones at this index and beyond shift right. */
-  insertAtIndex: number;
+  action: "insert_milestone";
+  userId?: string;                   // Verified against auth token
 
-  /** The milestone to insert */
-  milestone: {
-    title: string;
-    description: string;
-    conceptNames: string[];          // Will be resolved to conceptIds server-side
-    objectives: string[];
-    estimatedMinutes: number;
-  };
+  /** Insert before this milestone. Falls back to current milestone if omitted. */
+  beforeMilestoneId?: string;
 
-  /** Why this milestone was inserted */
-  provenance: {
+  /** Milestone fields */
+  title: string;                     // Required
+  description: string;               // Required
+  conceptName: string;               // Required — display name of prerequisite concept
+  conceptId?: string;                // If known; omit for inferred concepts
+  objectives?: string[];             // Defaults to ["Build foundational understanding of {conceptName}"]
+  estimatedMinutes?: number;         // Defaults to 30
+  milestoneId?: string;              // Override auto-generated ID (for idempotency)
+
+  /** Provenance — why this milestone was inserted (optional but recommended) */
+  provenance?: {
     reason: "prerequisite_gap";      // Extensible enum
-    detectedInMilestoneId: string;   // Which milestone surfaced the gap
+    detectedInMilestoneId?: string;  // Which milestone surfaced the gap
     detectedInSessionId?: string;    // Chat session where AI flagged it
-    userChoice: "accepted" | "self_assessed_known";
+    userChoice?: "accepted" | "self_assessed_known";
   };
 }
 ```
 
 **Validation rules:**
-- `insertAtIndex` must be ≥ 0 and ≤ current `milestones.length`.
-- `milestone.conceptNames` must each be ≤ 100 chars, array length ≤ 10.
-- `provenance.detectedInMilestoneId` must reference an existing milestone in the path.
+- `title`, `description`, and `conceptName` are required.
+- `beforeMilestoneId`, if provided, must reference an existing milestone in the path.
 - Path `status` must be `active` (cannot mutate completed/abandoned paths).
 - A maximum of **5 prerequisite insertions** per path (guard against runaway insertion loops).
 
 **Response (200 OK):**
 ```typescript
 {
-  pathId: string;
-  /** The full updated milestones array (all milestones, re-indexed) */
-  milestones: PathMilestone[];
-  /** The newly created milestone with its assigned milestoneId */
-  insertedMilestone: PathMilestone;
-  /** Updated overall path progress (may decrease since new work was added) */
-  pathProgress: number;
+  path: LearningPath;  // Full updated path with re-indexed milestones
 }
 ```
 
 **Side effects:**
 1. All milestone `order` fields are recalculated.
-2. `prerequisiteMilestoneIds` of the milestone at `insertAtIndex + 1` is updated to include the new milestone's ID.
-3. If `userChoice === "self_assessed_known"`, the milestone is immediately marked `status: "completed"` and `progress: 1.0`.
-4. If the concept doesn't exist in the user's graph yet, a new `ConceptNode` is created with mastery `exploring`.
-5. A `prerequisite` relation is created (or strength updated) between the new concept(s) and the concept(s) in `detectedInMilestoneId`.
+2. `currentMilestoneIndex` is shifted forward (+1) if insertion is at or before the current position.
+3. Overall `progress` is recalculated (may decrease since new work was added).
+4. `provenance` is stored on the milestone for audit trail (in `provenance` field on PathMilestone).
 
 **Errors:**
 | Status | Code | When |
 |--------|------|------|
-| 400 | `INVALID_INDEX` | insertAtIndex out of bounds |
-| 400 | `MAX_INSERTIONS_REACHED` | Path already has 5 inserted prereq milestones |
-| 403 | `FORBIDDEN` | User doesn't own this path |
+| 400 | `VALIDATION_ERROR` | Missing required fields |
+| 400 | `MAX_PREREQ_INSERTIONS` | Path already has 5 inserted prerequisite milestones |
 | 404 | `PATH_NOT_FOUND` | pathId doesn't exist |
 | 409 | `PATH_NOT_ACTIVE` | Path is completed or abandoned |
+
+---
+
+### PATCH /paths/:pathId — action: `self_assess_prerequisite_known`
+
+Record that the user already knows a prerequisite concept, boosting its confidence/understanding scores.
+
+**Request:**
+```typescript
+{
+  action: "self_assess_prerequisite_known";
+  userId?: string;
+  conceptId: string;                 // Required — the prerequisite concept
+  confidence?: number;               // 0.0-1.0, defaults to 0.85
+}
+```
+
+**Side effects:**
+- Concept `confidence` set to `max(0, min(1, confidence))`.
+- Concept `understanding` set to `max(existing, confidence)`.
+- `lastReviewed` updated to now.
+
+**Errors:**
+| Status | Code | When |
+|--------|------|------|
+| 400 | `VALIDATION_ERROR` | Missing conceptId |
+| 404 | `NOT_FOUND` | Concept doesn't exist |
+
+---
+
+### 9b. Adaptive Screening Conversation (E14-S1)
+
+> Added: February 25, 2026 — API contract for the adaptive screening conversation that replaces scope-analysis → narrowing → pills pipeline.
+
+#### Design Decision: Screening Architecture
+
+| Decision | Choice | Rationale |
+|----------|--------|----------|
+| Multi-turn management | Client holds conversation history, sends full history each turn | Matches existing chat pattern. No server-side session state needed. |
+| Output | `ScreeningResult` object fed to existing `generateLearningPath()` | Surgical replacement of the front half of the pipeline; path generation is untouched. |
+| Model | `gpt-4` (AI_CONFIG.PRIMARY_MODEL) | Quality assessment of user knowledge requires strong reasoning. |
+| Screening mandatory? | Yes — replaces pills entirely. Auto-skipped only when graph data is high-confidence. | Prevents users from landing in paths they can't handle. |
+
+#### Pre-check: Auto-skip screening
+
+Before entering the screening chat, the client calls:
+
+```
+POST /api/paths/screening/preflight
+```
+
+**Request:**
+```typescript
+{
+  goal: string;        // The user's learning goal
+}
+```
+
+**Response (200 OK):**
+```typescript
+{
+  skipScreening: boolean;          // True if all prereqs are likely_known
+  reason: string;                  // Human-readable (e.g., "Based on your history, you're ready for this.")
+  prerequisiteChain?: PrerequisiteChainResult;  // From S2 walker, if available
+  suggestedGoal?: string;          // Refined/narrowed goal if the system can infer it
+}
+```
+
+**Logic:**
+1. Call `getPrerequisiteChain(userId, targetConceptId)` for concepts related to the goal.
+2. If ALL prerequisites return `likely_known` → `skipScreening: true`.
+3. Otherwise → `skipScreening: false`, and the client enters the screening chat.
+
+---
+
+#### POST /api/paths/screening
+
+Send a message in the screening conversation and receive the AI's next response.
+
+**Authentication:** Bearer token required.
+
+**Request:**
+```typescript
+{
+  goal: string;                    // The original learning goal
+  messages: Array<{                // Full conversation history
+    role: "user" | "assistant" | "system";
+    content: string;
+  }>;
+  userAction?: "dont_know" | "generate_now";  // Special button actions
+}
+```
+
+| `userAction` | Behavior |
+|-------------|----------|
+| `undefined` | Normal message — AI responds conversationally |
+| `"dont_know"` | User clicked "I don't know enough to answer" — AI drops to broader probing |
+| `"generate_now"` | User clicked "Generate my path" — AI wraps up and produces ScreeningResult immediately |
+
+**Response (200 OK) — conversation continues:**
+```typescript
+{
+  reply: string;                   // AI's next message
+  done: false;
+  messages: Array<{...}>;          // Updated conversation history (for client to store)
+  progress: {                      // Optional progress indicator
+    assessedCount: number;         // How many concepts the AI has assessed so far
+    estimatedRemaining: number;    // How many more questions the AI expects
+  };
+}
+```
+
+**Response (200 OK) — screening complete:**
+```typescript
+{
+  reply: string;                   // AI's final summary message
+  done: true;
+  messages: Array<{...}>;          // Full conversation to save as first chat session
+  screeningResult: ScreeningResult;
+}
+```
+
+#### ScreeningResult type
+
+```typescript
+export interface AssessedPrerequisite {
+  conceptName: string;
+  conceptId?: string;              // If it exists in the graph
+  confidence: number;              // 0.0-1.0 — AI-assessed (higher signal than self-report)
+  source: "conversation" | "graph"; // How the assessment was made
+  readiness: PrerequisiteReadiness; // "likely_known" | "needs_assessment" | "reinforce"
+}
+
+export type GapTier = "none" | "small" | "medium" | "large";
+
+export interface ScreeningResult {
+  /** Possibly refined/narrowed goal from conversation */
+  refinedGoal: string;
+  /** Original goal before any narrowing */
+  originalGoal: string;
+  /** Whether the goal was narrowed during conversation */
+  wasNarrowed: boolean;
+  /** Assessed prerequisites with confidence scores */
+  assessedPrerequisites: AssessedPrerequisite[];
+  /** Gap tier determines the system's response */
+  gapTier: GapTier;
+  /** For medium/large gaps: suggested prerequisite path goal(s) */
+  suggestedPrerequisitePaths?: Array<{
+    goal: string;
+    reason: string;
+    estimatedMilestones: number;
+  }>;
+  /** Concepts the user demonstrated knowledge of (replaces declaredKnownConcepts) */
+  knownConcepts: string[];
+  /** Concepts the user showed partial familiarity with (replaces declaredFamiliarConcepts) */
+  familiarConcepts: string[];
+  /** The full conversation to save as the path's first chat session */
+  conversationHistory: Array<{ role: string; content: string }>;
+}
+```
+
+**Gap tier behavior:**
+
+| Tier | Condition | System Response |
+|------|-----------|----------------|
+| `none` | All prerequisites assessed as known | Proceed directly to `generateLearningPath()` with `knownConcepts` / `familiarConcepts` |
+| `small` | 1-3 concepts need learning | Proceed to `generateLearningPath()` with prerequisite milestones prepended to the path |
+| `medium` | 4-8 concepts / one prerequisite area | Suggest creating **one** prerequisite path first. Original goal preserved as dependent path (E14-S6). |
+| `large` | 9+ concepts / multiple foundational areas | Suggest a **chain** of prerequisite paths. Each linked via `dependsOnPathId` (E14-S6). |
+
+**Integration with `PathGenerationInput`:**
+
+The `ScreeningResult` maps to `PathGenerationInput` as follows:
+```typescript
+{
+  goal: screeningResult.refinedGoal,
+  originalGoal: screeningResult.originalGoal,
+  // NEW field — replaces declaredKnownConcepts/declaredFamiliarConcepts
+  assessedPrerequisites: screeningResult.assessedPrerequisites,
+  // Legacy fields still populated for backward compat
+  declaredKnownConcepts: screeningResult.knownConcepts,
+  declaredFamiliarConcepts: screeningResult.familiarConcepts,
+  skippedCalibration: false,  // Always false — screening is mandatory
+}
+```
+
+**Errors:**
+| Status | Code | When |
+|--------|------|------|
+| 400 | `VALIDATION_ERROR` | Missing goal or messages |
+| 429 | `RATE_LIMITED` | More than 20 messages in a single screening conversation |
 
 ---
 

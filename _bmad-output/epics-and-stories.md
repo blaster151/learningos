@@ -1729,23 +1729,195 @@ A living glossary that speaks in the learner's language, grows with their journe
 
 > **Approach:** Hybrid — brief upfront assessment during path generation, plus dynamic detection during learning. The concept graph's `prerequisite` relations provide the structural backbone, while AI conversation provides the nuanced assessment.
 
-### E14-S1: Prerequisite Assessment Chat
+### E14-S1: Adaptive Screening Conversation (Revised Feb 2026)
+
+> **Revision note:** Scope expanded from "ask 2-3 screening questions" to a unified adaptive conversation that replaces the current scope-analysis → narrowing → pills pipeline. The screening chat handles narrowing, knowledge assessment, and prerequisite-gap detection in one natural flow.
 
 **As a** learner  
-**I want to** have a brief "what do you already know?" conversation before my path is generated  
-**So that** the path skips concepts I've mastered and includes ones I'm missing
+**I want to** have a brief adaptive conversation before my path is generated  
+**So that** the system understands my starting point, narrows my goal if needed, and detects prerequisite gaps — all in one natural interaction
 
 **Acceptance Criteria:**
-- [ ] Given I request a new path, when the AI generates it, then it first asks 2-3 screening questions about prerequisite knowledge
-- [ ] Given I demonstrate prerequisite knowledge, when the path is generated, then those prerequisites are skipped
-- [ ] Given I reveal a knowledge gap, when the path is generated, then prerequisite milestones are prepended
-- [ ] Given the concept graph has `prerequisite` relations for the target concepts, when generating, then those relations inform the screening questions
-- [ ] Given I say "I don't know" to a screening question, when the path is generated, then prerequisite milestones include that topic
+- [ ] Given I enter a learning goal, when the system has high-confidence graph data for all prerequisites (S2 walker returns all `likely_known`), then screening is auto-skipped with a brief confirmation message ("Based on your history, you're ready — generating now.") and path generation proceeds immediately
+- [ ] Given I enter a goal that is too broad, when the screening conversation begins, then the AI guides me toward a narrower focus through conversation (replacing the separate scope-analysis + narrowing-suggestion steps)
+- [ ] Given the screening conversation is underway, when the AI asks about a prerequisite concept, then an "I don't know enough to answer" button is available alongside the text input
+- [ ] Given I click "I don't know enough to answer", when the AI receives that signal, then it drops to a broader probing level (e.g., "Have you done any programming before?") to find my knowledge floor
+- [ ] Given I demonstrate prerequisite knowledge in conversation, when the `ScreeningResult` is produced, then those concepts are marked as `assessed_known` with AI-assigned confidence scores
+- [ ] Given a small gap is detected (1-3 missing concepts), when the path is generated, then prerequisite milestones are prepended to the current path
+- [ ] Given a medium gap is detected (4-8 concepts, one prerequisite area), when the screening concludes, then the system suggests creating a focused prerequisite path first, with the original goal preserved as "next up"
+- [ ] Given a large gap is detected (9+ concepts or multiple foundational areas), when the screening concludes, then the system suggests a chain of prerequisite paths leading to the original goal
+- [ ] Given the AI has gathered sufficient information, when it offers "Ready to generate your path?", then the user can confirm — or the user can hit a persistent "Generate my path" button at any time to end the conversation early
+- [ ] Given the screening conversation completes, when the path is generated, then the conversation is saved as the first chat session of the new path (so the learner can refer back to it)
+- [ ] Screening is **not skippable** — it replaces the old pill-based calibration entirely. The `skippedCalibration` flag is removed.
 
-**Story Points:** 8  
+**Story Points:** 13  
 **Priority:** P2-Medium  
-**Dependencies:** E3-S1, E6-S1  
-**Implementation Notes:** Extend the path generation prompt to include a prerequisite analysis phase. The AI should walk backward through concept graph prereqs and generate targeted questions.
+**Dependencies:** E14-S2 (chain walker), E3-S1, E6-S1  
+**UX Reference:** ux-specifications.md §12  
+**API Reference:** api-contracts.md §9b  
+
+**Implementation Notes:**
+- **Replaces:** `scopeAnalysis.ts`, `narrowSuggest.ts`, `calibrationWave1.ts`, `calibrationWave2.ts`, and the `PreflightStep` state machine in `LearnPage`. These can be deprecated/removed once S1 is complete.
+- **New service:** `src/lib/ai/prerequisiteScreening.ts` — multi-turn chat service that produces a `ScreeningResult` (same shape of signals as the old pill flow: goal, known concepts, familiar concepts, assessed prerequisites, gap-tier).
+- **New API route:** `POST /api/paths/screening` — manages the multi-turn conversation, calling the S2 chain walker to inform questions.
+- **Existing integration:** The `ScreeningResult` feeds into the existing `generateLearningPath()` function via `PathGenerationInput`, replacing `declaredKnownConcepts`/`declaredFamiliarConcepts` with higher-confidence `assessedPrerequisites`.
+- **Gap-tier response:** Small gaps → add milestones inline. Medium gaps → suggest one prerequisite path. Large gaps → suggest a path chain. Path dependency creation is handled by E14-S6.
+- **Token budget:** Uses `gpt-4` for quality. ~2-4K tokens per screening conversation. Acceptable for current usage; add cost guardrails later if needed.
+
+#### Sub-Tasks (Recommended Codex Handoff Order)
+
+Each sub-task is independently buildable and testable. Hand them off sequentially — each builds on the prior one.
+
+**Sub-task A: Screening Service + Types (3 pts)**
+> *Build the AI conversation engine. No API route, no UI — just the service and its tests.*
+
+- Create `src/lib/ai/prerequisiteScreening.ts`
+- Define `ScreeningResult`, `AssessedPrerequisite`, `GapTier` types (in `src/types/index.ts` or co-located)
+- Implement `conductScreeningTurn(goal, messages, userAction, prerequisiteChain)` → `{ reply, done, screeningResult?, progress }`
+  - System prompt instructs the AI to: assess prerequisites, narrow broad goals, handle `dont_know` by broadening, handle `generate_now` by wrapping up, classify gap tier
+  - Calls S2 `getPrerequisiteChain()` to seed the system prompt with known prerequisite data
+  - Returns `done: true` + `ScreeningResult` when the AI decides it has enough info (or user forces via `generate_now`)
+- Implement `checkAutoSkip(userId, goal)` → `{ skipScreening, reason, prerequisiteChain? }`
+  - Calls S2 walker; returns `skipScreening: true` if all prerequisites are `likely_known`
+- Tests: unit tests with mocked OpenAI responses + mocked prerequisite chain data
+  - Test: broad goal → AI narrows
+  - Test: `dont_know` action → AI broadens
+  - Test: `generate_now` action → immediate `ScreeningResult`
+  - Test: auto-skip when all `likely_known`
+  - Test: gap-tier classification (small/medium/large based on assessed prerequisites)
+
+**Acceptance criteria covered:** AC 1 (auto-skip logic), AC 2 (narrowing), AC 4 (dont_know broadening), AC 5 (assessed_known with confidence), AC 6-8 (gap tier classification)
+
+**Files created/modified:**
+- `src/lib/ai/prerequisiteScreening.ts` (new)
+- `src/types/index.ts` (add types)
+- `src/test/lib/ai/prerequisiteScreening.test.ts` (new)
+
+---
+
+**Sub-task B: Screening API Routes (2 pts)**
+> *Expose the service as HTTP endpoints. No UI — testable via API tests.*
+
+- Create `src/app/api/paths/screening/preflight/route.ts`
+  - `POST` → calls `checkAutoSkip()`, returns `{ skipScreening, reason }`
+  - Auth required, userId from token
+- Create `src/app/api/paths/screening/route.ts`
+  - `POST` → calls `conductScreeningTurn()`, returns `{ reply, done, messages, screeningResult?, progress }`
+  - Auth required, userId from token
+  - Validate: goal required, messages array required, max 20 messages (429 rate limit)
+- Tests: API-level tests with mocked service layer
+  - Test: preflight returns `skipScreening: true` when graph data is strong
+  - Test: screening turn returns reply + updated messages
+  - Test: screening turn with `generate_now` returns `done: true` + `ScreeningResult`
+  - Test: 400 on missing goal, 429 on >20 messages
+
+**Acceptance criteria covered:** API contract from §9b
+
+**Files created/modified:**
+- `src/app/api/paths/screening/preflight/route.ts` (new)
+- `src/app/api/paths/screening/route.ts` (new)
+- `src/test/api/screening.test.ts` (new)
+
+---
+
+**Sub-task C: Screening Chat UI (3 pts)**
+> *Build the inline chat interface on LearnPage. Replaces the PreflightStep state machine.*
+
+- In `src/app/dashboard/learn/page.tsx`:
+  - Replace `PreflightStep` state machine (`idle → analyzing → narrow → loading_pills → pills → pills_w2`) with new flow: `idle → preflight_check → screening_chat → generating`
+  - On goal submit: call `/api/paths/screening/preflight`
+    - If `skipScreening: true` → show confirmation message (§12a), proceed to generate
+    - If `skipScreening: false` → enter screening chat UI
+  - Screening chat UI (§12b): scrollable message area, text input, "I don't know" button, "Generate my path" button, cancel button, progress indicator
+  - On each user message/action: call `/api/paths/screening` with full conversation history
+  - When `done: true`: extract `ScreeningResult`, pass to `generatePath()` (sub-task D handles this integration)
+- Remove (or gate behind a feature flag) the old pill-related state and UI: `calibrationPills`, `knownPills`, `somewhatPills`, `wave2Pills`, `startPills()`, pill rendering, wave-2 UI
+- New component candidate: `src/components/learning/ScreeningChat.tsx` — extracted from LearnPage for testability
+- Tests: component tests for ScreeningChat
+  - Test: renders AI messages and user input
+  - Test: "I don't know" button sends `userAction: "dont_know"`
+  - Test: "Generate my path" button sends `userAction: "generate_now"`
+  - Test: auto-skip shows confirmation message and proceeds
+
+**Acceptance criteria covered:** AC 3 (dont_know button), AC 9 (generate_now + AI offers), UX spec §12b/12c/12f
+
+**Files created/modified:**
+- `src/components/learning/ScreeningChat.tsx` (new)
+- `src/app/dashboard/learn/page.tsx` (major refactor)
+- `src/test/components/learning/ScreeningChat.test.tsx` (new)
+
+---
+
+**Sub-task D: Integration — ScreeningResult → Path Generation (2 pts)**
+> *Wire the screening output into the existing path generation pipeline. Save conversation as first session.*
+
+- Extend `PathGenerationInput` in `src/types/index.ts`:
+  - Add optional `assessedPrerequisites?: AssessedPrerequisite[]`
+  - Keep `declaredKnownConcepts`/`declaredFamiliarConcepts` for backward compat (populated from `ScreeningResult.knownConcepts`/`familiarConcepts`)
+- Update `buildUserPrompt()` in `src/lib/ai/pathGeneration.ts`:
+  - Add new `ASSESSED PREREQUISITES` block (higher signal than self-reported calibration)
+  - Include gap-tier context so the AI knows whether to prepend prerequisite milestones (small gap) or generate a focused path (medium/large)
+- Update `generatePath()` in `LearnPage` to accept `ScreeningResult` and map it to `PathGenerationInput`
+- Save the screening conversation as the path's first chat session:
+  - After path generation, call existing session creation API with `screeningResult.conversationHistory`
+  - Tag the session with a marker (e.g., `type: "screening"` or title: "Getting Started")
+- Remove `skippedCalibration` flag from `PathGenerationInput` and path generation prompt (screening is now mandatory; auto-skip is handled before this point)
+- Tests:
+  - Test: `buildUserPrompt` includes assessed prerequisites block when provided
+  - Test: screening conversation is saved as first session
+  - Test: small-gap ScreeningResult → path with prerequisite milestones
+  - Test: `skippedCalibration` no longer affects prompt (backward compat check)
+
+**Acceptance criteria covered:** AC 5 (assessed_known feeds generation), AC 6 (small gap → prepended milestones), AC 10 (conversation saved), AC 11 (skippedCalibration removed)
+
+**Files created/modified:**
+- `src/types/index.ts` (extend PathGenerationInput)
+- `src/lib/ai/pathGeneration.ts` (update prompt builder)
+- `src/app/dashboard/learn/page.tsx` (wire up)
+- `src/test/lib/ai/pathGeneration.test.ts` (update/add tests)
+
+---
+
+**Sub-task E: Gap-Tier UI Responses (3 pts)**
+> *Handle medium/large gap detection in the screening chat: suggest prerequisite paths, let user choose.*
+
+- In `ScreeningChat.tsx`: when `screeningResult.gapTier` is `"medium"` or `"large"`, render the gap-tier response cards (§12d) instead of proceeding directly to generation
+  - Medium: "Create prerequisite path → then [goal]" / "Skip, just build [goal]"
+  - Large: Show path chain with numbered steps / "Just start with [first one]" / "Skip everything"
+- When user chooses to create prerequisite path(s):
+  - Call `generatePath()` for the prerequisite goal(s) first
+  - Store `dependsOnPathId` linking prerequisite path → target path (data model from E14-S6, but the field write can be done here)
+  - Then generate the target path (or save it as a "queued" / "suggested" path waiting on prerequisites)
+- When user chooses "skip": proceed with normal generation for original goal, small-gap behavior (prepend what we can)
+- Tests:
+  - Test: medium gap renders prerequisite path suggestion card
+  - Test: large gap renders path chain card
+  - Test: "Create prerequisite path" triggers generation with correct goal
+  - Test: "Skip" proceeds to normal generation
+  - Test: `dependsOnPathId` is set when prerequisite path is created
+
+**Acceptance criteria covered:** AC 7 (medium gap), AC 8 (large gap)
+
+**Files created/modified:**
+- `src/components/learning/ScreeningChat.tsx` (extend)
+- `src/app/dashboard/learn/page.tsx` (extend generatePath for chained creation)
+- `src/types/index.ts` (add `dependsOnPathId` to LearningPath if not already present)
+- `src/test/components/learning/ScreeningChat.test.tsx` (extend)
+
+---
+
+**Sub-task summary:**
+
+| Sub-task | Description | Points | Dependencies |
+|----------|-------------|--------|-------------|
+| A | Screening service + types | 3 | E14-S2 (done) |
+| B | API routes | 2 | A |
+| C | Screening chat UI | 3 | B |
+| D | Integration → path generation + save conversation | 2 | A, C |
+| E | Gap-tier UI responses (medium/large) | 3 | C, D |
+| **Total** | | **13** | |
+
+**Recommended Codex sequence:** A → B → C → D → E. Sub-tasks A and B could potentially be handed off together as one Codex task (5 pts, backend only). Sub-tasks C+D could be another (5 pts, full-stack). Sub-task E is a standalone follow-up (3 pts).
 
 ---
 
@@ -1820,6 +1992,28 @@ A living glossary that speaks in the learner's language, grows with their journe
 **Story Points:** 5  
 **Priority:** P3-Low  
 **Dependencies:** E14-S2, E14-S4  
+
+---
+
+### E14-S6: Path Dependencies & Prerequisite Path Suggestions
+
+> Added: February 25, 2026 — Extracted from E14-S1 discussion. Handles the UI and data model for paths that depend on other paths.
+
+**As a** learner  
+**I want to** see when a learning path requires completing another path first  
+**So that** I understand the full learning journey and can follow the recommended sequence
+
+**Acceptance Criteria:**
+- [ ] Given the screening conversation (E14-S1) detects a medium or large prerequisite gap, when a prerequisite path is suggested, then a `dependsOnPathId` relation is stored linking the original goal path to the prerequisite path
+- [ ] Given a path has `dependsOnPathId` set, when viewing the dashboard, then a visual dependency arrow shows the prerequisite path → target path sequence
+- [ ] Given a chain of prerequisite paths exists (A → B → C), when viewing the dashboard, then the full chain is visible with clear progression indicators
+- [ ] Given a prerequisite path is completed, when viewing the dependent path, then it shows as "Ready to start" with a visual indicator that the prerequisite is satisfied
+- [ ] Given a user tries to start a path whose prerequisite path is not complete, when they click start, then a gentle prompt explains the dependency and offers to start the prerequisite instead
+
+**Story Points:** 5  
+**Priority:** P3-Low  
+**Dependencies:** E14-S1  
+**Implementation Notes:** Add optional `dependsOnPathId` and `prerequisiteForPathId` fields to the `LearningPath` type. Dashboard rendering shows dependency chains. The screening conversation (S1) creates both paths and links them when a medium/large gap is detected.
 
 ---
 

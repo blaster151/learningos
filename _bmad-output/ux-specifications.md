@@ -1697,6 +1697,152 @@ No changes needed to the graph page; the existing `prerequisite` edge style is s
 
 ---
 
+## 12. Adaptive Screening Conversation (E14-S1)
+
+> Added: February 25, 2026 — UX spec for the adaptive screening conversation that replaces the scope-analysis → narrowing → pills pipeline.
+
+### 12a. Auto-Skip Confirmation
+
+When the S2 prerequisite chain walker returns all `likely_known` for the user's goal, screening is skipped with a brief inline message:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  ✅ Based on your learning history, you're ready for this.  │
+│     Generating your path now...                             │
+│                                                              │
+│     [⏳ spinner]                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+This replaces the goal input area momentarily, then transitions to the generated path card.
+
+### 12b. Screening Chat Interface
+
+When screening is needed, the goal input area expands into a compact chat interface **inline on the Learn page** (not a separate page):
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  🎯 Goal: "Learn React hooks"                    [✕ Cancel] │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  🤖 Great goal! Before I build your path, let me            │
+│     understand where you're starting from.                   │
+│                                                              │
+│     Have you worked with JavaScript before? If so,           │
+│     what kinds of things have you built?                     │
+│                                                              │
+│  ─────────────────────────────────────────────────────────── │
+│                                                              │
+│  👤 Yes, I've built a couple of small web apps with          │
+│     vanilla JS and used some jQuery                          │
+│                                                              │
+│  ─────────────────────────────────────────────────────────── │
+│                                                              │
+│  🤖 Good foundation! Do you know how JavaScript              │
+│     handles asynchronous operations — things like            │
+│     Promises or async/await?                                 │
+│                                                              │
+├─────────────────────────────────────────────────────────────┤
+│  [Type your answer...]                                       │
+│                                                              │
+│  [🤷 I don't know enough to answer]   [🚀 Generate my path] │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Key UI elements:**
+
+| Element | Behavior |
+|---------|----------|
+| Chat message area | Scrollable, displays AI questions and user responses |
+| Text input | Standard text input with Enter-to-send |
+| "I don't know enough to answer" button | Sends `userAction: "dont_know"`. AI drops to broader probing level. |
+| "Generate my path" button | Sends `userAction: "generate_now"`. AI wraps up immediately and produces `ScreeningResult`. Always visible. |
+| "Cancel" (✕) | Returns to the goal input state. No path created. |
+| Progress indicator | Subtle text: "Assessed 3 of ~5 areas" — updates as conversation progresses |
+
+### 12c. "I Don't Know" Escalation
+
+When the user clicks "I don't know enough to answer," the AI acknowledges gracefully and broadens:
+
+```
+  🤖 Do you understand JavaScript closures and lexical scope?
+
+  👤 [🤷 I don't know enough to answer]
+
+  🤖 No problem! Let me back up a bit —
+     Have you done any programming before, in any language?
+```
+
+The AI continues broadening until it finds a floor. If the user hits "I don't know" to even very basic questions, the AI recognizes a large gap:
+
+```
+  🤖 It sounds like you're completely new to programming.
+     That's totally fine! But before diving into React hooks,
+     I'd recommend starting with JavaScript fundamentals.
+
+     Want me to create a "JavaScript Basics" path first?
+     Once you complete it, React hooks will make much more sense.
+
+     [✅ Yes, start with JavaScript Basics]
+     [🚀 No, generate the React hooks path anyway]
+```
+
+### 12d. Gap-Tier Responses
+
+**Small gap (1-3 concepts):**
+Screening ends normally. Extra prerequisite milestones are silently prepended to the generated path.
+
+**Medium gap (one prerequisite area):**
+```
+  🤖 Based on our conversation, it looks like you'd benefit
+     from building a foundation in JavaScript fundamentals
+     before tackling React hooks.
+
+     I can create a focused "JavaScript Fundamentals" path
+     (~6 milestones) that leads directly into React hooks.
+
+     [✅ Create prerequisite path → then React hooks]
+     [🚀 Skip, just build the React hooks path]
+```
+
+**Large gap (multiple areas):**
+```
+  🤖 To get to React hooks, you'd want to build up through:
+
+     1. 📘 Programming Basics (~5 milestones)
+     2. 📘 JavaScript Fundamentals (~6 milestones)
+     3. 📘 React Basics (~4 milestones)
+     4. 🎯 React Hooks (your goal!)
+
+     Want me to set up this learning journey?
+     You can always skip ahead if things feel easy.
+
+     [✅ Set up the full journey]
+     [📘 Just start with Programming Basics for now]
+     [🚀 Skip everything, just build React hooks]
+```
+
+### 12e. Conversation Saved as First Session
+
+After path generation, the screening conversation becomes the first chat session of the path. On the path detail view, it appears as:
+
+```
+  Session 1: "Getting Started" (screening)      ← auto-titled
+  Session 2: "Milestone 1: JavaScript Closures"  ← normal session
+```
+
+The learner can revisit the screening conversation to remember what was discussed about their starting point. When they eventually **complete** the path, the system can reference this first session to celebrate how far they've come (future enhancement).
+
+### 12f. Accessibility
+
+- Chat messages use `role="log"` with `aria-live="polite"` for screen reader updates.
+- "I don't know enough to answer" button has `aria-label="I don't know enough to answer this question"`.
+- "Generate my path" button has `aria-label="End screening and generate my learning path"`.
+- Focus moves to the text input after each AI response.
+- All buttons are keyboard-navigable.
+
+---
+
 **Document Status:** Complete UX Specifications  
 **Next:** API Contract Documentation  
 **Owner:** Blast  

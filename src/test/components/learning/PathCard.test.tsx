@@ -106,7 +106,7 @@ describe('PathCard', () => {
     const onView = vi.fn();
     render(<PathCard path={mockSuggestedPath} onView={onView} />);
 
-    const viewButton = screen.getByText('View Details');
+    const viewButton = screen.getByText('Open');
     fireEvent.click(viewButton);
 
     expect(onView).toHaveBeenCalledWith('path-1');

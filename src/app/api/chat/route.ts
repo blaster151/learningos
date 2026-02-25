@@ -255,22 +255,36 @@ export async function POST(request: NextRequest) {
                 const targetConceptId = targetMilestone?.conceptIds?.[0];
 
                 if (targetConceptId) {
-                  detectPrerequisiteGap({
-                    userId,
-                    userMessage: message,
-                    assistantResponse: fullResponse,
-                    targetConceptId,
-                  })
-                    .then(async (gapAlert) => {
-                      if (!gapAlert.detected) return;
-                      await db.collection("sessions").doc(sessionId).update({
-                        prerequisiteGapAlert: gapAlert,
-                        lastActivity: Timestamp.now(),
-                      });
+                  // Cooldown: skip gap detection if an alert for the same concept
+                  // was already written within the last 5 minutes
+                  const existingAlert = sessionData.prerequisiteGapAlert as
+                    | { detected?: boolean; targetConceptId?: string; createdAt?: string }
+                    | undefined;
+                  const cooldownMs = 5 * 60 * 1000;
+                  const recentlySameTarget =
+                    existingAlert?.detected &&
+                    existingAlert.targetConceptId === targetConceptId &&
+                    existingAlert.createdAt &&
+                    Date.now() - new Date(existingAlert.createdAt).getTime() < cooldownMs;
+
+                  if (!recentlySameTarget) {
+                    detectPrerequisiteGap({
+                      userId,
+                      userMessage: message,
+                      assistantResponse: fullResponse,
+                      targetConceptId,
                     })
-                    .catch((err) =>
-                      console.error("Prerequisite gap detection failed:", err)
-                    );
+                      .then(async (gapAlert) => {
+                        if (!gapAlert.detected) return;
+                        await db.collection("sessions").doc(sessionId).update({
+                          prerequisiteGapAlert: gapAlert,
+                          lastActivity: Timestamp.now(),
+                        });
+                      })
+                      .catch((err) =>
+                        console.error("Prerequisite gap detection failed:", err)
+                      );
+                  }
                 }
               }
 

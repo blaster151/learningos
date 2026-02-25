@@ -789,6 +789,7 @@ describe("Paths API Routes", () => {
     it("should insert a prerequisite milestone", async () => {
       vi.mocked(pathsService.getPath).mockResolvedValue({
         pathId: "path-123",
+        status: "active",
         currentMilestoneIndex: 1,
         milestones: [{ milestoneId: "m1" }, { milestoneId: "m2" }],
       } as any);

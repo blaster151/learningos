@@ -163,6 +163,7 @@ export async function PATCH(
           estimatedMinutes,
           beforeMilestoneId,
           milestoneId,
+          provenance,
         } = body;
 
         if (!title || !description || !conceptName) {
@@ -183,6 +184,25 @@ export async function PATCH(
           );
         }
 
+        // Guard: path must be active
+        if (pathForInsert.status !== "active") {
+          return NextResponse.json(
+            { error: "Cannot insert milestones into a non-active path" },
+            { status: 409 }
+          );
+        }
+
+        // Guard: max 5 prerequisite insertions per path
+        const existingPrereqCount = pathForInsert.milestones.filter(
+          (m) => m.milestoneId.startsWith("prereq_") || (m as any).provenance?.reason === "prerequisite_gap"
+        ).length;
+        if (existingPrereqCount >= 5) {
+          return NextResponse.json(
+            { error: "Maximum of 5 prerequisite milestone insertions reached for this path" },
+            { status: 400 }
+          );
+        }
+
         const targetMilestoneId =
           beforeMilestoneId ||
           pathForInsert.milestones[pathForInsert.currentMilestoneIndex]
@@ -200,7 +220,7 @@ export async function PATCH(
             : insertIndex;
 
         const newMilestoneId = milestoneId || `prereq_${Date.now()}`;
-        const createdMilestone = {
+        const createdMilestone: any = {
           milestoneId: newMilestoneId,
           order: safeInsertIndex,
           title,
@@ -217,6 +237,17 @@ export async function PATCH(
           progress: 0,
           prerequisiteMilestoneIds: [],
         };
+
+        // Store provenance for audit trail if provided
+        if (provenance && typeof provenance === "object") {
+          createdMilestone.provenance = {
+            reason: provenance.reason ?? "prerequisite_gap",
+            detectedInMilestoneId: provenance.detectedInMilestoneId,
+            detectedInSessionId: provenance.detectedInSessionId,
+            userChoice: provenance.userChoice,
+            insertedAt: new Date().toISOString(),
+          };
+        }
 
         await pathsService.insertMilestone(
           userId,
@@ -252,7 +283,7 @@ export async function PATCH(
             concept.understanding,
             Math.max(0, Math.min(1, confidence))
           ),
-          lastReviewed: Timestamp.now() as unknown as any,
+          lastReviewed: Timestamp.now(),
         });
         break;
       }
