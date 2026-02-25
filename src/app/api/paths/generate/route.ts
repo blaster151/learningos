@@ -10,6 +10,8 @@ import {
 } from "@/lib/auth/serverAuth";
 import { inferUserLevel } from "@/lib/utils/userLevel";
 import { knowledgeProfileService } from "@/lib/firebase/knowledgeProfile";
+import { getAdminDb } from "@/lib/firebase/admin";
+import type { ScreeningChatMessage, ScreeningResult } from "@/types";
 
 // ===================================
 // Types
@@ -25,6 +27,10 @@ interface GeneratePathRequest {
   preferredDepth?: "quick" | "thorough" | "deep";
   declaredKnownConcepts?: string[];
   declaredFamiliarConcepts?: string[];
+  screeningResult?: ScreeningResult;
+  screeningConversation?: ScreeningChatMessage[];
+  dependsOnPathId?: string;
+  prerequisiteForPathId?: string;
 }
 
 // ===================================
@@ -45,6 +51,10 @@ export async function POST(request: NextRequest) {
       preferredDepth,
       declaredKnownConcepts,
       declaredFamiliarConcepts,
+      screeningResult,
+      screeningConversation,
+      dependsOnPathId,
+      prerequisiteForPathId,
     } = body;
 
     assertSameUser(requestedUserId ?? null, authed.uid);
@@ -91,8 +101,14 @@ export async function POST(request: NextRequest) {
       userLevel,
       declaredKnownConcepts: mergedKnown.length ? mergedKnown : undefined,
       declaredFamiliarConcepts: mergedFamiliar.length ? mergedFamiliar : undefined,
+      ...(screeningResult ? { screeningResult } : {}),
+      ...(screeningConversation?.length
+        ? { screeningConversation }
+        : {}),
       timeAvailableMinutes,
       preferredDepth: preferredDepth || "thorough",
+      ...(dependsOnPathId ? { dependsOnPathId } : {}),
+      ...(prerequisiteForPathId ? { prerequisiteForPathId } : {}),
     });
 
     if (!result.success || !result.path) {
@@ -186,6 +202,9 @@ export async function POST(request: NextRequest) {
         ...(declaredFamiliarConcepts?.length
           ? { declaredFamiliarConcepts: declaredFamiliarConcepts.filter(Boolean) }
           : {}),
+        ...(screeningResult
+          ? { assessedPrerequisites: screeningResult.assessedPrerequisites }
+          : {}),
         ...(globalProfile.length
           ? {
               knowledgeProfileSnapshot: globalProfile.map((e) => ({
@@ -197,10 +216,42 @@ export async function POST(request: NextRequest) {
       },
       createdAt: Timestamp.now(),
       lastActivityAt: Timestamp.now(),
+      ...(dependsOnPathId ? { dependsOnPathId } : {}),
+      ...(prerequisiteForPathId ? { prerequisiteForPathId } : {}),
     });
 
     // Fetch the created path to return
     const createdPath = await pathsService.getPath(userId, pathId);
+
+    // Save screening conversation as first chat session for the new path
+    if (screeningConversation?.length) {
+      const db = await getAdminDb();
+      const now = Timestamp.now();
+      const sessionRef = await db.collection("sessions").add({
+        userId,
+        topic: "Prerequisite screening",
+        goal,
+        pathId,
+        startedAt: now,
+        lastActivity: now,
+        endedAt: now,
+        status: "completed",
+        messageCount: screeningConversation.length,
+        conceptsCovered: [],
+      });
+
+      await Promise.all(
+        screeningConversation.map((message, index) =>
+          db.collection("messages").add({
+            sessionId: sessionRef.id,
+            userId,
+            role: message.role,
+            content: message.content,
+            timestamp: Timestamp.fromMillis(now.toMillis() + index),
+          })
+        )
+      );
+    }
 
     return NextResponse.json({
       pathId,

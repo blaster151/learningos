@@ -62,6 +62,22 @@ vi.mock("@/lib/firebase/knowledgeProfile", () => ({
   },
 }));
 
+const {
+  mockDbCollection,
+  mockSessionsAdd,
+  mockMessagesAdd,
+} = vi.hoisted(() => ({
+  mockDbCollection: vi.fn(),
+  mockSessionsAdd: vi.fn(),
+  mockMessagesAdd: vi.fn(),
+}));
+
+vi.mock("@/lib/firebase/admin", () => ({
+  getAdminDb: vi.fn(async () => ({
+    collection: mockDbCollection,
+  })),
+}));
+
 // Mock server auth to avoid Firebase Admin dependency
 vi.mock("@/lib/auth/serverAuth", () => {
   class AuthError extends Error {
@@ -122,6 +138,18 @@ describe("Paths API Routes", () => {
     vi.clearAllMocks();
     // Default: empty knowledge profile (most tests don't care about it)
     vi.mocked(knowledgeProfileService.getProfile).mockResolvedValue([]);
+
+    mockDbCollection.mockImplementation((name: string) => {
+      if (name === "sessions") {
+        return { add: mockSessionsAdd };
+      }
+      if (name === "messages") {
+        return { add: mockMessagesAdd };
+      }
+      throw new Error(`Unexpected collection ${name}`);
+    });
+    mockSessionsAdd.mockResolvedValue({ id: "session-screening-1" });
+    mockMessagesAdd.mockResolvedValue({ id: "msg-1" });
   });
 
   describe("GET /api/paths", () => {
@@ -263,6 +291,74 @@ describe("Paths API Routes", () => {
       const response = await generatePath(request);
 
       expect(response.status).toBe(400);
+    });
+
+    it("should pass screening result into generation and save screening conversation session", async () => {
+      vi.mocked(conceptsService.getUserConcepts).mockResolvedValue([] as any);
+      vi.mocked(pathGeneration.generateLearningPath).mockResolvedValue({
+        success: true,
+        path: {
+          title: "Node path",
+          description: "desc",
+          milestones: [
+            {
+              title: "M1",
+              description: "d1",
+              concepts: ["variables"],
+              estimatedMinutes: 45,
+              objectives: ["obj"],
+              prerequisites: [],
+            },
+          ],
+          estimatedMinutes: 45,
+        },
+      } as any);
+      vi.mocked(conceptsService.findConceptByName).mockResolvedValue(null);
+      vi.mocked(conceptsService.createConcept).mockResolvedValue("c-new");
+      vi.mocked(pathsService.createPath).mockResolvedValue("path-1");
+      vi.mocked(pathsService.getPath).mockResolvedValue({ pathId: "path-1" } as any);
+
+      const screeningResult = {
+        goal: "Learn Node APIs",
+        narrowedGoal: "Build Node REST APIs",
+        knownConcepts: ["variables"],
+        familiarConcepts: ["loops"],
+        assessedPrerequisites: [
+          {
+            conceptId: "p1",
+            conceptName: "Variables",
+            status: "assessed_known",
+            confidence: 0.9,
+          },
+        ],
+        gapTier: "small",
+      };
+
+      const request = new NextRequest(
+        "http://localhost:3000/api/paths/generate",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            userId: "user-123",
+            goal: "Build Node REST APIs",
+            screeningResult,
+            screeningConversation: [
+              { role: "assistant", content: "What experience do you have?" },
+              { role: "user", content: "I know JS basics." },
+            ],
+          }),
+        }
+      );
+
+      const response = await generatePath(request);
+      expect(response.status).toBe(200);
+
+      expect(pathGeneration.generateLearningPath).toHaveBeenCalledWith(
+        expect.objectContaining({ screeningResult })
+      );
+      expect(mockSessionsAdd).toHaveBeenCalledTimes(1);
+      expect(mockMessagesAdd).toHaveBeenCalledTimes(2);
     });
 
     it("should forward skippedCalibration flag to path generation and persist it", async () => {

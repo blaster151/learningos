@@ -3,11 +3,28 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { authFetch } from "@/lib/api/authFetch";
-import { PathCard, ProgressRing } from "@/components/learning";
-import type { LearningPath, TopicScopeAnalysis, CalibrationPill } from "@/types";
+import { PathCard, ProgressRing, ScreeningChat } from "@/components/learning";
+import type {
+  LearningPath,
+  TopicScopeAnalysis,
+  CalibrationPill,
+  ScreeningChatMessage,
+  ScreeningProgress,
+  ScreeningResult,
+  ScreeningUserAction,
+} from "@/types";
 import type { NarrowTopicSuggestion } from "@/lib/ai/narrowSuggest";
 
-type PreflightStep = "idle" | "analyzing" | "narrow" | "loading_pills" | "pills" | "loading_pills_w2" | "pills_w2";
+type PreflightStep =
+  | "idle"
+  | "preflight_check"
+  | "screening_chat"
+  | "analyzing"
+  | "narrow"
+  | "loading_pills"
+  | "pills"
+  | "loading_pills_w2"
+  | "pills_w2";
 
 // Max recursive narrowing depth before we stop re-analyzing
 const MAX_NARROW_DEPTH = 3;
@@ -40,6 +57,16 @@ export default function LearnPage() {
   const [wave2Pills, setWave2Pills] = useState<CalibrationPill[]>([]);
   const [knownPillsW2, setKnownPillsW2] = useState<Set<string>>(new Set());
   const [somewhatPillsW2, setSomewhatPillsW2] = useState<Set<string>>(new Set());
+
+  // E14-S1: Screening chat flow
+  const [autoSkipMessage, setAutoSkipMessage] = useState<string | null>(null);
+  const [screeningGoal, setScreeningGoal] = useState("");
+  const [screeningMessages, setScreeningMessages] = useState<ScreeningChatMessage[]>([]);
+  const [screeningInput, setScreeningInput] = useState("");
+  const [screeningProgress, setScreeningProgress] = useState<ScreeningProgress | null>(null);
+  const [screeningBusy, setScreeningBusy] = useState(false);
+  const [pendingGapResult, setPendingGapResult] = useState<ScreeningResult | null>(null);
+  const [gapActionBusy, setGapActionBusy] = useState(false);
 
   // Load paths on mount
   useEffect(() => {
@@ -91,6 +118,14 @@ export default function LearnPage() {
     setWave2Pills([]);
     setKnownPillsW2(new Set());
     setSomewhatPillsW2(new Set());
+    setAutoSkipMessage(null);
+    setScreeningGoal("");
+    setScreeningMessages([]);
+    setScreeningInput("");
+    setScreeningProgress(null);
+    setScreeningBusy(false);
+    setPendingGapResult(null);
+    setGapActionBusy(false);
   };
 
   /**
@@ -105,7 +140,7 @@ export default function LearnPage() {
     if (depth >= MAX_NARROW_DEPTH) {
       setPreflightGoal(goal);
       await startPills(goal);
-      return;
+      return undefined;
     }
 
     setPreflightStep("analyzing");
@@ -155,11 +190,15 @@ export default function LearnPage() {
     opts?: {
       declaredKnownConcepts?: string[];
       declaredFamiliarConcepts?: string[];
+      screeningResult?: ScreeningResult;
+      screeningConversation?: ScreeningChatMessage[];
+      dependsOnPathId?: string;
+      prerequisiteForPathId?: string;
       skippedCalibration?: boolean;
       isOverview?: boolean;
       originalGoal?: string;
     }
-  ) => {
+  ): Promise<string | undefined> => {
     if (!finalGoal.trim()) {
       setError("Please enter a learning goal");
       return;
@@ -183,6 +222,18 @@ export default function LearnPage() {
           ...(opts?.declaredFamiliarConcepts
             ? { declaredFamiliarConcepts: opts.declaredFamiliarConcepts }
             : {}),
+          ...(opts?.screeningResult
+            ? { screeningResult: opts.screeningResult }
+            : {}),
+          ...(opts?.screeningConversation
+            ? { screeningConversation: opts.screeningConversation }
+            : {}),
+          ...(opts?.dependsOnPathId
+            ? { dependsOnPathId: opts.dependsOnPathId }
+            : {}),
+          ...(opts?.prerequisiteForPathId
+            ? { prerequisiteForPathId: opts.prerequisiteForPathId }
+            : {}),
         }),
       });
 
@@ -190,11 +241,15 @@ export default function LearnPage() {
         throw new Error("Failed to generate path");
       }
 
+      const data = (await response.json()) as { pathId?: string };
+
       setGoalInput("");
       resetPreflight();
       await loadPaths(); // Reload to show new path
+      return data.pathId;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to generate path");
+      return undefined;
     } finally {
       setGenerating(false);
     }
@@ -224,22 +279,227 @@ export default function LearnPage() {
     setPreflightStep("pills");
   };
 
+  const runScreeningAction = async (action: ScreeningUserAction) => {
+    if (!user) return;
+
+    try {
+      setScreeningBusy(true);
+      setPendingGapResult(null);
+      setError(null);
+
+      const response = await authFetch(user, "/api/paths/screening", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          goal: screeningGoal,
+          messages: screeningMessages,
+          userAction: action,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to continue screening");
+      }
+
+      const data = (await response.json()) as {
+        reply: string;
+        done: boolean;
+        messages: ScreeningChatMessage[];
+        screeningResult?: ScreeningResult;
+        progress: ScreeningProgress;
+      };
+
+      setScreeningMessages(data.messages || []);
+      setScreeningProgress(data.progress || null);
+      setScreeningInput("");
+
+      if (data.done && data.screeningResult) {
+        const result = data.screeningResult;
+
+        if (result.gapTier === "medium" || result.gapTier === "large") {
+          setPendingGapResult(result);
+          return;
+        }
+
+        const finalGoal = result.narrowedGoal || screeningGoal;
+        const original = screeningGoal;
+        resetPreflight();
+        await generatePath(finalGoal, {
+          declaredKnownConcepts: result.knownConcepts,
+          declaredFamiliarConcepts: result.familiarConcepts,
+          screeningResult: result,
+          screeningConversation: data.messages,
+          originalGoal: original === finalGoal ? undefined : original,
+        });
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to continue screening");
+    } finally {
+      setScreeningBusy(false);
+    }
+  };
+
+  const buildPrerequisiteGoal = (result: ScreeningResult, maxConcepts = 4) => {
+    const missing = result.assessedPrerequisites
+      .filter((item) => item.status === "missing" || item.status === "unknown")
+      .map((item) => item.conceptName)
+      .slice(0, maxConcepts);
+
+    if (!missing.length) {
+      return `Build fundamentals for ${result.narrowedGoal || result.goal}`;
+    }
+
+    return `Learn prerequisites for ${result.narrowedGoal || result.goal}: ${missing.join(", ")}`;
+  };
+
+  const handleCreatePrerequisitePaths = async () => {
+    if (!pendingGapResult) return;
+
+    try {
+      setGapActionBusy(true);
+      const targetGoal = pendingGapResult.narrowedGoal || screeningGoal;
+
+      // Medium gap: create one prerequisite path before target
+      if (pendingGapResult.gapTier === "medium") {
+        const prerequisiteGoal = buildPrerequisiteGoal(pendingGapResult, 4);
+        const preReqResponse = await generatePath(prerequisiteGoal, {
+          screeningResult: pendingGapResult,
+          screeningConversation: screeningMessages,
+          originalGoal: screeningGoal,
+          prerequisiteForPathId: "pending-target",
+        });
+
+        if (!preReqResponse) {
+          throw new Error("Failed to create prerequisite path");
+        }
+
+        await generatePath(targetGoal, {
+          declaredKnownConcepts: pendingGapResult.knownConcepts,
+          declaredFamiliarConcepts: pendingGapResult.familiarConcepts,
+          screeningResult: pendingGapResult,
+          screeningConversation: screeningMessages,
+          originalGoal: screeningGoal === targetGoal ? undefined : screeningGoal,
+          dependsOnPathId: preReqResponse,
+        });
+        return;
+      }
+
+      // Large gap: create a two-step chain + target
+      const foundationGoal = buildPrerequisiteGoal(pendingGapResult, 3);
+      const bridgeGoal = `Bridge toward ${targetGoal} after fundamentals`;
+
+      const foundationPathId = await generatePath(foundationGoal, {
+        screeningResult: pendingGapResult,
+        screeningConversation: screeningMessages,
+        originalGoal: screeningGoal,
+      });
+
+      if (!foundationPathId) {
+        throw new Error("Failed to create foundational prerequisite path");
+      }
+
+      const bridgePathId = await generatePath(bridgeGoal, {
+        screeningResult: pendingGapResult,
+        screeningConversation: screeningMessages,
+        originalGoal: screeningGoal,
+        dependsOnPathId: foundationPathId,
+      });
+
+      if (!bridgePathId) {
+        throw new Error("Failed to create bridge prerequisite path");
+      }
+
+      await generatePath(targetGoal, {
+        declaredKnownConcepts: pendingGapResult.knownConcepts,
+        declaredFamiliarConcepts: pendingGapResult.familiarConcepts,
+        screeningResult: pendingGapResult,
+        screeningConversation: screeningMessages,
+        originalGoal: screeningGoal === targetGoal ? undefined : screeningGoal,
+        dependsOnPathId: bridgePathId,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create prerequisite path chain");
+    } finally {
+      setGapActionBusy(false);
+    }
+  };
+
+  const handleSkipGapRecommendation = async () => {
+    if (!pendingGapResult) return;
+
+    try {
+      setGapActionBusy(true);
+      const finalGoal = pendingGapResult.narrowedGoal || screeningGoal;
+      await generatePath(finalGoal, {
+        declaredKnownConcepts: pendingGapResult.knownConcepts,
+        declaredFamiliarConcepts: pendingGapResult.familiarConcepts,
+        screeningResult: pendingGapResult,
+        screeningConversation: screeningMessages,
+        originalGoal: screeningGoal === finalGoal ? undefined : screeningGoal,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to generate target path");
+    } finally {
+      setGapActionBusy(false);
+    }
+  };
+
+  const startScreeningFlow = async (goal: string) => {
+    if (!user) return;
+
+    setPreflightStep("preflight_check");
+    setAutoSkipMessage(null);
+    setScreeningGoal(goal);
+    setScreeningMessages([]);
+    setScreeningProgress(null);
+    setScreeningInput("");
+    setError(null);
+
+    const preflightRes = await authFetch(user, "/api/paths/screening/preflight", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ goal }),
+    });
+
+    if (!preflightRes.ok) {
+      throw new Error("Failed to run screening preflight");
+    }
+
+    const preflightData = (await preflightRes.json()) as {
+      skipScreening: boolean;
+      reason: string;
+    };
+
+    if (preflightData.skipScreening) {
+      setAutoSkipMessage(preflightData.reason || "Based on your history, you're ready — generating now.");
+      await generatePath(goal);
+      return;
+    }
+
+    setPreflightStep("screening_chat");
+    setScreeningMessages([
+      {
+        role: "assistant",
+        content:
+          "Before I generate your path, I’ll do a quick screening. What’s your current experience level with this goal?",
+      },
+    ]);
+  };
+
   const handleGeneratePath = async () => {
     if (!goalInput.trim()) {
       setError("Please enter a learning goal");
       return;
     }
 
-    // Pre-flight: analyze scope and offer narrowing if needed
     try {
       if (!user) return;
       const goal = goalInput.trim();
       setOriginalGoal(goal);
-
-      await analyzeAndNarrowOrPills(goal, 0, []);
+      await startScreeningFlow(goal);
     } catch (err) {
       resetPreflight();
-      setError(err instanceof Error ? err.message : "Failed to generate path");
+      setError(err instanceof Error ? err.message : "Failed to start screening");
     }
   };
 
@@ -410,23 +670,99 @@ export default function LearnPage() {
             value={goalInput}
             onChange={(e) => setGoalInput(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey && goalInput.trim() && !generating && preflightStep !== "analyzing") {
+              if (e.key === "Enter" && !e.shiftKey && goalInput.trim() && !generating && !screeningBusy && preflightStep !== "preflight_check") {
                 e.preventDefault();
                 handleGeneratePath();
               }
             }}
             placeholder="What do you want to learn? (e.g., 'Master React hooks')"
             className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            disabled={generating}
+            disabled={generating || screeningBusy}
           />
           <button
             onClick={handleGeneratePath}
-            disabled={generating || !goalInput.trim() || preflightStep === "analyzing"}
+            disabled={generating || screeningBusy || !goalInput.trim() || preflightStep === "preflight_check"}
             className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors sm:w-auto w-full"
           >
-            {preflightStep === "analyzing" ? "Analyzing..." : generating ? "Generating..." : "Generate Path"}
+            {preflightStep === "preflight_check" ? "Checking..." : generating ? "Generating..." : "Generate Path"}
           </button>
         </div>
+
+        {autoSkipMessage && (
+          <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+            {autoSkipMessage}
+          </div>
+        )}
+
+        {preflightStep === "screening_chat" && (
+          <div className="mt-4 space-y-4">
+            <ScreeningChat
+              messages={screeningMessages}
+              inputValue={screeningInput}
+              progress={screeningProgress}
+              loading={screeningBusy || generating || gapActionBusy}
+              onInputChange={setScreeningInput}
+              onSend={() => {
+                const content = screeningInput.trim();
+                if (!content) return;
+                void runScreeningAction({ type: "message", content });
+              }}
+              onDontKnow={() => {
+                void runScreeningAction({ type: "dont_know" });
+              }}
+              onGenerateNow={() => {
+                void runScreeningAction({ type: "generate_now" });
+              }}
+              onCancel={resetPreflight}
+            />
+
+            {pendingGapResult && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                <div className="font-medium text-amber-900">
+                  {pendingGapResult.gapTier === "large"
+                    ? "Large prerequisite gap detected"
+                    : "Medium prerequisite gap detected"}
+                </div>
+                <p className="text-sm text-amber-800 mt-1">
+                  {pendingGapResult.gapTier === "large"
+                    ? "Recommended: create a short prerequisite path chain first, then continue to your main goal."
+                    : "Recommended: create one focused prerequisite path before your main goal."}
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    onClick={() => {
+                      void handleCreatePrerequisitePaths();
+                    }}
+                    disabled={gapActionBusy || generating}
+                    className="px-3 py-2 rounded-md bg-amber-600 text-white text-sm font-medium hover:bg-amber-700 disabled:bg-gray-300"
+                  >
+                    {pendingGapResult.gapTier === "large"
+                      ? "Create prerequisite path chain"
+                      : "Create prerequisite path"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      void handleSkipGapRecommendation();
+                    }}
+                    disabled={gapActionBusy || generating}
+                    className="px-3 py-2 rounded-md bg-white border border-amber-300 text-amber-900 text-sm hover:bg-amber-100 disabled:bg-gray-100"
+                  >
+                    Skip, just build my main goal
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {preflightStep === "preflight_check" && (
+          <div className="mt-4 p-4 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/20">
+            <div className="flex items-center gap-3 text-indigo-900 dark:text-indigo-300">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600 dark:border-indigo-400"></div>
+              <span className="text-sm font-medium">Checking prerequisite readiness…</span>
+            </div>
+          </div>
+        )}
 
         {preflightStep === "analyzing" && narrowDepth > 0 && (
           <div className="mt-4 p-4 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/20">

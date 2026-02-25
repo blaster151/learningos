@@ -212,6 +212,40 @@ function buildUserPrompt(
     ? `\nORIGINAL REQUEST: The user originally asked about "${input.originalGoal}" and then narrowed to the goal above.`
     : "";
 
+  const screeningResultBlock = input.screeningResult
+    ? `\nSCREENING RESULT (higher-confidence than self-report):
+- Narrowed goal: ${input.screeningResult.narrowedGoal}
+- Assessed known concepts: ${
+        input.screeningResult.knownConcepts.length
+          ? input.screeningResult.knownConcepts.join(", ")
+          : "(none)"
+      }
+- Assessed familiar concepts: ${
+        input.screeningResult.familiarConcepts.length
+          ? input.screeningResult.familiarConcepts.join(", ")
+          : "(none)"
+      }
+- Gap tier: ${input.screeningResult.gapTier}
+- Assessed prerequisites:
+${input.screeningResult.assessedPrerequisites
+  .map(
+    (item) =>
+      `  - ${item.conceptName} [${item.status}] confidence=${item.confidence}`
+  )
+  .join("\n") || "  - (none)"}
+
+Prioritize these assessed prerequisite signals over generic assumptions.`
+    : "";
+
+  const screeningConversationBlock =
+    input.screeningConversation && input.screeningConversation.length
+      ? `\nSCREENING CONVERSATION EXCERPT:
+${input.screeningConversation
+  .slice(-8)
+  .map((m) => `${m.role.toUpperCase()}: ${m.content}`)
+  .join("\n")}`
+      : "";
+
   return `Create a learning path for this user:
 
 LEARNING GOAL: ${input.goal}
@@ -224,6 +258,8 @@ ${declaredBlock}
 ${skippedCalibrationBlock}
 ${overviewBlock}
 ${originalGoalBlock}
+${screeningResultBlock}
+${screeningConversationBlock}
 ${depthGuidance}
 ${styleGuidance}
 ${timeConstraint}
