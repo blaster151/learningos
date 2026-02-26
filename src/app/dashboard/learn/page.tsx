@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { authFetch } from "@/lib/api/authFetch";
-import { PathCard, ProgressRing, ScreeningChat } from "@/components/learning";
+import { PathCard, ProgressRing, ScreeningChat, PrerequisiteGapCard } from "@/components/learning";
+import { extractAllGaps, type PrerequisiteGap } from "@/lib/learning/extractPrerequisiteGaps";
 import type {
   LearningPath,
   TopicScopeAnalysis,
@@ -31,6 +33,8 @@ const MAX_NARROW_DEPTH = 3;
 
 export default function LearnPage() {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [paths, setPaths] = useState<LearningPath[]>([]);
   const [activePaths, setActivePaths] = useState<LearningPath[]>([]);
   const [pausedPaths, setPausedPaths] = useState<LearningPath[]>([]);
@@ -40,6 +44,20 @@ export default function LearnPage() {
   const [generating, setGenerating] = useState(false);
   const [goalInput, setGoalInput] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  // E14-S5: Prerequisite gap visualization
+  const gapsByPathId = useMemo(
+    () => extractAllGaps([...activePaths, ...suggestedPaths]),
+    [activePaths, suggestedPaths]
+  );
+
+  // E14-S5: Pre-fill goal input from ?goal= query param
+  useEffect(() => {
+    const goalParam = searchParams.get("goal");
+    if (goalParam && !goalInput) {
+      setGoalInput(goalParam);
+    }
+  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // E18: Pre-flight scope narrowing (UI MVP)
   const [preflightStep, setPreflightStep] = useState<PreflightStep>("idle");
@@ -586,6 +604,12 @@ export default function LearnPage() {
     window.location.href = `/dashboard/learn/${pathId}`;
   };
 
+  // E14-S5: Navigate to Learn page with goal pre-filled for prerequisite gap
+  const handleCreatePrereqPath = (conceptName: string, _sourcePathTitle: string) => {
+    router.push(`/dashboard/learn?goal=${encodeURIComponent(conceptName)}`);
+    setGoalInput(conceptName);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -616,25 +640,41 @@ export default function LearnPage() {
             Active Paths {activePaths.length > 1 && `(${activePaths.length})`}
           </h2>
           <div className="space-y-4">
-            {activePaths.map((activePath) => (
-              <div key={activePath.pathId} className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-4 sm:p-6 border-2 border-blue-200 dark:border-blue-800">
-                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6">
-                  <ProgressRing
-                    progress={Math.round((activePath.progress || 0) * 100)}
-                    size={140}
-                    strokeWidth={10}
-                  />
-                  <div className="flex-1">
-                    <PathCard
-                      path={activePath}
-                      onPause={handlePausePath}
-                      onAbandon={handleAbandonPath}
-                      onView={handleViewPath}
-                    />
+            {activePaths.map((activePath) => {
+              const pathGaps = gapsByPathId.get(activePath.pathId) || [];
+              return (
+                <div key={activePath.pathId} className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-4 sm:p-6 border-2 border-blue-200 dark:border-blue-800">
+                  <div className="flex flex-col md:flex-row items-stretch gap-3">
+                    {/* E14-S5: Prerequisite gap cards (left of path on desktop, above on mobile) */}
+                    {pathGaps.map((gap) => (
+                      <div key={`gap-${gap.conceptName}`} className="flex flex-col md:flex-row items-center gap-2">
+                        <PrerequisiteGapCard gap={gap} onCreatePath={handleCreatePrereqPath} />
+                        {/* Arrow connector */}
+                        <span aria-hidden="true" className="hidden md:block text-purple-400 text-xl font-bold select-none">→</span>
+                        <span aria-hidden="true" className="block md:hidden text-purple-400 text-xl font-bold select-none">↓</span>
+                      </div>
+                    ))}
+
+                    {/* Original path card with ProgressRing */}
+                    <div className="flex-1 flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6">
+                      <ProgressRing
+                        progress={Math.round((activePath.progress || 0) * 100)}
+                        size={140}
+                        strokeWidth={10}
+                      />
+                      <div className="flex-1">
+                        <PathCard
+                          path={activePath}
+                          onPause={handlePausePath}
+                          onAbandon={handleAbandonPath}
+                          onView={handleViewPath}
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -1214,15 +1254,39 @@ export default function LearnPage() {
       {suggestedPaths.length > 0 && (
         <div className="mb-8">
           <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Suggested Paths</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {suggestedPaths.map((path) => (
-              <PathCard
-                key={path.pathId}
-                path={path}
-                onAccept={handleAcceptPath}
-                onView={handleViewPath}
-              />
-            ))}
+          <div className="space-y-4">
+            {suggestedPaths.map((path) => {
+              const pathGaps = gapsByPathId.get(path.pathId) || [];
+              if (pathGaps.length > 0) {
+                return (
+                  <div key={path.pathId} className="flex flex-col md:flex-row items-stretch gap-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                    {/* E14-S5: Prerequisite gap cards */}
+                    {pathGaps.map((gap) => (
+                      <div key={`gap-${gap.conceptName}`} className="flex flex-col md:flex-row items-center gap-2">
+                        <PrerequisiteGapCard gap={gap} onCreatePath={handleCreatePrereqPath} />
+                        <span aria-hidden="true" className="hidden md:block text-purple-400 text-xl font-bold select-none">→</span>
+                        <span aria-hidden="true" className="block md:hidden text-purple-400 text-xl font-bold select-none">↓</span>
+                      </div>
+                    ))}
+                    <div className="flex-1">
+                      <PathCard
+                        path={path}
+                        onAccept={handleAcceptPath}
+                        onView={handleViewPath}
+                      />
+                    </div>
+                  </div>
+                );
+              }
+              return (
+                <PathCard
+                  key={path.pathId}
+                  path={path}
+                  onAccept={handleAcceptPath}
+                  onView={handleViewPath}
+                />
+              );
+            })}
           </div>
         </div>
       )}
