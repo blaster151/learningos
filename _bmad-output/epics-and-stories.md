@@ -1961,37 +1961,216 @@ Each sub-task is independently buildable and testable. Hand them off sequentiall
 
 ---
 
-### E14-S4: Prerequisite Visualization on Path Detail
+### E14-S4: Prerequisite Visualization on Path Detail (Detailed Feb 2026)
 
 **As a** learner  
 **I want to** see which milestones are prerequisites vs. core content  
 **So that** I understand why certain milestones were added
 
 **Acceptance Criteria:**
-- [ ] Given a milestone was added as a prerequisite, when viewing the path, then it shows a "Prerequisite" badge
-- [ ] Given a prerequisite milestone is completed, when viewing the path, then a visual connector shows which later milestone it unlocked
-- [ ] Given I already knew a prerequisite (self-assessed), when viewing the path, then the milestone shows as "Skipped — Already Known"
+- [ ] AC1: Given a milestone was inserted as a prerequisite (has `provenance.reason === "prerequisite_gap"` or `milestoneId.startsWith("prereq_")`), when viewing the path, then it shows a purple "Prerequisite" badge next to the status badge
+- [ ] AC2: Given a prerequisite milestone was self-assessed as known (`provenance.userChoice === "self_assessed_known"` and status is `completed`), when viewing the path, then it shows a gray "Prerequisite · Skipped" badge and a note "You indicated you already know this"
+- [ ] AC3: Given a prerequisite milestone has `provenance.detectedInMilestoneId`, when viewing the path, then a dashed connector line links the prerequisite milestone to the milestone it was detected in, reinforcing the dependency
+- [ ] AC4: The `PathMilestone` TypeScript interface includes an optional `provenance` field (type fix — data is already being written by S3 but the type was missing)
+- [ ] AC5: Badge text is accessible (`role="status"`, `aria-label="Prerequisite milestone"`) per UX spec §11d
 
 **Story Points:** 3  
 **Priority:** P3-Low  
-**Dependencies:** E14-S3  
+**Dependencies:** E14-S3 ✅  
+**UX Reference:** ux-specifications.md §11a, §11d  
+
+**Implementation Notes:**
+- The S3 `insert_milestone` PATCH action already writes `provenance` as an untyped object (`(m as any).provenance`). This story formalizes the type and renders it.
+- Detection logic: `isPrerequisiteMilestone(m)` → `m.milestoneId.startsWith("prereq_") || m.provenance?.reason === "prerequisite_gap"`
+- Detection logic: `isSkippedPrerequisite(m)` → `isPrerequisiteMilestone(m) && m.provenance?.userChoice === "self_assessed_known" && m.status === "completed"`
+- Visual connector: a dashed purple line from the prerequisite milestone to its `provenance.detectedInMilestoneId` target. Only rendered when both milestones are visible in the list.
+- No new API routes needed — all data is already persisted on the milestone.
+
+#### Sub-Tasks
+
+**Sub-task A: Type Fix — Add `provenance` to `PathMilestone` (1 pt)**
+
+- Add optional `provenance` field to `PathMilestone` in `src/types/index.ts`:
+  ```typescript
+  provenance?: {
+    reason: string;                    // "prerequisite_gap"
+    detectedInMilestoneId?: string;    // The milestone where the gap was detected
+    detectedInSessionId?: string;      // The session where the gap was detected
+    userChoice?: "accepted" | "self_assessed_known";
+    insertedAt?: string;               // ISO timestamp
+  };
+  ```
+- Remove `(m as any).provenance` cast in `src/app/api/paths/[pathId]/route.ts` — use typed access instead
+- Add helper functions `isPrerequisiteMilestone(m)` and `isSkippedPrerequisite(m)` (co-located in the page file or a small util)
+
+**Files modified:**
+- `src/types/index.ts`
+- `src/app/api/paths/[pathId]/route.ts` (remove `as any` cast)
 
 ---
 
-### E14-S5: Prerequisite Knowledge Report
+**Sub-task B: Prerequisite Badge + Skipped State in MilestoneCard (2 pts)**
+
+- In `MilestoneCard` component (`src/app/dashboard/learn/[pathId]/page.tsx`):
+  - After the existing status badge, conditionally render a prerequisite badge:
+    - Purple outline badge: `"Prerequisite"` — when `isPrerequisiteMilestone(milestone)` and not skipped
+    - Gray outline badge: `"Prerequisite · Skipped"` — when `isSkippedPrerequisite(milestone)`
+  - When skipped, show a small note below the description: "You indicated you already know this."
+  - Badge has `role="status"` and `aria-label="Prerequisite milestone"` for accessibility
+- Add a dashed connector line between the prerequisite milestone and the milestone identified by `provenance.detectedInMilestoneId`:
+  - Render as a dashed purple line (similar to existing solid connector but styled differently)
+  - Only visible when the target milestone exists in the list
+- Tests:
+  - Test: milestone with `provenance.reason === "prerequisite_gap"` renders purple badge
+  - Test: milestone with `provenance.userChoice === "self_assessed_known"` renders gray "Skipped" badge
+  - Test: badge has correct aria attributes
+  - Test: dashed connector rendered when `detectedInMilestoneId` is present
+
+**Files modified:**
+- `src/app/dashboard/learn/[pathId]/page.tsx` (MilestoneCard component)
+- `src/test/components/learning/MilestoneCard.test.tsx` (new)
+
+---
+
+**Sub-task summary:**
+
+| Sub-task | Description | Points | Dependencies |
+|----------|-------------|--------|-------------|
+| A | Type fix + helpers | 1 | — |
+| B | Badge rendering + connector + tests | 2 | A |
+| **Total** | | **3** | |
+
+---
+
+### E14-S5: Prerequisite Knowledge Report — Gap Visualization on Learn Page (Detailed Feb 2026)
+
+> **Revision note:** Redesigned from a standalone report to an inline visualization on the Learn page. Prerequisite gaps appear as purple-tinted cards to the left of their parent path, making the relationship self-evident.
 
 **As a** learner  
-**I want to** see a summary of my prerequisite knowledge gaps across all my paths  
-**So that** I can prioritize foundational learning
+**I want to** see prerequisite gaps displayed alongside the paths they affect  
+**So that** I understand what foundational knowledge I'm missing and can address it before continuing
 
 **Acceptance Criteria:**
-- [ ] Given I have multiple paths, when viewing the report, then I see a list of common prerequisite gaps
-- [ ] Given a prerequisite appears in multiple paths, when viewing the report, then it is ranked higher
-- [ ] Given I click a prerequisite, when navigating, then I'm offered a focused mini-path for just that concept
+- [ ] AC1: Given an active or suggested path has `generatedFrom.assessedPrerequisites` with `status === "missing"`, when viewing the Learn page, then a purple prerequisite gap card appears to the left of the path card, connected by an arrow
+- [ ] AC2: Given an active or suggested path has milestones with `provenance?.reason === "prerequisite_gap"` and `status !== "completed"`, when viewing the Learn page, then those gaps also appear as prerequisite cards
+- [ ] AC3: Given a path has multiple prerequisite gaps, when viewing the Learn page, then the gaps chain left-to-right in order: `Gap A → Gap B → Path Card`
+- [ ] AC4: Given a path has no prerequisite gaps, when viewing the Learn page, then the path card renders full-width as before (no layout change)
+- [ ] AC5: Given I click "Create Learning Path" on a gap card, when the modal appears, then it shows the concept name and parent path name, and "Create Path" navigates to `/dashboard/learn?goal={conceptName}`
+- [ ] AC6: Given the Learn page loads with a `?goal=` query parameter, when the page renders, then the goal input is pre-filled with that value
+- [ ] AC7: Prerequisite gap cards only appear for **active** and **suggested** paths (not completed or abandoned)
+- [ ] AC8: Gap cards are accessible: `role="complementary"`, `aria-label`, modal follows WAI-ARIA dialog pattern
+- [ ] AC9: On mobile (<768px), gap cards stack above the parent path with a downward arrow instead of side-by-side
 
 **Story Points:** 5  
 **Priority:** P3-Low  
-**Dependencies:** E14-S2, E14-S4  
+**Dependencies:** E14-S2 ✅, E14-S4 ✅  
+**UX Reference:** ux-specifications.md §13  
+**API Reference:** No new API — client-side aggregation from existing path data  
+
+**Implementation Notes:**
+- All data needed is already fetched by the Learn page via `GET /api/paths`. Each path has `generatedFrom.assessedPrerequisites` (from S1 screening) and milestones with `provenance` (from S3 gap detection, typed in S4).
+- No new API routes needed. Aggregation is done client-side.
+- The "Create Path" CTA navigates to `/dashboard/learn?goal=...` — the Learn page reads the `goal` query param and pre-fills the input. Screening runs normally from there.
+- The gap visualization only modifies the path list rendering on the Learn page — it does not touch the dashboard home page.
+
+#### Sub-Tasks (Recommended Codex Handoff Order)
+
+**Sub-task A: Gap Extraction Utility + Tests (2 pts)**
+> *Pure logic — extract prerequisite gaps from path data. No UI.*
+
+- Create `src/lib/learning/extractPrerequisiteGaps.ts`:
+  ```typescript
+  export interface PrerequisiteGap {
+    conceptName: string;
+    conceptId?: string;
+    sourcePathId: string;
+    sourcePathTitle: string;
+    source: "screening" | "milestone_provenance";
+  }
+  
+  export function extractGapsForPath(path: LearningPath): PrerequisiteGap[]
+  export function extractAllGaps(paths: LearningPath[]): Map<string, PrerequisiteGap[]>
+  // Map key = pathId, value = gaps for that path
+  ```
+- `extractGapsForPath(path)` logic:
+  1. Scan `path.generatedFrom.assessedPrerequisites` where `status === "missing"` → gap per concept
+  2. Scan `path.milestones` where `provenance?.reason === "prerequisite_gap"` and `status !== "completed"` → gap per concept
+  3. Deduplicate by concept name within the path
+- `extractAllGaps(paths)` logic:
+  1. Filter to `active` + `suggested` paths only
+  2. Call `extractGapsForPath` for each
+  3. Return map of pathId → gaps
+- Tests:
+  - Test: path with missing assessed prerequisites returns gaps
+  - Test: path with provenance milestones returns gaps
+  - Test: completed provenance milestones are excluded
+  - Test: completed/abandoned paths are excluded
+  - Test: duplicate concept names within a path are deduplicated
+  - Test: path with no gaps returns empty array
+
+**Files created:**
+- `src/lib/learning/extractPrerequisiteGaps.ts` (new)
+- `src/test/lib/learning/extractPrerequisiteGaps.test.ts` (new)
+
+---
+
+**Sub-task B: PrerequisiteGapCard Component (2 pts)**
+> *The purple-tinted card + confirmation modal. Testable in isolation.*
+
+- Create `src/components/learning/PrerequisiteGapCard.tsx`:
+  - Props: `gap: PrerequisiteGap`, `onCreatePath: (conceptName: string, sourcePathTitle: string) => void`
+  - Renders a compact purple-tinted card with concept name, parent path reference, and "Create Learning Path" CTA
+  - CTA opens a confirmation modal (inline state, not a portal):
+    - Shows concept name + parent path name
+    - "Create Path" calls `onCreatePath` → parent navigates to `/dashboard/learn?goal=...`
+    - "Not Now" closes the modal
+  - Accessibility: `role="complementary"`, `aria-label`, modal uses `role="dialog"` with focus trap
+- Tests:
+  - Test: renders concept name and parent path reference
+  - Test: CTA button opens confirmation modal
+  - Test: "Create Path" calls onCreatePath with correct args
+  - Test: "Not Now" closes modal
+  - Test: card has correct aria attributes
+  - Test: purple styling is applied
+
+**Files created:**
+- `src/components/learning/PrerequisiteGapCard.tsx` (new)
+- `src/test/components/learning/PrerequisiteGapCard.test.tsx` (new)
+
+---
+
+**Sub-task C: Learn Page Integration — Gap Cards + Goal Pre-fill (1 pt)**
+> *Wire gap cards into the existing path list rendering. Add goal query param support.*
+
+- In `src/app/dashboard/learn/page.tsx`:
+  - Import `extractAllGaps` and `PrerequisiteGapCard`
+  - After paths load, compute `gapsByPathId = extractAllGaps(paths)`
+  - In the active/suggested path rendering loops, wrap each path that has gaps in a flex row: `[...GapCards] → [arrow] → [PathCard]`
+  - Paths with no gaps render as before (full-width, no layout change)
+  - Add `useSearchParams()` to read `?goal=` query param and pre-fill the goal input on mount
+  - Add `handleCreatePrereqPath(conceptName)` → `router.push(/dashboard/learn?goal=...)`
+- Responsive: on mobile (<768px), gap cards stack above path card with `↓` arrow instead of `→`
+- Tests:
+  - Test: active path with gaps renders gap cards to the left
+  - Test: path with no gaps renders full-width
+  - Test: `?goal=` query param pre-fills goal input
+  - Test: completed/abandoned paths don't show gap cards
+
+**Files modified:**
+- `src/app/dashboard/learn/page.tsx`
+
+---
+
+**Sub-task summary:**
+
+| Sub-task | Description | Points | Dependencies |
+|----------|-------------|--------|-------------|
+| A | Gap extraction utility + tests | 2 | — |
+| B | PrerequisiteGapCard component + modal + tests | 2 | — |
+| C | Learn page integration + goal pre-fill | 1 | A, B |
+| **Total** | | **5** | |
+
+**Recommended Codex sequence:** A and B can be handed off together (parallel, no dependencies). C depends on both.
 
 ---
 

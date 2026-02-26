@@ -340,6 +340,15 @@ export interface PathMilestone {
   
   // Dependencies
   prerequisiteMilestoneIds: string[]; // Milestones that must come first
+
+  // Provenance — audit trail for system-inserted milestones (E14-S3/S4)
+  provenance?: {
+    reason: string;                    // e.g. "prerequisite_gap"
+    detectedInMilestoneId?: string;    // The milestone where the gap was detected
+    detectedInSessionId?: string;      // The session where the gap was detected
+    userChoice?: "accepted" | "self_assessed_known";
+    insertedAt?: string;               // ISO timestamp
+  };
 }
 
 // Helper type for path generation input

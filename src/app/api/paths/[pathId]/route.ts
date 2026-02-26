@@ -194,7 +194,7 @@ export async function PATCH(
 
         // Guard: max 5 prerequisite insertions per path
         const existingPrereqCount = pathForInsert.milestones.filter(
-          (m) => m.milestoneId.startsWith("prereq_") || (m as any).provenance?.reason === "prerequisite_gap"
+          (m) => m.milestoneId.startsWith("prereq_") || m.provenance?.reason === "prerequisite_gap"
         ).length;
         if (existingPrereqCount >= 5) {
           return NextResponse.json(
@@ -220,7 +220,7 @@ export async function PATCH(
             : insertIndex;
 
         const newMilestoneId = milestoneId || `prereq_${Date.now()}`;
-        const createdMilestone: any = {
+        const createdMilestone: Record<string, unknown> = {
           milestoneId: newMilestoneId,
           order: safeInsertIndex,
           title,

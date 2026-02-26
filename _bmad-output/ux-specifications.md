@@ -1843,6 +1843,117 @@ The learner can revisit the screening conversation to remember what was discusse
 
 ---
 
+## 13. Prerequisite Gap Visualization on Learn Page (E14-S5)
+
+> Added: February 25, 2026 — UX spec for showing prerequisite gaps alongside their parent paths on the Learn page.
+
+### 13a. Design Principle: Proximity Over Aggregation
+
+Prerequisite gaps are shown **next to the path they belong to**, not in a separate aggregated list. This makes the relationship self-evident: the learner sees *why* the gap matters because its parent path is right there.
+
+### 13b. Gap Card Layout
+
+For each active or suggested path that has unresolved prerequisite gaps, a purple-tinted prerequisite card appears **to the left** of the path card, connected by an arrow:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  Active Paths                                                       │
+│                                                                     │
+│  ┌─────────────────────┐     ┌─────────────────────────────────────┐ │
+│  │ 🟣 PREREQUISITE     │ ──→ │ 🔵 Master React Hooks              │ │
+│  │ JavaScript Closures │     │ ▓▓▓▓▓▓▓░░░ 65%                    │ │
+│  │ Gap in this path    │     │ 5 milestones · ~3h                 │ │
+│  │ [Start Mini-Path]   │     │ [Continue →]                       │ │
+│  └─────────────────────┘     └─────────────────────────────────────┘ │
+│                                                                     │
+│  ┌─────────────────────────────────────────────────────────────────┐ │
+│  │ 🔵 Learn Python Basics                                        │ │
+│  │ ▓▓▓▓▓▓▓▓▓▓ 100% ✅                 (no prereq gaps)           │ │
+│  └─────────────────────────────────────────────────────────────────┘ │
+│                                                                     │
+│  ┌──────────────┐   ┌──────────────┐   ┌─────────────────────────┐  │
+│  │ 🟣 HTTP      │─→ │ 🟣 REST      │─→ │ 🔵 Build APIs           │  │
+│  │ Basics       │   │ Design       │   │ 4 milestones            │  │
+│  │ [Start]      │   │ [Start]      │   │ [Continue →]            │  │
+│  └──────────────┘   └──────────────┘   └─────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Layout rules:**
+- Prerequisite cards are rendered in a **flex row** with the parent path card
+- Arrow connector (`──→`) is a CSS pseudo-element or inline SVG between cards
+- Multiple gaps for one path chain left-to-right: `Gap A → Gap B → Path`
+- Paths with no gaps render full-width as before (no layout change)
+- Only **active** and **suggested** paths show gap cards (completed/abandoned paths are excluded)
+
+### 13c. Prerequisite Gap Card Anatomy
+
+```
+┌─────────────────────────┐
+│  🟣 Prerequisite         │  ← purple header bar
+│                          │
+│  JavaScript Closures     │  ← concept name (bold)
+│  Gap in "React Hooks"    │  ← parent path reference (gray text)
+│                          │
+│  [Create Learning Path]  │  ← primary CTA button
+└─────────────────────────┘
+```
+
+| Element | Style |
+|---------|-------|
+| Card background | `bg-purple-50 dark:bg-purple-900/20` |
+| Card border | `border-purple-200 dark:border-purple-800` |
+| Header badge | `bg-purple-100 text-purple-700` |
+| CTA button | `bg-purple-600 text-white hover:bg-purple-700` |
+| Width | Compact — narrower than the parent path card |
+
+### 13d. "Create Learning Path" Modal
+
+When the learner clicks "Create Learning Path" on a gap card, a confirmation modal appears:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  📘 Create a focused path for "JavaScript Closures"?        │
+│                                                              │
+│  This prerequisite appeared as a gap in your                 │
+│  "Master React Hooks" path.                                  │
+│                                                              │
+│  A short focused path will help you build this               │
+│  foundation before continuing.                               │
+│                                                              │
+│  [Create Path]                          [Not Now]            │
+└─────────────────────────────────────────────────────────────┘
+```
+
+- **"Create Path"** → navigates to `/dashboard/learn?goal=JavaScript+Closures` (pre-filled, screening runs normally)
+- **"Not Now"** → dismisses the modal
+- Modal is keyboard-navigable and focus-trapped
+
+### 13e. Gap Aggregation Logic
+
+Gaps are extracted client-side from already-fetched path data:
+
+1. For each active/suggested path, scan `generatedFrom.assessedPrerequisites` where `status === "missing"`
+2. For each active/suggested path, scan milestones where `provenance?.reason === "prerequisite_gap"` and `status !== "completed"`
+3. Deduplicate by concept name, track which path(s) each gap belongs to
+4. Gaps belonging to the same path are grouped as a chain to the left of that path card
+5. If a gap concept appears in multiple paths, show it next to its first (most recent?) active path
+
+### 13f. Responsive Behavior
+
+- **Desktop (≥768px):** Gap cards and path cards sit side-by-side in a flex row
+- **Mobile (<768px):** Gap cards stack **above** the parent path card with a downward arrow (`↓`) instead of right-arrow
+- Gap cards collapse to a single "⚠️ 2 prerequisite gaps" summary pill on very small screens, expandable on tap
+
+### 13g. Accessibility
+
+- Gap cards use `role="complementary"` with `aria-label="Prerequisite gap for [path name]"`
+- CTA button has `aria-label="Create a focused learning path for [concept name]"`
+- Modal follows WAI-ARIA dialog pattern: focus trap, Escape to close, `role="dialog"`
+- Arrow connectors are decorative (`aria-hidden="true"`)
+
+---
+
 **Document Status:** Complete UX Specifications  
 **Next:** API Contract Documentation  
 **Owner:** Blast  

@@ -54,6 +54,25 @@ const statusConfig: Record<
 };
 
 // ===================================
+// Prerequisite Detection Helpers (E14-S4)
+// ===================================
+
+function isPrerequisiteMilestone(m: PathMilestone): boolean {
+  return (
+    m.milestoneId.startsWith("prereq_") ||
+    m.provenance?.reason === "prerequisite_gap"
+  );
+}
+
+function isSkippedPrerequisite(m: PathMilestone): boolean {
+  return (
+    isPrerequisiteMilestone(m) &&
+    m.provenance?.userChoice === "self_assessed_known" &&
+    m.status === "completed"
+  );
+}
+
+// ===================================
 // MilestoneCard Component
 // ===================================
 
@@ -108,8 +127,12 @@ function MilestoneCard({
         isActive ? "ring-2 ring-blue-400 ring-offset-2 dark:ring-offset-gray-900" : ""
       } ${isLocked ? "opacity-60" : ""}`}
     >
-      {/* Connector line between milestones */}
-      {index > 0 && (
+      {/* E14-S4: Dashed connector for prerequisite milestones */}
+      {index > 0 && isPrerequisiteMilestone(milestone) && (
+        <div className="absolute -top-6 left-8 w-0.5 h-6 border-l-2 border-dashed border-purple-400 dark:border-purple-600" />
+      )}
+      {/* Standard connector line between milestones */}
+      {index > 0 && !isPrerequisiteMilestone(milestone) && (
         <div className="absolute -top-6 left-8 w-0.5 h-6 bg-gray-300 dark:bg-gray-600" />
       )}
 
@@ -150,6 +173,22 @@ function MilestoneCard({
               >
                 {config.icon} {config.label}
               </span>
+              {/* E14-S4: Prerequisite badge */}
+              {isPrerequisiteMilestone(milestone) && (
+                <span
+                  role="status"
+                  aria-label="Prerequisite milestone"
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full border ${
+                    isSkippedPrerequisite(milestone)
+                      ? "bg-gray-50 text-gray-500 border-gray-300 dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600"
+                      : "bg-purple-50 text-purple-700 border-purple-300 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-700"
+                  }`}
+                >
+                  {isSkippedPrerequisite(milestone)
+                    ? "Prerequisite · Skipped"
+                    : "Prerequisite"}
+                </span>
+              )}
             </div>
             <p
               className={`text-sm ${
@@ -159,6 +198,13 @@ function MilestoneCard({
             >
               {milestone.description}
             </p>
+
+            {/* E14-S4: Skipped prerequisite note */}
+            {isSkippedPrerequisite(milestone) && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 italic mt-1">
+                You indicated you already know this.
+              </p>
+            )}
 
             {/* Quick stats row */}
             <div className="flex items-center gap-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
