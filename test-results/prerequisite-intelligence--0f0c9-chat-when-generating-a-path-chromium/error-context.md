@@ -1,0 +1,56 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - img [ref=e6]
+      - heading "LearningOS" [level=1] [ref=e9]
+      - paragraph [ref=e10]: Welcome back!
+    - generic [ref=e11]:
+      - generic [ref=e12]:
+        - heading "Sign in to your account" [level=2] [ref=e13]
+        - paragraph [ref=e14]: Continue your learning journey
+      - generic [ref=e15]:
+        - button "Continue with Google" [ref=e16] [cursor=pointer]:
+          - img [ref=e18]
+          - text: Continue with Google
+        - generic [ref=e27]: or continue with email
+        - generic [ref=e28]:
+          - generic [ref=e29]:
+            - generic [ref=e30]: Email address
+            - generic [ref=e31]:
+              - generic:
+                - img
+              - textbox "Email address" [ref=e32]:
+                - /placeholder: you@example.com
+          - generic [ref=e33]:
+            - generic [ref=e34]: Password
+            - generic [ref=e35]:
+              - generic:
+                - img
+              - textbox "Password" [ref=e36]:
+                - /placeholder: ••••••••
+              - generic:
+                - button:
+                  - img
+          - link "Forgot password?" [ref=e38] [cursor=pointer]:
+            - /url: /forgot-password
+          - button "Sign in" [ref=e39] [cursor=pointer]
+      - paragraph [ref=e41]:
+        - text: Don't have an account?
+        - link "Sign up" [ref=e42] [cursor=pointer]:
+          - /url: /signup
+  - generic [ref=e47] [cursor=pointer]:
+    - button "Open Next.js Dev Tools" [ref=e48]:
+      - img [ref=e49]
+    - generic [ref=e52]:
+      - button "Open issues overlay" [ref=e53]:
+        - generic [ref=e54]:
+          - generic [ref=e55]: "0"
+          - generic [ref=e56]: "1"
+        - generic [ref=e57]: Issue
+      - button "Collapse issues badge" [ref=e58]:
+        - img [ref=e59]
+  - alert [ref=e61]
+```

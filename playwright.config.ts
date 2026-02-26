@@ -16,6 +16,9 @@ export default defineConfig({
   // Retry on CI only
   retries: process.env.CI ? 2 : 0,
   
+  // Generous timeout for tests that involve auth + AI calls
+  timeout: 120 * 1000,
+  
   // Opt out of parallel tests on CI
   workers: process.env.CI ? 1 : undefined,
   
@@ -29,6 +32,9 @@ export default defineConfig({
   use: {
     // Base URL to use in actions like `await page.goto('/')`
     baseURL: 'http://localhost:3001',
+    
+    // Allow more time for page navigations (login + dashboard load)
+    navigationTimeout: 30000,
     
     // Collect trace when retrying the failed test
     trace: 'on-first-retry',
@@ -54,6 +60,8 @@ export default defineConfig({
     // Use test environment with Firebase emulators enabled
     env: {
       NEXT_PUBLIC_USE_FIREBASE_EMULATOR: 'true',
+      FIREBASE_AUTH_EMULATOR_HOST: 'localhost:9099',
+      FIRESTORE_EMULATOR_HOST: 'localhost:8080',
     },
   },
 });
